@@ -54,14 +54,12 @@ const createOrder = async (req, res) => {
 
     const instance = await getRazorpayInstance();
 
-    // 🛠️ LOGIC: Agar amount 1000 se kam hai, toh USD mano. 
-    // Agar 1000 se zyada hai, toh samjho frontend ne pehle hi INR bhej diya hai.
-    let finalRupees = Number(amount);
-    if (finalRupees < 1000) { 
-      finalRupees = finalRupees * 83;
-      console.log("2. Detected USD, converted to INR:", finalRupees);
-    } else {
-      console.log("2. Detected INR, using as is:", finalRupees);
+    // 🛠️ Secure Logic: Completely ignore any amount sent from the frontend.
+    // Fetch the exact total fee (government fee + service fee + GST + forex markup) saved securely by the backend during checkout draft creation.
+    const finalRupees = Number(application.fee);
+    
+    if (!finalRupees || finalRupees <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid application fee. Please recreate your checkout draft.' });
     }
 
     const options = {

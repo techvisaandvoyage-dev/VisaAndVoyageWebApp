@@ -389,7 +389,7 @@ const createCheckoutDraft = async (req, res) => {
       req.user.id,
       { allowIncompleteSnapshot: true }
     );
-    const fee = pricing.fee;
+    const fee = pricing.totalAmount;
 
     const nameParts = (user.name || 'Applicant').trim().split(/\s+/);
     const firstName = nameParts[0] || 'Applicant';
