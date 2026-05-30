@@ -318,6 +318,100 @@ const normalizeFeeScopeTargetConfig = (value, activeCountryIds = []) => {
   };
 };
 
+const normalizeServiceFeeCountryOverrides = (items, activeCountryIds = []) => {
+  const activeIdSet = new Set(activeCountryIds.map((id) => String(id ?? '').trim()).filter(Boolean));
+  const seen = new Set();
+  const normalized = [];
+
+  for (const item of Array.isArray(items) ? items : []) {
+    const countryId = String(item?.countryId ?? '').trim();
+    const amount = Number(item?.amount);
+    if (!countryId || seen.has(countryId)) continue;
+    if (activeIdSet.size > 0 && !activeIdSet.has(countryId)) continue;
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    seen.add(countryId);
+    normalized.push({
+      countryId,
+      amount,
+      updatedAt: item?.updatedAt ? new Date(item.updatedAt) : new Date(),
+    });
+  }
+
+  return normalized;
+};
+
+const serializeServiceFeeCountryOverrides = (items = []) =>
+  JSON.stringify(
+    items.map((item) => ({
+      countryId: String(item?.countryId ?? '').trim(),
+      amount: Number(item?.amount),
+    }))
+  );
+
+const hydrateServiceFeeCountryOverrides = async (settings) => {
+  const activeCountries = await Country.find({ isActive: { $ne: false } }).select('_id name').lean();
+  const activeCountryIds = activeCountries
+    .map((country) => String(country?._id ?? '').trim())
+    .filter(Boolean);
+  const normalized = normalizeServiceFeeCountryOverrides(settings?.serviceFeeCountryOverrides, activeCountryIds);
+
+  if (serializeServiceFeeCountryOverrides(normalized) !== serializeServiceFeeCountryOverrides(settings?.serviceFeeCountryOverrides || [])) {
+    settings.serviceFeeCountryOverrides = normalized;
+    await settings.save();
+  }
+
+  return {
+    activeCountries,
+    activeCountryIds,
+    overrides: normalized,
+  };
+};
+
+const applyServiceFeeCountryOverrides = async (settings, overrides = null) => {
+  const resolvedOverrides = Array.isArray(overrides)
+    ? overrides
+    : normalizeServiceFeeCountryOverrides(settings?.serviceFeeCountryOverrides);
+  if (!resolvedOverrides.length) return;
+
+  await Country.bulkWrite(
+    resolvedOverrides.map((item) => ({
+      updateOne: {
+        filter: { _id: item.countryId, isActive: { $ne: false } },
+        update: {
+          $set: {
+            useGlobalBasePrice: false,
+            basePrice: item.amount,
+          },
+        },
+      },
+    })),
+    { ordered: false }
+  );
+};
+
+const formatServiceFeeCountryOverrideRows = (overrides, activeCountries) => {
+  const countriesById = new Map(
+    (Array.isArray(activeCountries) ? activeCountries : []).map((country) => [
+      String(country?._id ?? '').trim(),
+      country,
+    ])
+  );
+
+  return overrides
+    .map((item) => {
+      const country = countriesById.get(String(item?.countryId ?? '').trim());
+      if (!country) return null;
+      return {
+        countryId: String(country._id),
+        countryName: String(country.name || '').trim(),
+        amount: Number(item.amount),
+        updatedAt: item.updatedAt || null,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.countryName.localeCompare(b.countryName));
+};
+
 const parsePositiveFeeAmount = (value, label) => {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -1117,8 +1211,19 @@ const getGlobalCountryDefaults = async (req, res) => {
   try {
     const settings = await getOrCreateSettings();
     const totalCountries = await Country.countDocuments();
-    const activeCountries = await Country.find({ isActive: { $ne: false } }).select('_id').lean();
+    const activeCountries = await Country.find({ isActive: { $ne: false } }).select('_id name').lean();
     const activeCountryIds = activeCountries.map((country) => String(country?._id ?? '').trim()).filter(Boolean);
+    const serviceFeeCountryOverrides = normalizeServiceFeeCountryOverrides(
+      settings?.serviceFeeCountryOverrides,
+      activeCountryIds
+    );
+    if (
+      serializeServiceFeeCountryOverrides(serviceFeeCountryOverrides) !==
+      serializeServiceFeeCountryOverrides(settings?.serviceFeeCountryOverrides || [])
+    ) {
+      settings.serviceFeeCountryOverrides = serviceFeeCountryOverrides;
+      await settings.save();
+    }
     const usingGlobalBasePrice = await Country.countDocuments({
       useGlobalBasePrice: true,
     });
@@ -1172,6 +1277,10 @@ const getGlobalCountryDefaults = async (req, res) => {
         serviceFeeScopeTargets: normalizeFeeScopeTargetConfig(
           settings?.serviceFeeScopeTargets,
           activeCountryIds
+        ),
+        serviceFeeCountryOverrides: formatServiceFeeCountryOverrideRows(
+          serviceFeeCountryOverrides,
+          activeCountries
         ),
         globalGovernmentFee:
           Number.isFinite(Number(settings?.globalGovernmentFee)) && Number(settings?.globalGovernmentFee) >= 0
@@ -1243,6 +1352,135 @@ const getGlobalCountryDefaults = async (req, res) => {
 };
 
 /**
+ * @route   GET /api/admin/service-fee-overrides
+ * @desc    Fetch all active per-country service-fee overrides
+ * @access  Admin
+ */
+const getServiceFeeCountryOverrides = async (_req, res) => {
+  try {
+    const settings = await getOrCreateSettings();
+    const { activeCountries, overrides } = await hydrateServiceFeeCountryOverrides(settings);
+    return res.json({
+      success: true,
+      overrides: formatServiceFeeCountryOverrideRows(overrides, activeCountries),
+    });
+  } catch (err) {
+    console.error('[control] getServiceFeeCountryOverrides error:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
+ * @route   PUT /api/admin/service-fee-overrides/:countryId
+ * @desc    Create/update a single-country service-fee override
+ * @access  Admin
+ */
+const upsertServiceFeeCountryOverride = async (req, res) => {
+  try {
+    const countryId = String(req.params?.countryId ?? '').trim();
+    const amount = Number(req.body?.amount);
+    if (!mongoose.Types.ObjectId.isValid(countryId)) {
+      return res.status(400).json({ success: false, message: 'Invalid country id.' });
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Service fee must be a positive number.' });
+    }
+
+    const country = await Country.findOne({ _id: countryId, isActive: { $ne: false } }).select('_id name basePrice');
+    if (!country) {
+      return res.status(404).json({ success: false, message: 'Country not found.' });
+    }
+
+    const settings = await getOrCreateSettings();
+    const { activeCountries, overrides } = await hydrateServiceFeeCountryOverrides(settings);
+    const nextOverrides = [
+      ...overrides.filter((item) => item.countryId !== countryId),
+      { countryId, amount, updatedAt: new Date() },
+    ];
+    const normalizedOverrides = normalizeServiceFeeCountryOverrides(
+      nextOverrides,
+      activeCountries.map((item) => String(item?._id ?? '').trim())
+    );
+
+    settings.serviceFeeCountryOverrides = normalizedOverrides;
+    await settings.save();
+
+    await Country.updateOne(
+      { _id: countryId, isActive: { $ne: false } },
+      {
+        $set: {
+          useGlobalBasePrice: false,
+          basePrice: amount,
+        },
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: `${country.name} service fee updated successfully.`,
+      overrides: formatServiceFeeCountryOverrideRows(normalizedOverrides, activeCountries),
+    });
+  } catch (err) {
+    console.error('[control] upsertServiceFeeCountryOverride error:', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
+ * @route   DELETE /api/admin/service-fee-overrides/:countryId
+ * @desc    Remove one single-country service-fee override and fall back to global fee
+ * @access  Admin
+ */
+const removeServiceFeeCountryOverride = async (req, res) => {
+  try {
+    const countryId = String(req.params?.countryId ?? '').trim();
+    if (!mongoose.Types.ObjectId.isValid(countryId)) {
+      return res.status(400).json({ success: false, message: 'Invalid country id.' });
+    }
+
+    const country = await Country.findOne({ _id: countryId, isActive: { $ne: false } }).select('_id name basePrice');
+    if (!country) {
+      return res.status(404).json({ success: false, message: 'Country not found.' });
+    }
+
+    const settings = await getOrCreateSettings();
+    const { activeCountries, overrides } = await hydrateServiceFeeCountryOverrides(settings);
+    const nextOverrides = overrides.filter((item) => item.countryId !== countryId);
+    if (nextOverrides.length === overrides.length) {
+      return res.status(404).json({ success: false, message: 'Service fee override not found.' });
+    }
+
+    settings.serviceFeeCountryOverrides = nextOverrides;
+    await settings.save();
+
+    const globalBasePrice = Number(settings?.globalBasePrice);
+    const fallbackBasePrice =
+      Number.isFinite(globalBasePrice) && globalBasePrice >= 0
+        ? globalBasePrice
+        : Number(country?.basePrice || 0);
+
+    await Country.updateOne(
+      { _id: countryId, isActive: { $ne: false } },
+      {
+        $set: {
+          useGlobalBasePrice: true,
+          basePrice: fallbackBasePrice,
+        },
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: `${country.name} now uses the default all-countries service fee again.`,
+      overrides: formatServiceFeeCountryOverrideRows(nextOverrides, activeCountries),
+    });
+  } catch (err) {
+    console.error('[control] removeServiceFeeCountryOverride error:', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
  * @route   POST /api/admin/control/base-price
  * @desc    Set the universal `globalBasePrice` and flip every country's
  *          `useGlobalBasePrice=true`.
@@ -1274,6 +1512,7 @@ const updateGlobalBasePrice = async (req, res) => {
       { _id: { $in: scope.targetIds } },
       { $set: { useGlobalBasePrice: true, basePrice: parsedBasePrice } }
     );
+    await applyServiceFeeCountryOverrides(settings);
     res.json({
       success: true,
       globalBasePrice: parsedBasePrice,
@@ -1395,6 +1634,7 @@ const updateFeesBulk = async (req, res) => {
           { _id: { $in: scope.targetIds } },
           { $set: { useGlobalBasePrice: true, basePrice: amount } }
         );
+        await applyServiceFeeCountryOverrides(settings);
         return res.json({
           success: true,
           message: `Service fee updated successfully for ${scopeMessage}`,
@@ -1411,6 +1651,7 @@ const updateFeesBulk = async (req, res) => {
         selectedCountries: scope.countryIds,
       };
       await settings.save();
+      await applyServiceFeeCountryOverrides(settings);
       return res.json({
         success: true,
         message: `Service fee updated successfully for ${scopeMessage}`,
@@ -1597,6 +1838,8 @@ const saveAllFeeConfigs = async (req, res) => {
           { $set: { useGlobalBasePrice: false, basePrice: someAmount } }
         );
       }
+
+      await applyServiceFeeCountryOverrides(settings);
 
       return res.json({
         success: true,
@@ -2215,6 +2458,9 @@ module.exports = {
   uploadCountryImage,
   refreshUnsplashCountryImages,
   getGlobalCountryDefaults,
+  getServiceFeeCountryOverrides,
+  upsertServiceFeeCountryOverride,
+  removeServiceFeeCountryOverride,
   updateGlobalBasePrice,
   updateGlobalGovernmentFee,
   updateFeesBulk,

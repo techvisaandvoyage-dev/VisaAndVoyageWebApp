@@ -226,6 +226,14 @@ const settingsSchema = new mongoose.Schema({
     singleCountryId: { type: String, trim: true, default: '' },
     someCountryIds: [{ type: String, trim: true }],
   },
+  serviceFeeCountryOverrides: {
+    type: [{
+      countryId: { type: String, trim: true, required: true },
+      amount: { type: Number, min: 0, required: true },
+      updatedAt: { type: Date, default: Date.now },
+    }],
+    default: []
+  },
   globalGovernmentFeeVisibility: {
     applyToAllActiveCountries: { type: Boolean, default: true },
     selectedCountries: [{ type: String, trim: true }],

@@ -14,6 +14,9 @@ const {
   bulkUpdateCountryVisibility,
   updateFeesBulk,
   saveAllFeeConfigs,
+  getServiceFeeCountryOverrides,
+  upsertServiceFeeCountryOverride,
+  removeServiceFeeCountryOverride,
 } = require('../controllers/countryController');
 const {
   createStaticPage,
@@ -96,6 +99,9 @@ router.put('/settings', protect, requireAdmin, updateSettings);
 router.get('/transactions', protect, requireAdmin, getAllTransactions);
 router.put('/fees/bulk-update', protect, requireAdmin, updateFeesBulk);
 router.put('/fees/save-all', protect, requireAdmin, saveAllFeeConfigs);
+router.get('/service-fee-overrides', protect, requireAdmin, getServiceFeeCountryOverrides);
+router.put('/service-fee-overrides/:countryId', protect, requireAdmin, upsertServiceFeeCountryOverride);
+router.delete('/service-fee-overrides/:countryId', protect, requireAdmin, removeServiceFeeCountryOverride);
 
 router.get('/fee-manager', protect, requireAdmin, getFeeManagerRows);
 router.post('/fee-manager/convert', protect, requireAdmin, convertFeeManagerValues);
