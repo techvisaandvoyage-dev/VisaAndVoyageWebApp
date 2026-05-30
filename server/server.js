@@ -43,7 +43,10 @@ const corsOptions = {
 
 // Middleware
 app.use(compression());
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+  frameguard: false,
+}));
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 app.use(cors(corsOptions));
 app.use(express.json());

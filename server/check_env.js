@@ -1,0 +1,7 @@
+require('dotenv').config();
+console.log("FIREBASE_SERVICE_ACCOUNT_JSON exists:", !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+console.log("FIREBASE_SERVICE_ACCOUNT_JSON length:", process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? process.env.FIREBASE_SERVICE_ACCOUNT_JSON.length : 0);
+console.log("FIREBASE_SERVICE_ACCOUNT_PATH exists:", !!process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+console.log("FIREBASE_SERVICE_ACCOUNT_PATH:", process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+console.log("FIREBASE_PROJECT_ID:", process.env.FIREBASE_PROJECT_ID);
+console.log("FIREBASE_STORAGE_BUCKET:", process.env.FIREBASE_STORAGE_BUCKET);

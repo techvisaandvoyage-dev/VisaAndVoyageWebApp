@@ -12,6 +12,8 @@ const {
   uploadCountryImage,
   refreshUnsplashCountryImages,
   bulkUpdateCountryVisibility,
+  updateFeesBulk,
+  saveAllFeeConfigs,
 } = require('../controllers/countryController');
 const {
   createStaticPage,
@@ -24,6 +26,11 @@ const {
 } = require('../controllers/staticPageController');
 const blogAdmin = require('../controllers/blogAdminController');
 const { listCategoriesAdmin } = require('../controllers/blogCategoryController');
+const {
+  getFeeManagerRows,
+  convertFeeManagerValues,
+  updateFeeManagerRow,
+} = require('../controllers/feeManagerController');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -87,6 +94,12 @@ router.put('/settings', protect, requireAdmin, updateSettings);
 
 // Admin Transactions route
 router.get('/transactions', protect, requireAdmin, getAllTransactions);
+router.put('/fees/bulk-update', protect, requireAdmin, updateFeesBulk);
+router.put('/fees/save-all', protect, requireAdmin, saveAllFeeConfigs);
+
+router.get('/fee-manager', protect, requireAdmin, getFeeManagerRows);
+router.post('/fee-manager/convert', protect, requireAdmin, convertFeeManagerValues);
+router.put('/fee-manager/:countryId', protect, requireAdmin, updateFeeManagerRow);
 
 // Country management (admin only)
 router.get('/countries-list', protect, requireAdmin, getCountries);

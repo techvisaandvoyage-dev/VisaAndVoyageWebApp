@@ -217,9 +217,27 @@ const settingsSchema = new mongoose.Schema({
     applyToAllActiveCountries: { type: Boolean, default: true },
     selectedCountries: [{ type: String, trim: true }],
   },
+  serviceFeeScopeValues: {
+    all: { type: Number, default: null },
+    single: { type: Number, default: null },
+    some: { type: Number, default: null },
+  },
+  serviceFeeScopeTargets: {
+    singleCountryId: { type: String, trim: true, default: '' },
+    someCountryIds: [{ type: String, trim: true }],
+  },
   globalGovernmentFeeVisibility: {
     applyToAllActiveCountries: { type: Boolean, default: true },
     selectedCountries: [{ type: String, trim: true }],
+  },
+  governmentFeeScopeValues: {
+    all: { type: Number, default: null },
+    single: { type: Number, default: null },
+    some: { type: Number, default: null },
+  },
+  governmentFeeScopeTargets: {
+    singleCountryId: { type: String, trim: true, default: '' },
+    someCountryIds: [{ type: String, trim: true }],
   },
   globalEntryTypeVisibility: {
     applyToAllActiveCountries: { type: Boolean, default: true },

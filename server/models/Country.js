@@ -58,6 +58,18 @@ const visaInformationSchema = new mongoose.Schema({
   },
 }, { _id: false });
 
+const feeManagerSchema = new mongoose.Schema({
+  currency: { type: String, trim: true, uppercase: true, default: 'INR' },
+  amount: { type: Number, min: 0, default: 0 },
+  exchangeRate: { type: Number, min: 0, default: 1 },
+  forexFeePercent: { type: Number, min: 0, default: 0 },
+  finalGovernmentFeeInINR: { type: Number, min: 0, default: 0 },
+  serviceFeeBeforeGST: { type: Number, min: 0, default: 0 },
+  serviceFeeAfterGST: { type: Number, min: 0, default: 0 },
+  totalFeeInINR: { type: Number, min: 0, default: 0 },
+  updatedAt: { type: Date, default: null },
+}, { _id: false });
+
 const countrySchema = new mongoose.Schema({
   slug: {
     type: String,
@@ -73,6 +85,7 @@ const countrySchema = new mongoose.Schema({
   useGlobalBasePrice: { type: Boolean, default: false },
   governmentFee: { type: Number, default: 0 },
   useGlobalGovernmentFee: { type: Boolean, default: true },
+  feeManager: { type: feeManagerSchema, default: () => ({}) },
   processingDays: { type: String, default: '5-10' },
   difficulty: {
     type: String,

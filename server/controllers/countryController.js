@@ -274,6 +274,60 @@ const resolveControlCountryScope = async (body = {}) => {
   };
 };
 
+const resolveFeeBulkScope = async (body = {}) => {
+  const scope = String(body?.scope ?? '').trim().toLowerCase();
+  const allCountries = await Country.find({ isActive: { $ne: false } }, '_id');
+  const allCountryIds = allCountries.map((country) => String(country._id));
+  const availableCountryIds = new Set(allCountryIds);
+  const countryIds = normalizeControlSelectedCountries(body?.countryIds).filter((id) =>
+    availableCountryIds.has(id)
+  );
+
+  if (!['all', 'single', 'some'].includes(scope)) {
+    const err = new Error('Scope is required.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (scope === 'all') {
+    return { scope, countryIds: [], targetIds: allCountryIds };
+  }
+  if (scope === 'single' && countryIds.length !== 1) {
+    const err = new Error('Select exactly one country.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (scope === 'some' && countryIds.length < 1) {
+    const err = new Error('Select at least one country.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return { scope, countryIds, targetIds: countryIds };
+};
+
+const normalizeFeeScopeTargetConfig = (value, activeCountryIds = []) => {
+  const activeIdSet = new Set(activeCountryIds.map((id) => String(id ?? '').trim()).filter(Boolean));
+  const singleCountryId = String(value?.singleCountryId ?? '').trim();
+  const someCountryIds = normalizeControlSelectedCountries(value?.someCountryIds).filter((id) =>
+    activeIdSet.has(id)
+  );
+  return {
+    singleCountryId: activeIdSet.has(singleCountryId) ? singleCountryId : '',
+    someCountryIds,
+  };
+};
+
+const parsePositiveFeeAmount = (value, label) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    const err = new Error(`${label} must be a positive number.`);
+    err.statusCode = 400;
+    throw err;
+  }
+  return amount;
+};
+
 const applyResolvedVisaInformationValue = (visaInformation, itemId, value) => {
   if (!visaInformation || typeof visaInformation !== 'object') return visaInformation;
   const trimmedValue = String(value ?? '').trim();
@@ -1063,6 +1117,8 @@ const getGlobalCountryDefaults = async (req, res) => {
   try {
     const settings = await getOrCreateSettings();
     const totalCountries = await Country.countDocuments();
+    const activeCountries = await Country.find({ isActive: { $ne: false } }).select('_id').lean();
+    const activeCountryIds = activeCountries.map((country) => String(country?._id ?? '').trim()).filter(Boolean);
     const usingGlobalBasePrice = await Country.countDocuments({
       useGlobalBasePrice: true,
     });
@@ -1100,6 +1156,23 @@ const getGlobalCountryDefaults = async (req, res) => {
           applyToAllActiveCountries: settings?.globalBasePriceVisibility?.applyToAllActiveCountries !== false,
           selectedCountries: normalizeControlSelectedCountries(settings?.globalBasePriceVisibility?.selectedCountries),
         },
+        serviceFeeScopeValues: {
+          all: Number.isFinite(Number(settings?.serviceFeeScopeValues?.all))
+            ? Number(settings.serviceFeeScopeValues.all)
+            : Number.isFinite(Number(settings?.globalBasePrice))
+              ? Number(settings.globalBasePrice)
+              : null,
+          single: Number.isFinite(Number(settings?.serviceFeeScopeValues?.single))
+            ? Number(settings.serviceFeeScopeValues.single)
+            : null,
+          some: Number.isFinite(Number(settings?.serviceFeeScopeValues?.some))
+            ? Number(settings.serviceFeeScopeValues.some)
+            : null,
+        },
+        serviceFeeScopeTargets: normalizeFeeScopeTargetConfig(
+          settings?.serviceFeeScopeTargets,
+          activeCountryIds
+        ),
         globalGovernmentFee:
           Number.isFinite(Number(settings?.globalGovernmentFee)) && Number(settings?.globalGovernmentFee) >= 0
             ? Number(settings?.globalGovernmentFee)
@@ -1108,6 +1181,23 @@ const getGlobalCountryDefaults = async (req, res) => {
           applyToAllActiveCountries: settings?.globalGovernmentFeeVisibility?.applyToAllActiveCountries !== false,
           selectedCountries: normalizeControlSelectedCountries(settings?.globalGovernmentFeeVisibility?.selectedCountries),
         },
+        governmentFeeScopeValues: {
+          all: Number.isFinite(Number(settings?.governmentFeeScopeValues?.all))
+            ? Number(settings.governmentFeeScopeValues.all)
+            : Number.isFinite(Number(settings?.globalGovernmentFee))
+              ? Number(settings.globalGovernmentFee)
+              : null,
+          single: Number.isFinite(Number(settings?.governmentFeeScopeValues?.single))
+            ? Number(settings.governmentFeeScopeValues.single)
+            : null,
+          some: Number.isFinite(Number(settings?.governmentFeeScopeValues?.some))
+            ? Number(settings.governmentFeeScopeValues.some)
+            : null,
+        },
+        governmentFeeScopeTargets: normalizeFeeScopeTargetConfig(
+          settings?.governmentFeeScopeTargets,
+          activeCountryIds
+        ),
         globalVisaType: String(settings?.globalVisaType ?? '').trim(),
         globalValidity: String(settings?.globalValidity ?? '').trim(),
         globalLengthOfStay: String(settings?.globalLengthOfStay ?? '').trim(),
@@ -1238,6 +1328,356 @@ const updateGlobalGovernmentFee = async (req, res) => {
     });
   } catch (err) {
     console.error('[control] updateGlobalGovernmentFee error:', err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
+ * @route   PUT /api/admin/fees/bulk-update
+ * @desc    Update service or government fees for all/single/some countries
+ * @access  Admin
+ * @body    { feeType: "serviceFee"|"governmentFee", scope: "all"|"single"|"some", countryIds?: string[], amount: number }
+ */
+const updateFeesBulk = async (req, res) => {
+  const feeType = String(req.body?.feeType ?? '').trim();
+  const amount = Number(req.body?.amount);
+
+  if (!['serviceFee', 'governmentFee'].includes(feeType)) {
+    return res.status(400).json({ success: false, message: 'feeType is required.' });
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ success: false, message: 'amount must be a positive number.' });
+  }
+
+  try {
+    const scope = await resolveFeeBulkScope(req.body || {});
+    const settings = await getOrCreateSettings();
+    const now = new Date();
+    const scopeMessage =
+      scope.scope === 'all'
+        ? 'all countries'
+        : scope.scope === 'single'
+          ? 'selected country'
+          : 'selected countries';
+
+    if (feeType === 'serviceFee') {
+      settings.serviceFeeScopeValues = {
+        all: Number.isFinite(Number(settings?.serviceFeeScopeValues?.all))
+          ? Number(settings.serviceFeeScopeValues.all)
+          : null,
+        single: Number.isFinite(Number(settings?.serviceFeeScopeValues?.single))
+          ? Number(settings.serviceFeeScopeValues.single)
+          : null,
+        some: Number.isFinite(Number(settings?.serviceFeeScopeValues?.some))
+          ? Number(settings.serviceFeeScopeValues.some)
+          : null,
+        [scope.scope]: amount,
+      };
+      settings.serviceFeeScopeTargets = {
+        singleCountryId:
+          scope.scope === 'single'
+            ? String(scope.countryIds[0] || '')
+            : String(settings?.serviceFeeScopeTargets?.singleCountryId || ''),
+        someCountryIds:
+          scope.scope === 'some'
+            ? [...scope.countryIds]
+            : normalizeControlSelectedCountries(settings?.serviceFeeScopeTargets?.someCountryIds),
+      };
+
+      if (scope.scope === 'all') {
+        settings.globalBasePrice = amount;
+        settings.globalBasePriceVisibility = {
+          applyToAllActiveCountries: true,
+          selectedCountries: [],
+        };
+        await settings.save();
+        const result = await Country.updateMany(
+          { _id: { $in: scope.targetIds } },
+          { $set: { useGlobalBasePrice: true, basePrice: amount } }
+        );
+        return res.json({
+          success: true,
+          message: `Service fee updated successfully for ${scopeMessage}`,
+          updatedCount: result.modifiedCount ?? result.nModified ?? 0,
+        });
+      }
+
+      const result = await Country.updateMany(
+        { _id: { $in: scope.targetIds } },
+        { $set: { useGlobalBasePrice: false, basePrice: amount } }
+      );
+      settings.globalBasePriceVisibility = {
+        applyToAllActiveCountries: false,
+        selectedCountries: scope.countryIds,
+      };
+      await settings.save();
+      return res.json({
+        success: true,
+        message: `Service fee updated successfully for ${scopeMessage}`,
+        updatedCount: result.modifiedCount ?? result.nModified ?? 0,
+      });
+    }
+
+    settings.governmentFeeScopeValues = {
+      all: Number.isFinite(Number(settings?.governmentFeeScopeValues?.all))
+        ? Number(settings.governmentFeeScopeValues.all)
+        : null,
+      single: Number.isFinite(Number(settings?.governmentFeeScopeValues?.single))
+        ? Number(settings.governmentFeeScopeValues.single)
+        : null,
+      some: Number.isFinite(Number(settings?.governmentFeeScopeValues?.some))
+        ? Number(settings.governmentFeeScopeValues.some)
+        : null,
+      [scope.scope]: amount,
+    };
+    settings.governmentFeeScopeTargets = {
+      singleCountryId:
+        scope.scope === 'single'
+          ? String(scope.countryIds[0] || '')
+          : String(settings?.governmentFeeScopeTargets?.singleCountryId || ''),
+      someCountryIds:
+        scope.scope === 'some'
+          ? [...scope.countryIds]
+          : normalizeControlSelectedCountries(settings?.governmentFeeScopeTargets?.someCountryIds),
+    };
+
+    if (scope.scope === 'all') {
+      settings.globalGovernmentFee = amount;
+      settings.globalGovernmentFeeVisibility = {
+        applyToAllActiveCountries: true,
+        selectedCountries: [],
+      };
+      await settings.save();
+      const result = await Country.updateMany(
+        { _id: { $in: scope.targetIds } },
+        {
+          $set: {
+            useGlobalGovernmentFee: true,
+            governmentFee: amount,
+            'feeManager.currency': 'INR',
+            'feeManager.amount': amount,
+            'feeManager.exchangeRate': 1,
+            'feeManager.forexFeePercent': 0,
+            'feeManager.finalGovernmentFeeInINR': amount,
+            'feeManager.updatedAt': now,
+          },
+        }
+      );
+      return res.json({
+        success: true,
+        message: `Government fee updated successfully for ${scopeMessage}`,
+        updatedCount: result.modifiedCount ?? result.nModified ?? 0,
+      });
+    }
+
+    const result = await Country.updateMany(
+      { _id: { $in: scope.targetIds } },
+      {
+        $set: {
+          useGlobalGovernmentFee: false,
+          governmentFee: amount,
+          'feeManager.currency': 'INR',
+          'feeManager.amount': amount,
+          'feeManager.exchangeRate': 1,
+          'feeManager.forexFeePercent': 0,
+          'feeManager.finalGovernmentFeeInINR': amount,
+          'feeManager.updatedAt': now,
+        },
+      }
+    );
+    settings.globalGovernmentFeeVisibility = {
+      applyToAllActiveCountries: false,
+      selectedCountries: scope.countryIds,
+    };
+    await settings.save();
+    return res.json({
+      success: true,
+      message: `Government fee updated successfully for ${scopeMessage}`,
+      updatedCount: result.modifiedCount ?? result.nModified ?? 0,
+    });
+  } catch (err) {
+    console.error('[control] updateFeesBulk error:', err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
+ * @route   PUT /api/admin/fees/save-all
+ * @desc    Save all fee scope configs in one request
+ * @access  Admin
+ * @body    {
+ *            feeType: "serviceFee"|"governmentFee",
+ *            allCountries: { amount: number },
+ *            singleCountry?: { countryId?: string, amount?: number },
+ *            someCountries?: { countryIds?: string[], amount?: number }
+ *          }
+ */
+const saveAllFeeConfigs = async (req, res) => {
+  const feeType = String(req.body?.feeType ?? '').trim();
+  if (!['serviceFee', 'governmentFee'].includes(feeType)) {
+    return res.status(400).json({ success: false, message: 'feeType is required.' });
+  }
+
+  try {
+    const activeCountries = await Country.find({ isActive: { $ne: false } }, '_id').lean();
+    const activeCountryIds = activeCountries
+      .map((country) => String(country?._id ?? '').trim())
+      .filter(Boolean);
+    const activeCountryIdSet = new Set(activeCountryIds);
+
+    const allCountries = req.body?.allCountries || {};
+    const singleCountry = req.body?.singleCountry || {};
+    const someCountries = req.body?.someCountries || {};
+
+    const allAmount = parsePositiveFeeAmount(allCountries.amount, 'All Countries amount');
+
+    const singleCountryId = String(singleCountry.countryId ?? '').trim();
+    const singleHasAnyValue =
+      singleCountryId ||
+      String(singleCountry.amount ?? '').trim();
+    const singleAmount = singleHasAnyValue
+      ? parsePositiveFeeAmount(singleCountry.amount, 'Single Country amount')
+      : null;
+    if (singleHasAnyValue && !activeCountryIdSet.has(singleCountryId)) {
+      const err = new Error('Please select one active country for Single Country.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const someCountryIds = normalizeControlSelectedCountries(someCountries.countryIds).filter((id) =>
+      activeCountryIdSet.has(id)
+    );
+    const someHasAnyValue =
+      someCountryIds.length > 0 ||
+      String(someCountries.amount ?? '').trim();
+    const someAmount = someHasAnyValue
+      ? parsePositiveFeeAmount(someCountries.amount, 'Some Countries amount')
+      : null;
+    if (someHasAnyValue && someCountryIds.length === 0) {
+      const err = new Error('Please select at least one active country for Some Countries.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const settings = await getOrCreateSettings();
+    const now = new Date();
+
+    if (feeType === 'serviceFee') {
+      settings.globalBasePrice = allAmount;
+      settings.globalBasePriceVisibility = {
+        applyToAllActiveCountries: true,
+        selectedCountries: [],
+      };
+      settings.serviceFeeScopeValues = {
+        all: allAmount,
+        single: singleHasAnyValue ? singleAmount : null,
+        some: someHasAnyValue ? someAmount : null,
+      };
+      settings.serviceFeeScopeTargets = {
+        singleCountryId: singleHasAnyValue ? singleCountryId : '',
+        someCountryIds: someHasAnyValue ? someCountryIds : [],
+      };
+      await settings.save();
+
+      await Country.updateMany(
+        { _id: { $in: activeCountryIds } },
+        { $set: { useGlobalBasePrice: true, basePrice: allAmount } }
+      );
+
+      if (singleHasAnyValue) {
+        await Country.updateOne(
+          { _id: singleCountryId },
+          { $set: { useGlobalBasePrice: false, basePrice: singleAmount } }
+        );
+      }
+
+      if (someHasAnyValue) {
+        await Country.updateMany(
+          { _id: { $in: someCountryIds } },
+          { $set: { useGlobalBasePrice: false, basePrice: someAmount } }
+        );
+      }
+
+      return res.json({
+        success: true,
+        message: 'All fee changes saved successfully',
+      });
+    }
+
+    settings.globalGovernmentFee = allAmount;
+    settings.globalGovernmentFeeVisibility = {
+      applyToAllActiveCountries: true,
+      selectedCountries: [],
+    };
+    settings.governmentFeeScopeValues = {
+      all: allAmount,
+      single: singleHasAnyValue ? singleAmount : null,
+      some: someHasAnyValue ? someAmount : null,
+    };
+    settings.governmentFeeScopeTargets = {
+      singleCountryId: singleHasAnyValue ? singleCountryId : '',
+      someCountryIds: someHasAnyValue ? someCountryIds : [],
+    };
+    await settings.save();
+
+    await Country.updateMany(
+      { _id: { $in: activeCountryIds } },
+      {
+        $set: {
+          useGlobalGovernmentFee: true,
+          governmentFee: allAmount,
+          'feeManager.currency': 'INR',
+          'feeManager.amount': allAmount,
+          'feeManager.exchangeRate': 1,
+          'feeManager.forexFeePercent': 0,
+          'feeManager.finalGovernmentFeeInINR': allAmount,
+          'feeManager.updatedAt': now,
+        },
+      }
+    );
+
+    if (singleHasAnyValue) {
+      await Country.updateOne(
+        { _id: singleCountryId },
+        {
+          $set: {
+            useGlobalGovernmentFee: false,
+            governmentFee: singleAmount,
+            'feeManager.currency': 'INR',
+            'feeManager.amount': singleAmount,
+            'feeManager.exchangeRate': 1,
+            'feeManager.forexFeePercent': 0,
+            'feeManager.finalGovernmentFeeInINR': singleAmount,
+            'feeManager.updatedAt': now,
+          },
+        }
+      );
+    }
+
+    if (someHasAnyValue) {
+      await Country.updateMany(
+        { _id: { $in: someCountryIds } },
+        {
+          $set: {
+            useGlobalGovernmentFee: false,
+            governmentFee: someAmount,
+            'feeManager.currency': 'INR',
+            'feeManager.amount': someAmount,
+            'feeManager.exchangeRate': 1,
+            'feeManager.forexFeePercent': 0,
+            'feeManager.finalGovernmentFeeInINR': someAmount,
+            'feeManager.updatedAt': now,
+          },
+        }
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: 'All fee changes saved successfully',
+    });
+  } catch (err) {
+    console.error('[control] saveAllFeeConfigs error:', err);
     res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
   }
 };
@@ -1777,6 +2217,8 @@ module.exports = {
   getGlobalCountryDefaults,
   updateGlobalBasePrice,
   updateGlobalGovernmentFee,
+  updateFeesBulk,
+  saveAllFeeConfigs,
   updateGlobalVisaType,
   updateGlobalValidity,
   updateGlobalLengthOfStay,
