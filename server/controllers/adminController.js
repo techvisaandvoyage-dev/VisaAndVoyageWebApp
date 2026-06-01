@@ -89,9 +89,19 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'New password must be different from current password' });
     }
 
-    admin.password = newPassword;
-    admin.passwordChangedAt = new Date();
-    await admin.save();
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    const passwordChangedAt = new Date();
+
+    await Admin.updateOne(
+      { _id: admin._id },
+      {
+        $set: {
+          password: hashedPassword,
+          passwordChangedAt,
+        },
+      }
+    );
 
     const savedAdmin = await Admin.findById(admin._id).select('password passwordChangedAt');
     const savedMatchesNewPassword = savedAdmin
