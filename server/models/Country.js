@@ -148,6 +148,8 @@ const countrySchema = new mongoose.Schema({
 
   trending: { type: Boolean, default: false },
   successRate: { type: Number, default: 80, min: 0, max: 100 },
+  visitCount: { type: Number, default: 0, min: 0 },
+  lastVisitedAt: { type: Date, default: null },
 
   /**
    * Destination detail page copy (per-country override).

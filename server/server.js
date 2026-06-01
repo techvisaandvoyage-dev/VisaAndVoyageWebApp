@@ -106,6 +106,7 @@ const {
   getDestinationPageContent,
   getSiteState,
   getCustomerChatConfig,
+  getFooterConfig,
 } = require('./controllers/settingsController');
 app.get('/api/config/razorpay', getRazorpayKeyId);
 app.get('/api/config/payment', getPaymentConfig);
@@ -114,11 +115,14 @@ app.get('/api/config/upload-settings', getUploadSettings);
 app.get('/api/config/destination-content', getDestinationPageContent);
 app.get('/api/config/site-state', getSiteState);
 app.get('/api/config/customer-chat', getCustomerChatConfig);
+app.get('/api/config/footer', getFooterConfig);
 
 // Public Countries Routes
-const { getCountries, getCountryBySlug } = require('./controllers/countryController');
+const { getCountries, getCountryBySlug, getPopularCountries, trackCountryVisit } = require('./controllers/countryController');
 const { getPublicPageBySlug, getPublicPages } = require('./controllers/staticPageController');
 app.get('/api/countries', getCountries);
+app.get('/api/countries/popular', getPopularCountries);
+app.post('/api/countries/:id/visit', trackCountryVisit);
 app.get('/api/countries/:slug', getCountryBySlug);
 app.get('/api/pages', getPublicPages);
 app.get('/api/pages/:slug', getPublicPageBySlug);
@@ -127,7 +131,9 @@ app.use('/api/blog', require('./routes/blogRoutes'));
 app.use('/api/comments', require('./routes/commentRoutes'));
 
 const { searchPlaces } = require('./controllers/geocodeController');
+const { getFooterSocialIcons } = require('./controllers/footerSocialIconController');
 app.get('/api/geocode/places', searchPlaces);
+app.get('/api/footer-social-icons', getFooterSocialIcons);
 
 // ── MongoDB Persistent Support Chat Store & Models ───────────────────────────────────────
 const optionalAuth = require('./middleware/optionalAuth');

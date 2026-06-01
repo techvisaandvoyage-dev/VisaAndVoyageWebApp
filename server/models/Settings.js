@@ -124,6 +124,18 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     default: 'We typically reply in a few minutes'
   },
+  footerBrandPrimaryText: {
+    type: String,
+    default: ''
+  },
+  footerBrandAccentText: {
+    type: String,
+    default: ''
+  },
+  footerDescription: {
+    type: String,
+    default: ''
+  },
   whatsappTemplate: {
     type: String,
     default: 'Hello Visa & Voyage Team,\nI need help with my visa application.\n\nName: {{userName}}\nCountry: {{country}}\nVisa Type: {{visaType}}\nTravel Date: {{travelDate}}\nApplication ID: {{applicationId}}\n\nPlease guide me.'

@@ -114,6 +114,13 @@ const LANDING_HERO_HIGHLIGHTS_FALLBACK = [
   },
 ];
 
+const FOOTER_CONFIG_FALLBACK = {
+  brandPrimaryText: 'Visa &',
+  brandAccentText: 'Voyage',
+  description:
+    'Your trusted partner for seamless visa applications worldwide. Fast, secure, and professionally managed.',
+};
+
 const withDefaultVisibility = (item) => ({
   ...item,
   showInAllActiveCountries: item?.showInAllActiveCountries !== false,
@@ -316,6 +323,18 @@ const normalizeSettingsUpdatePayload = (body = {}) => ({
       : Array.isArray(body.allowedFileFormats)
         ? body.allowedFileFormats.map((s) => String(s || "").toLowerCase().trim()).filter(Boolean)
         : ["pdf", "jpg", "jpeg", "png"],
+  footerBrandPrimaryText:
+    body.footerBrandPrimaryText === undefined
+      ? undefined
+      : String(body.footerBrandPrimaryText || '').trim(),
+  footerBrandAccentText:
+    body.footerBrandAccentText === undefined
+      ? undefined
+      : String(body.footerBrandAccentText || '').trim(),
+  footerDescription:
+    body.footerDescription === undefined
+      ? undefined
+      : String(body.footerDescription || '').trim(),
 });
 
 /**
@@ -370,6 +389,9 @@ const updateSettings = async (req, res) => {
       customerChatDescription,
       customerChatHeaderTitle,
       customerChatHeaderSubtitle,
+      footerBrandPrimaryText,
+      footerBrandAccentText,
+      footerDescription,
       whatsappTemplate,
       unsplashAccessKey,
       unsplashSecretKey,
@@ -398,7 +420,9 @@ const updateSettings = async (req, res) => {
       sms91TemplateId,
       unsplashAccessKey: unsplashAccessKey ? '***' : '',
       unsplashSecretKey: unsplashSecretKey ? '***' : '',
-      unsplashApplicationId: unsplashApplicationId || ''
+      unsplashApplicationId: unsplashApplicationId || '',
+      footerBrandPrimaryText: footerBrandPrimaryText || '',
+      footerBrandAccentText: footerBrandAccentText || '',
     });
     
     const settings = await loadSettingsDocument();
@@ -440,6 +464,9 @@ const updateSettings = async (req, res) => {
     if (customerChatDescription !== undefined) settings.customerChatDescription = String(customerChatDescription || '').trim();
     if (customerChatHeaderTitle !== undefined) settings.customerChatHeaderTitle = String(customerChatHeaderTitle || '').trim();
     if (customerChatHeaderSubtitle !== undefined) settings.customerChatHeaderSubtitle = String(customerChatHeaderSubtitle || '').trim();
+    if (footerBrandPrimaryText !== undefined) settings.footerBrandPrimaryText = String(footerBrandPrimaryText || '').trim();
+    if (footerBrandAccentText !== undefined) settings.footerBrandAccentText = String(footerBrandAccentText || '').trim();
+    if (footerDescription !== undefined) settings.footerDescription = String(footerDescription || '').trim();
     if (whatsappTemplate !== undefined) settings.whatsappTemplate = String(whatsappTemplate || '').trim();
     if (showRequiredDocuments !== undefined) settings.showRequiredDocuments = Boolean(showRequiredDocuments);
     if (showVisaRequirements !== undefined) settings.showVisaRequirements = Boolean(showVisaRequirements);
@@ -680,6 +707,29 @@ const getCustomerChatConfig = async (req, res) => {
   }
 };
 
+const getFooterConfig = async (req, res) => {
+  try {
+    const settings = await loadSettingsDocument();
+    res.json({
+      success: true,
+      config: {
+        brandPrimaryText:
+          String(settings?.footerBrandPrimaryText || '').trim() ||
+          FOOTER_CONFIG_FALLBACK.brandPrimaryText,
+        brandAccentText:
+          String(settings?.footerBrandAccentText || '').trim() ||
+          FOOTER_CONFIG_FALLBACK.brandAccentText,
+        description:
+          String(settings?.footerDescription || '').trim() ||
+          FOOTER_CONFIG_FALLBACK.description,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching footer config:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 /**
  * @route   GET /api/config/site-state
  * @desc    Public runtime site flags for the client app shell
@@ -710,4 +760,5 @@ module.exports = {
   getDestinationPageContent,
   getSiteState,
   getCustomerChatConfig,
+  getFooterConfig,
 };

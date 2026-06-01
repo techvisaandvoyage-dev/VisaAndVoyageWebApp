@@ -12,6 +12,8 @@ const {
   uploadCountryImage,
   refreshUnsplashCountryImages,
   bulkUpdateCountryVisibility,
+  resetCountryPopularity,
+  resetAllCountryPopularity,
   updateFeesBulk,
   saveAllFeeConfigs,
   getServiceFeeCountryOverrides,
@@ -34,6 +36,12 @@ const {
   convertFeeManagerValues,
   updateFeeManagerRow,
 } = require('../controllers/feeManagerController');
+const {
+  getAdminFooterSocialIcons,
+  createFooterSocialIcon,
+  updateFooterSocialIcon,
+  deleteFooterSocialIcon,
+} = require('../controllers/footerSocialIconController');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -107,9 +115,16 @@ router.get('/fee-manager', protect, requireAdmin, getFeeManagerRows);
 router.post('/fee-manager/convert', protect, requireAdmin, convertFeeManagerValues);
 router.put('/fee-manager/:countryId', protect, requireAdmin, updateFeeManagerRow);
 
+router.get('/footer-social-icons', protect, requireAdmin, getAdminFooterSocialIcons);
+router.post('/footer-social-icons', protect, requireAdmin, createFooterSocialIcon);
+router.put('/footer-social-icons/:id', protect, requireAdmin, updateFooterSocialIcon);
+router.delete('/footer-social-icons/:id', protect, requireAdmin, deleteFooterSocialIcon);
+
 // Country management (admin only)
 router.get('/countries-list', protect, requireAdmin, getCountries);
 router.post('/countries/visibility', protect, requireAdmin, bulkUpdateCountryVisibility);
+router.post('/countries/reset-popularity', protect, requireAdmin, resetAllCountryPopularity);
+router.post('/countries/:id/reset-popularity', protect, requireAdmin, resetCountryPopularity);
 router.post('/countries/upload-image', protect, requireAdmin, countryImageUpload.single('image'), uploadCountryImage);
 router.post('/countries/refresh-unsplash-images', protect, requireAdmin, refreshUnsplashCountryImages);
 router.post('/countries', protect, requireAdmin, addCountry);

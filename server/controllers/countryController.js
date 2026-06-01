@@ -1,9 +1,11 @@
 const Country = require('../models/Country');
+const Application = require('../models/Application');
 const Settings = require('../models/Settings');
 const { processUnsplashCountryImageBatch } = require('../services/unsplashCountryImages');
 const { loadSettingsDocument } = require('../utils/settingsDocument');
 
 const mongoose = require('mongoose');
+const POPULAR_COUNTRIES_LIMIT = 8;
 
 /**
  * Built-in catalog of document types every deployment ships with. Admin can
@@ -700,6 +702,12 @@ const findCountry = (id) => {
   return Country.findOne({ slug: id });
 };
 
+const normalizePopularCountriesLimit = (value, fallback = POPULAR_COUNTRIES_LIMIT) => {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(parsed, 300);
+};
+
 /**
  * @route   GET /api/countries
  * @desc    Get all countries (public)
@@ -1116,6 +1124,133 @@ const deleteCountry = async (req, res) => {
 };
 
 /**
+ * @route   POST /api/countries/:id/visit
+ * @desc    Increment visit metrics for a single country
+ */
+const trackCountryVisit = async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Country id is required.' });
+    }
+
+    const filter = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { slug: id.toLowerCase() };
+    const country = await Country.findOneAndUpdate(
+      filter,
+      {
+        $inc: { visitCount: 1 },
+        $set: { lastVisitedAt: new Date() },
+      },
+      {
+        new: true,
+        projection: { _id: 1, slug: 1, visitCount: 1, lastVisitedAt: 1, isActive: 1 },
+      }
+    ).lean();
+
+    if (!country) {
+      return res.status(404).json({ success: false, message: 'Country not found.' });
+    }
+
+    return res.json({
+      success: true,
+      country: {
+        _id: country._id,
+        slug: country.slug,
+        visitCount: Number(country.visitCount || 0),
+        lastVisitedAt: country.lastVisitedAt || null,
+        isActive: country.isActive !== false,
+      },
+    });
+  } catch (err) {
+    console.error('trackCountryVisit error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * @route   GET /api/countries/popular
+ * @desc    Return the most-visited active countries for the homepage
+ */
+const getPopularCountries = async (req, res) => {
+  try {
+    const limit = normalizePopularCountriesLimit(req.query.limit);
+    const [countries, settings] = await Promise.all([
+      Country.aggregate([
+        {
+          $match: {
+            isActive: { $ne: false },
+          },
+        },
+        {
+          $addFields: {
+            countryLookupKeys: [
+              '$slug',
+              { $toString: '$_id' },
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: 'applications',
+            let: { countryKeys: '$countryLookupKeys' },
+            pipeline: [
+              {
+                $match: {
+                  paymentStatus: 'completed',
+                  $expr: { $in: ['$countryId', '$$countryKeys'] },
+                },
+              },
+              { $count: 'count' },
+            ],
+            as: 'paymentStats',
+          },
+        },
+        {
+          $addFields: {
+            paymentCount: {
+              $ifNull: [{ $arrayElemAt: ['$paymentStats.count', 0] }, 0],
+            },
+            popularityScore: {
+              $add: [
+                { $multiply: [{ $ifNull: [{ $arrayElemAt: ['$paymentStats.count', 0] }, 0] }, 1000] },
+                { $ifNull: ['$visitCount', 0] },
+              ],
+            },
+          },
+        },
+        {
+          $sort: {
+            paymentCount: -1,
+            visitCount: -1,
+            lastVisitedAt: -1,
+            updatedAt: -1,
+            name: 1,
+          },
+        },
+        { $limit: limit },
+        {
+          $project: {
+            paymentStats: 0,
+            countryLookupKeys: 0,
+          },
+        },
+      ]),
+      getOrCreateSettings(),
+    ]);
+
+    return res.json({
+      success: true,
+      countries: countries.map((country) => resolveCountryDoc(country, settings)),
+      display: resolveDisplayToggles(settings),
+      documentCatalog: buildDocumentCatalog(settings),
+    });
+  } catch (err) {
+    console.error('getPopularCountries error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
  * @route   POST /api/admin/countries/visibility
  * @desc    Bulk update country public visibility
  * @access  Admin
@@ -1143,6 +1278,61 @@ const bulkUpdateCountryVisibility = async (req, res) => {
   } catch (err) {
     console.error('bulkUpdateCountryVisibility error:', err);
     res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
+ * @route   POST /api/admin/countries/:id/reset-popularity
+ * @desc    Reset one country's visit metrics
+ */
+const resetCountryPopularity = async (req, res) => {
+  try {
+    const country = await findCountry(req.params.id);
+    if (!country) {
+      return res.status(404).json({ success: false, message: 'Country not found' });
+    }
+
+    country.visitCount = 0;
+    country.lastVisitedAt = null;
+    await country.save();
+
+    const settings = await getOrCreateSettings();
+    return res.json({
+      success: true,
+      country: resolveCountryDoc(country, settings),
+      message: `Popularity reset for ${country.name}.`,
+    });
+  } catch (err) {
+    console.error('resetCountryPopularity error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * @route   POST /api/admin/countries/reset-popularity
+ * @desc    Reset every country's visit metrics
+ */
+const resetAllCountryPopularity = async (_req, res) => {
+  try {
+    const result = await Country.updateMany(
+      {},
+      {
+        $set: {
+          visitCount: 0,
+          lastVisitedAt: null,
+        },
+      }
+    );
+
+    return res.json({
+      success: true,
+      matched: result.matchedCount ?? result.n ?? 0,
+      modified: result.modifiedCount ?? result.nModified ?? 0,
+      message: 'Popularity reset for all countries.',
+    });
+  } catch (err) {
+    console.error('resetAllCountryPopularity error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -2452,6 +2642,8 @@ const manageCustomDocuments = async (req, res) => {
 module.exports = {
   getCountries,
   getCountryBySlug,
+  getPopularCountries,
+  trackCountryVisit,
   addCountry,
   updateCountry,
   deleteCountry,
@@ -2474,4 +2666,6 @@ module.exports = {
   manageCustomDocuments,
   updateCountryDisplayToggles,
   bulkUpdateCountryVisibility,
+  resetCountryPopularity,
+  resetAllCountryPopularity,
 };
