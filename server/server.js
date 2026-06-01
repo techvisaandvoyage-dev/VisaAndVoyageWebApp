@@ -533,20 +533,25 @@ const PORT = process.env.PORT || 5000;
   app.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
 
-    // ── Seed default admin ───────────────────────────────────────
+    // Create a first admin only for a genuinely empty Admin collection.
+    // Never update an existing admin here: dashboard password changes must
+    // survive every redeploy/restart.
     try {
       const Admin = require('./models/Admin');
-      const bcrypt = require('bcryptjs');
 
       const adminCount = await Admin.countDocuments();
       if (adminCount === 0) {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash('admin123', salt);
-        await Admin.create({ email: 'tech.visaandvoyage@gmail.com', password: hashedPassword });
-        console.log('Default Admin account created: tech.visaandvoyage@gmail.com');
+        const bootstrapEmail = String(process.env.BOOTSTRAP_ADMIN_EMAIL || 'tech.visaandvoyage@gmail.com')
+          .trim()
+          .toLowerCase();
+        const bootstrapPassword = String(process.env.BOOTSTRAP_ADMIN_PASSWORD || 'admin123');
+        await Admin.create({ email: bootstrapEmail, password: bootstrapPassword });
+        console.log(`Bootstrap Admin account created: ${bootstrapEmail}`);
+      } else {
+        console.log(`Admin seed skipped: ${adminCount} admin account(s) already exist.`);
       }
     } catch (err) {
-      console.log('Skipping admin seed');
+      console.log('Skipping admin seed:', err.message);
     }
 
     // ── Seed countries on first boot + keep list at 195 ───────────
