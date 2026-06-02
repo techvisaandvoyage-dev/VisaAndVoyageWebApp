@@ -1,5 +1,6 @@
 const VisaType = require('../models/VisaType');
 const Country = require('../models/Country');
+const mongoose = require('mongoose');
 
 const normalizeCountryIds = (values) =>
   Array.isArray(values)
@@ -62,6 +63,20 @@ exports.getAllVisaTypes = async (req, res) => {
 exports.getActiveVisaTypes = async (req, res) => {
   try {
     const requestedCountryId = String(req.query?.countryId ?? '').trim();
+    if (requestedCountryId) {
+      let country;
+      if (mongoose.Types.ObjectId.isValid(requestedCountryId)) {
+        country = await Country.findById(requestedCountryId);
+      } else {
+        country = await Country.findOne({ slug: requestedCountryId });
+      }
+
+      if (country && country.useCustomVisaTypes) {
+        const customActive = (country.customVisaTypes || []).filter(vt => vt.active);
+        return res.status(200).json({ success: true, visaTypes: customActive });
+      }
+    }
+
     const visaTypes = await VisaType.find({ active: true }).sort({ name: 1 });
     const filtered = requestedCountryId
       ? visaTypes.filter((visaType) => matchesCountry(visaType, requestedCountryId))

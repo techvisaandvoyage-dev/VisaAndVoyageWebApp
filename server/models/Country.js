@@ -101,6 +101,14 @@ const countrySchema = new mongoose.Schema({
   /** If true, public responses ignore this country's `visaType` and use the global default. */
   useGlobalVisaType: { type: Boolean, default: true },
 
+  /** Array of custom visa types for the dropdown. If useCustomVisaTypes is true, these override the global VisaType collection for this country. */
+  customVisaTypes: [{
+    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    name: { type: String, required: true, trim: true },
+    active: { type: Boolean, default: true },
+  }],
+  useCustomVisaTypes: { type: Boolean, default: false },
+
   /** Stay validity shown on country cards (free text, e.g. "30 days", "90 days", "1 year"). */
   validity: { type: String, default: '' },
   /** If true, public responses ignore this country's `validity` and use the global default. */

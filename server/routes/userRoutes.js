@@ -15,7 +15,10 @@ const {
   resetPasswordRequest,
   requestForgotPasswordOtp,
   resetForgotPassword,
-  changePassword
+  changePassword,
+  popupRequestOtp,
+  popupVerifyOtp,
+  popupCompleteSignup
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../utils/uploadConfig');
@@ -56,6 +59,9 @@ router.post('/firebase-google', firebaseGoogleLogin);
 router.post('/login', loginUser);
 router.post('/forgot-password/request-otp', requestForgotPasswordOtp);
 router.post('/forgot-password/reset', resetForgotPassword);
+router.post('/popup/request-otp', popupRequestOtp);
+router.post('/popup/verify-otp', popupVerifyOtp);
+router.post('/popup/complete-signup', popupCompleteSignup);
 
 // Profile routes
 router.get('/profile', protect, getUserProfile);

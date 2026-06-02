@@ -28,7 +28,12 @@ async function sendLoginOtpSms(phoneKey10, otp) {
     return { sent: false, skipped: true };
   }
 
-  const mobile = `91${phoneKey10}`;
+  let mobile = phoneKey10;
+  if (!mobile.startsWith('+') && mobile.length === 10) {
+    mobile = `91${mobile}`;
+  } else if (mobile.startsWith('+')) {
+    mobile = mobile.slice(1);
+  }
   const otpLen = settings?.sms91OtpLength || process.env.SMS91_OTP_LENGTH || String(otp.length);
 
   try {

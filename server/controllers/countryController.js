@@ -600,6 +600,8 @@ const resolveCountryDoc = (country, settings) => {
     useGlobalGovernmentFee,
     useGlobalGst,
     useGlobalRequiredDocuments,
+    useCustomVisaTypes: obj.useCustomVisaTypes === true,
+    customVisaTypes: Array.isArray(obj.customVisaTypes) ? obj.customVisaTypes : [],
     gstEnabled: resolvedGstEnabled,
     gstRate: resolvedGstRate,
     basePriceOverride,
@@ -772,6 +774,8 @@ const addCountry = async (req, res) => {
       excludeDestinationFaqQuestions,
       excludeDestinationHowItWorksTitles,
       excludeDestinationVisaRequirements,
+      useCustomVisaTypes,
+      customVisaTypes,
     } = req.body;
 
     if (!name || !basePrice) {
@@ -884,6 +888,8 @@ const addCountry = async (req, res) => {
       excludeDestinationFaqQuestions: sanitizeExcludeKeys(excludeDestinationFaqQuestions),
       excludeDestinationHowItWorksTitles: sanitizeExcludeKeys(excludeDestinationHowItWorksTitles),
       excludeDestinationVisaRequirements: sanitizeExcludeKeys(excludeDestinationVisaRequirements),
+      useCustomVisaTypes: Boolean(useCustomVisaTypes),
+      customVisaTypes: Array.isArray(customVisaTypes) ? customVisaTypes : [],
     });
 
     res.status(201).json({ success: true, country });
