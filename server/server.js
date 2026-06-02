@@ -93,6 +93,7 @@ app.post('/api/admin/control/display-toggles', protect, requireAdmin, updateCoun
 
 // Routes
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/travelers', require('./routes/travelerRoutes'));
 app.use('/api/visa-types', require('./routes/visaTypeRoutes'));

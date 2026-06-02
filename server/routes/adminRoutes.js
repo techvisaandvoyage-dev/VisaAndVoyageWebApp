@@ -3,6 +3,14 @@ const router = express.Router();
 const { loginAdmin, changePassword } = require('../controllers/adminController');
 const { getAllApplications, getApplicationById, updateApplicationByAdmin, updateApplicationStatus, uploadApprovedVisaFile, downloadApplicationDocument } = require('../controllers/applicationController');
 const { getSettings, updateSettings } = require('../controllers/settingsController');
+const {
+  getAuthSettings,
+  updateSmsSettings,
+  updateWhatsappSettings,
+  updateEmailSettings,
+  updatePrioritySettings,
+  updateTestingSettings,
+} = require('../controllers/authSettingsController');
 const { getAllTransactions } = require('../controllers/paymentController');
 const {
   getCountries,
@@ -102,6 +110,12 @@ router.put('/applications/:id/status', protect, requireAdmin, updateApplicationS
 // Admin Settings routes
 router.get('/settings', protect, requireAdmin, getSettings);
 router.put('/settings', protect, requireAdmin, updateSettings);
+router.get('/auth-settings', protect, requireAdmin, getAuthSettings);
+router.put('/auth-settings/sms', protect, requireAdmin, updateSmsSettings);
+router.put('/auth-settings/whatsapp', protect, requireAdmin, updateWhatsappSettings);
+router.put('/auth-settings/email', protect, requireAdmin, updateEmailSettings);
+router.put('/auth-settings/priority', protect, requireAdmin, updatePrioritySettings);
+router.put('/auth-settings/testing', protect, requireAdmin, updateTestingSettings);
 
 // Admin Transactions route
 router.get('/transactions', protect, requireAdmin, getAllTransactions);

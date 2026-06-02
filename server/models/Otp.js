@@ -9,11 +9,20 @@ const OtpSchema = new mongoose.Schema({
   },
   otp: {
     type: String,
-    required: true
+    default: ''
+  },
+  otpHash: {
+    type: String,
+    default: ''
+  },
+  channel: {
+    type: String,
+    enum: ['sms', 'whatsapp', 'email', 'legacy'],
+    default: 'legacy'
   },
   purpose: {
     type: String,
-    enum: ['signup', 'login', 'password_reset', 'popup-auth'],
+    enum: ['signup', 'login', 'password_reset', 'popup-auth', 'auth'],
     default: 'signup'
   },
   createdAt: {

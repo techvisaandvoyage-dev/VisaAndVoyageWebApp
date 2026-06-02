@@ -55,6 +55,8 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  smsOtpEnabled: { type: Boolean, default: false },
+  smsOtpProvider: { type: String, default: 'MSG91' },
   sms91TemplateId: {
     type: String,
     default: ''
@@ -63,6 +65,24 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     default: '6'
   },
+  whatsappOtpEnabled: { type: Boolean, default: false },
+  whatsappOtpProvider: { type: String, default: 'MSG91 WhatsApp' },
+  whatsappOtpAuthKey: { type: String, default: '' },
+  whatsappOtpTemplateId: { type: String, default: '' },
+  whatsappBusinessNumber: { type: String, default: '' },
+  whatsappOtpLength: { type: String, default: '6' },
+  emailOtpEnabled: { type: Boolean, default: true },
+  emailOtpProvider: { type: String, default: 'Custom SMTP' },
+  emailOtpApiKey: { type: String, default: '' },
+  emailOtpSenderEmail: { type: String, default: '' },
+  emailOtpSenderName: { type: String, default: '' },
+  emailOtpTemplateId: { type: String, default: '' },
+  emailOtpLength: { type: String, default: '6' },
+  otpPrimaryChannel: { type: String, default: 'sms' },
+  otpFallbackChannel1: { type: String, default: 'email' },
+  otpFallbackChannel2: { type: String, default: 'none' },
+  otpTestingEnabled: { type: Boolean, default: false },
+  otpTestingAutofillEnabled: { type: Boolean, default: true },
   /** Nodemailer — used for signup, login, and forgot-password OTP when set (overrides EMAIL_* env). */
   smtpEmailUser: {
     type: String,
