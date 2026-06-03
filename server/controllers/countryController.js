@@ -819,8 +819,12 @@ const normalizePopularCountriesLimit = (value, fallback = POPULAR_COUNTRIES_LIMI
  */
 const getCountries = async (req, res) => {
   try {
+    const filter = {};
+    if (req.query.active === 'true') {
+      filter.isActive = { $ne: false };
+    }
     const [countries, settings] = await Promise.all([
-      Country.find().sort({ name: 1 }),
+      Country.find(filter).sort({ name: 1 }),
       getOrCreateSettings(),
     ]);
     const resolved = countries.map((c) => resolveCountryDoc(c, settings));
