@@ -54,10 +54,7 @@ app.use(express.json());
 
 // Health Check Routes
 app.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Visavo API is running"
-  });
+  res.send("API is running...");
 });
 
 app.get("/api/health", (req, res) => {
