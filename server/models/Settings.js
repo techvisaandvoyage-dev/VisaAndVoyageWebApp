@@ -156,6 +156,74 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  seoWebsiteTitle: {
+    type: String,
+    default: 'Visa & Voyage'
+  },
+  seoMetaDescription: {
+    type: String,
+    default: ''
+  },
+  seoMetaKeywords: {
+    type: String,
+    default: ''
+  },
+  seoHomepageTitle: {
+    type: String,
+    default: ''
+  },
+  seoHomepageDescription: {
+    type: String,
+    default: ''
+  },
+  seoOpenGraphTitle: {
+    type: String,
+    default: ''
+  },
+  seoOpenGraphDescription: {
+    type: String,
+    default: ''
+  },
+  seoTwitterTitle: {
+    type: String,
+    default: ''
+  },
+  seoTwitterDescription: {
+    type: String,
+    default: ''
+  },
+  seoCanonicalUrl: {
+    type: String,
+    default: 'https://visavo.in'
+  },
+  seoLogoUrl: {
+    type: String,
+    default: ''
+  },
+  seoFaviconUrl: {
+    type: String,
+    default: ''
+  },
+  seoFavicon32Url: {
+    type: String,
+    default: ''
+  },
+  seoFavicon192Url: {
+    type: String,
+    default: ''
+  },
+  seoAppleTouchIconUrl: {
+    type: String,
+    default: ''
+  },
+  seoRobotsIndex: {
+    type: Boolean,
+    default: true
+  },
+  seoSitemapUrl: {
+    type: String,
+    default: 'https://visavo.in/sitemap.xml'
+  },
   whatsappTemplate: {
     type: String,
     default: 'Hello Visa & Voyage Team,\nI need help with my visa application.\n\nName: {{userName}}\nCountry: {{country}}\nVisa Type: {{visaType}}\nTravel Date: {{travelDate}}\nApplication ID: {{applicationId}}\n\nPlease guide me.'
@@ -233,12 +301,48 @@ const settingsSchema = new mongoose.Schema({
    * Universal "Visa Type" applied to every country whose `useGlobalVisaType` flag is
    * true. Admin changes this from Admin → Controls → Universal visa type control.
    * Empty string means "no global set — fall back to the per-country `visaType`".
-   */
+  */
   globalVisaType: { type: String, default: '', trim: true },
+  visaTypeScopeValues: {
+    all: { type: String, default: '', trim: true },
+    single: { type: String, default: '', trim: true },
+    some: { type: String, default: '', trim: true },
+  },
+  visaTypeScopeTargets: {
+    singleCountryId: { type: String, trim: true, default: '' },
+    someCountryIds: [{ type: String, trim: true }],
+  },
+  visaTypeSingleCountryOverrides: {
+    type: [
+      {
+        countryId: { type: String, trim: true, required: true },
+        visaType: { type: String, trim: true, required: true },
+      },
+    ],
+    default: [],
+  },
   /** Universal "Validity" applied the same way. */
   globalValidity: { type: String, default: '', trim: true },
   /** Universal "Length of Stay" applied the same way. */
   globalLengthOfStay: { type: String, default: '', trim: true },
+  lengthOfStayScopeValues: {
+    all: { type: String, default: '', trim: true },
+    single: { type: String, default: '', trim: true },
+    some: { type: String, default: '', trim: true },
+  },
+  lengthOfStayScopeTargets: {
+    singleCountryId: { type: String, trim: true, default: '' },
+    someCountryIds: [{ type: String, trim: true }],
+  },
+  lengthOfStaySingleCountryOverrides: {
+    type: [
+      {
+        countryId: { type: String, trim: true, required: true },
+        lengthOfStay: { type: String, trim: true, required: true },
+      },
+    ],
+    default: [],
+  },
   /** Universal "Entry" / entry type applied the same way. */
   globalEntryType: { type: String, default: '', trim: true },
   /** Universal "Processing Days" (free text e.g. "5-10", "2-3 weeks") applied the same way. */

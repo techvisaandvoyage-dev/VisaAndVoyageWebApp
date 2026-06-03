@@ -11,6 +11,8 @@ const {
   loginUser,
   getUserProfile,
   updateUserProfile,
+  requestProfilePhoneOtp,
+  verifyProfilePhoneOtp,
   uploadProfileImage,
   resetPasswordRequest,
   requestForgotPasswordOtp,
@@ -66,6 +68,8 @@ router.post('/popup/complete-signup', popupCompleteSignup);
 // Profile routes
 router.get('/profile', protect, getUserProfile);
 router.put('/profile/update', protect, updateUserProfile);
+router.post('/profile/phone/request-otp', protect, requestProfilePhoneOtp);
+router.post('/profile/phone/verify-otp', protect, verifyProfilePhoneOtp);
 router.post('/profile/upload-image', protect, upload.single('profileImage'), uploadProfileImage);
 router.post('/profile/reset-request', protect, resetPasswordRequest);
 router.put('/change-password', protect, changePassword);

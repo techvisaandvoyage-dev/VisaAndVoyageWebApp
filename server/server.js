@@ -108,6 +108,7 @@ const {
   getSiteState,
   getCustomerChatConfig,
   getFooterConfig,
+  getSeoConfig,
 } = require('./controllers/settingsController');
 app.get('/api/config/razorpay', getRazorpayKeyId);
 app.get('/api/config/payment', getPaymentConfig);
@@ -117,6 +118,7 @@ app.get('/api/config/destination-content', getDestinationPageContent);
 app.get('/api/config/site-state', getSiteState);
 app.get('/api/config/customer-chat', getCustomerChatConfig);
 app.get('/api/config/footer', getFooterConfig);
+app.get('/api/config/seo', getSeoConfig);
 
 // Public Countries Routes
 const { getCountries, getCountryBySlug, getPopularCountries, trackCountryVisit } = require('./controllers/countryController');

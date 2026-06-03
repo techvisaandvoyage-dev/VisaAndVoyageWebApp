@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { loginAdmin, changePassword } = require('../controllers/adminController');
 const { getAllApplications, getApplicationById, updateApplicationByAdmin, updateApplicationStatus, uploadApprovedVisaFile, downloadApplicationDocument } = require('../controllers/applicationController');
-const { getSettings, updateSettings } = require('../controllers/settingsController');
+const { getSettings, updateSettings, uploadSeoAssets } = require('../controllers/settingsController');
 const {
   getAuthSettings,
   updateSmsSettings,
@@ -95,6 +95,13 @@ const visaFileUpload = multer({
       : cb(new Error('Only PDF, PNG, JPG, JPEG, and WEBP files are allowed'));
   },
 });
+const seoAssetUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    /^image\//.test(file.mimetype) ? cb(null, true) : cb(new Error('Only image files are allowed'));
+  },
+});
 const { protect, requireAdmin } = require('../middleware/authMiddleware');
 
 router.post('/login', loginAdmin);
@@ -110,6 +117,13 @@ router.put('/applications/:id/status', protect, requireAdmin, updateApplicationS
 // Admin Settings routes
 router.get('/settings', protect, requireAdmin, getSettings);
 router.put('/settings', protect, requireAdmin, updateSettings);
+router.post(
+  '/settings/seo-assets',
+  protect,
+  requireAdmin,
+  seoAssetUpload.fields([{ name: 'favicon', maxCount: 1 }]),
+  uploadSeoAssets
+);
 router.get('/auth-settings', protect, requireAdmin, getAuthSettings);
 router.put('/auth-settings/sms', protect, requireAdmin, updateSmsSettings);
 router.put('/auth-settings/whatsapp', protect, requireAdmin, updateWhatsappSettings);

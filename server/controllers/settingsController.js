@@ -1,5 +1,13 @@
 const Settings = require('../models/Settings');
 const { loadSettingsDocument } = require('../utils/settingsDocument');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+const {
+  DEFAULT_SITE_URL,
+  normalizeUrl,
+  buildSeoPublicConfig,
+} = require('../utils/seoSettings');
 
 /** Strip secret JSON from admin API; expose whether server env supplies the Admin SDK key. */
 const sanitizeSettingsForAdminResponse = (doc) => {
@@ -119,6 +127,45 @@ const FOOTER_CONFIG_FALLBACK = {
   brandAccentText: 'Voyage',
   description:
     'Your trusted partner for seamless visa applications worldwide. Fast, secure, and professionally managed.',
+};
+
+const SEO_UPLOADS_DIR = path.join(__dirname, '..', 'uploads', 'seo');
+if (!fs.existsSync(SEO_UPLOADS_DIR)) {
+  fs.mkdirSync(SEO_UPLOADS_DIR, { recursive: true });
+}
+
+const removeExistingSeoAsset = (filename) => {
+  const target = path.join(SEO_UPLOADS_DIR, filename);
+  if (fs.existsSync(target)) {
+    fs.unlinkSync(target);
+  }
+};
+
+const saveSeoFaviconAssets = async (file) => {
+  const pipeline = sharp(file.buffer).flatten({ background: '#ffffff' });
+  const favicon32Buffer = await pipeline.clone().resize(32, 32).png().toBuffer();
+  const favicon192Buffer = await pipeline.clone().resize(192, 192).png().toBuffer();
+  const appleTouchBuffer = await pipeline.clone().resize(180, 180).png().toBuffer();
+
+  const files = {
+    faviconUrl: 'favicon.ico',
+    favicon32Url: 'favicon-32x32.png',
+    favicon192Url: 'favicon-192x192.png',
+    appleTouchIconUrl: 'apple-touch-icon.png',
+  };
+
+  Object.values(files).forEach(removeExistingSeoAsset);
+  fs.writeFileSync(path.join(SEO_UPLOADS_DIR, files.faviconUrl), favicon32Buffer);
+  fs.writeFileSync(path.join(SEO_UPLOADS_DIR, files.favicon32Url), favicon32Buffer);
+  fs.writeFileSync(path.join(SEO_UPLOADS_DIR, files.favicon192Url), favicon192Buffer);
+  fs.writeFileSync(path.join(SEO_UPLOADS_DIR, files.appleTouchIconUrl), appleTouchBuffer);
+
+  return {
+    seoFaviconUrl: `/uploads/seo/${files.faviconUrl}`,
+    seoFavicon32Url: `/uploads/seo/${files.favicon32Url}`,
+    seoFavicon192Url: `/uploads/seo/${files.favicon192Url}`,
+    seoAppleTouchIconUrl: `/uploads/seo/${files.appleTouchIconUrl}`,
+  };
 };
 
 const withDefaultVisibility = (item) => ({
@@ -335,6 +382,56 @@ const normalizeSettingsUpdatePayload = (body = {}) => ({
     body.footerDescription === undefined
       ? undefined
       : String(body.footerDescription || '').trim(),
+  seoWebsiteTitle:
+    body.seoWebsiteTitle === undefined
+      ? undefined
+      : String(body.seoWebsiteTitle || '').trim(),
+  seoMetaDescription:
+    body.seoMetaDescription === undefined
+      ? undefined
+      : String(body.seoMetaDescription || '').trim(),
+  seoMetaKeywords:
+    body.seoMetaKeywords === undefined
+      ? undefined
+      : String(body.seoMetaKeywords || '').trim(),
+  seoHomepageTitle:
+    body.seoHomepageTitle === undefined
+      ? undefined
+      : String(body.seoHomepageTitle || '').trim(),
+  seoHomepageDescription:
+    body.seoHomepageDescription === undefined
+      ? undefined
+      : String(body.seoHomepageDescription || '').trim(),
+  seoOpenGraphTitle:
+    body.seoOpenGraphTitle === undefined
+      ? undefined
+      : String(body.seoOpenGraphTitle || '').trim(),
+  seoOpenGraphDescription:
+    body.seoOpenGraphDescription === undefined
+      ? undefined
+      : String(body.seoOpenGraphDescription || '').trim(),
+  seoTwitterTitle:
+    body.seoTwitterTitle === undefined
+      ? undefined
+      : String(body.seoTwitterTitle || '').trim(),
+  seoTwitterDescription:
+    body.seoTwitterDescription === undefined
+      ? undefined
+      : String(body.seoTwitterDescription || '').trim(),
+  seoCanonicalUrl:
+    body.seoCanonicalUrl === undefined
+      ? undefined
+      : normalizeUrl(body.seoCanonicalUrl, DEFAULT_SITE_URL),
+  seoRobotsIndex:
+    body.seoRobotsIndex === undefined
+      ? undefined
+      : body.seoRobotsIndex === false || body.seoRobotsIndex === 'false'
+        ? false
+        : true,
+  seoSitemapUrl:
+    body.seoSitemapUrl === undefined
+      ? undefined
+      : normalizeUrl(body.seoSitemapUrl, `${DEFAULT_SITE_URL}/sitemap.xml`),
 });
 
 /**
@@ -392,6 +489,18 @@ const updateSettings = async (req, res) => {
       footerBrandPrimaryText,
       footerBrandAccentText,
       footerDescription,
+      seoWebsiteTitle,
+      seoMetaDescription,
+      seoMetaKeywords,
+      seoHomepageTitle,
+      seoHomepageDescription,
+      seoOpenGraphTitle,
+      seoOpenGraphDescription,
+      seoTwitterTitle,
+      seoTwitterDescription,
+      seoCanonicalUrl,
+      seoRobotsIndex,
+      seoSitemapUrl,
       whatsappTemplate,
       unsplashAccessKey,
       unsplashSecretKey,
@@ -467,6 +576,18 @@ const updateSettings = async (req, res) => {
     if (footerBrandPrimaryText !== undefined) settings.footerBrandPrimaryText = String(footerBrandPrimaryText || '').trim();
     if (footerBrandAccentText !== undefined) settings.footerBrandAccentText = String(footerBrandAccentText || '').trim();
     if (footerDescription !== undefined) settings.footerDescription = String(footerDescription || '').trim();
+    if (seoWebsiteTitle !== undefined) settings.seoWebsiteTitle = String(seoWebsiteTitle || '').trim();
+    if (seoMetaDescription !== undefined) settings.seoMetaDescription = String(seoMetaDescription || '').trim();
+    if (seoMetaKeywords !== undefined) settings.seoMetaKeywords = String(seoMetaKeywords || '').trim();
+    if (seoHomepageTitle !== undefined) settings.seoHomepageTitle = String(seoHomepageTitle || '').trim();
+    if (seoHomepageDescription !== undefined) settings.seoHomepageDescription = String(seoHomepageDescription || '').trim();
+    if (seoOpenGraphTitle !== undefined) settings.seoOpenGraphTitle = String(seoOpenGraphTitle || '').trim();
+    if (seoOpenGraphDescription !== undefined) settings.seoOpenGraphDescription = String(seoOpenGraphDescription || '').trim();
+    if (seoTwitterTitle !== undefined) settings.seoTwitterTitle = String(seoTwitterTitle || '').trim();
+    if (seoTwitterDescription !== undefined) settings.seoTwitterDescription = String(seoTwitterDescription || '').trim();
+    if (seoCanonicalUrl !== undefined) settings.seoCanonicalUrl = normalizeUrl(seoCanonicalUrl, DEFAULT_SITE_URL) || DEFAULT_SITE_URL;
+    if (seoRobotsIndex !== undefined) settings.seoRobotsIndex = Boolean(seoRobotsIndex);
+    if (seoSitemapUrl !== undefined) settings.seoSitemapUrl = normalizeUrl(seoSitemapUrl, `${DEFAULT_SITE_URL}/sitemap.xml`) || `${DEFAULT_SITE_URL}/sitemap.xml`;
     if (whatsappTemplate !== undefined) settings.whatsappTemplate = String(whatsappTemplate || '').trim();
     if (showRequiredDocuments !== undefined) settings.showRequiredDocuments = Boolean(showRequiredDocuments);
     if (showVisaRequirements !== undefined) settings.showVisaRequirements = Boolean(showVisaRequirements);
@@ -730,6 +851,45 @@ const getFooterConfig = async (req, res) => {
   }
 };
 
+const uploadSeoAssets = async (req, res) => {
+  try {
+    const settings = await loadSettingsDocument();
+
+    if (req.files?.favicon?.[0]) {
+      const faviconAssets = await saveSeoFaviconAssets(req.files.favicon[0]);
+      settings.seoFaviconUrl = faviconAssets.seoFaviconUrl;
+      settings.seoFavicon32Url = faviconAssets.seoFavicon32Url;
+      settings.seoFavicon192Url = faviconAssets.seoFavicon192Url;
+      settings.seoAppleTouchIconUrl = faviconAssets.seoAppleTouchIconUrl;
+    }
+
+    await settings.save();
+
+    res.json({
+      success: true,
+      settings: sanitizeSettingsForAdminResponse(settings),
+      seo: buildSeoPublicConfig(settings, req),
+      message: 'SEO assets updated successfully',
+    });
+  } catch (error) {
+    console.error('Error uploading SEO assets:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to upload SEO assets' });
+  }
+};
+
+const getSeoConfig = async (req, res) => {
+  try {
+    const settings = await loadSettingsDocument();
+    res.json({
+      success: true,
+      config: buildSeoPublicConfig(settings, req),
+    });
+  } catch (error) {
+    console.error('Error fetching SEO config:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 /**
  * @route   GET /api/config/site-state
  * @desc    Public runtime site flags for the client app shell
@@ -761,4 +921,6 @@ module.exports = {
   getSiteState,
   getCustomerChatConfig,
   getFooterConfig,
+  getSeoConfig,
+  uploadSeoAssets,
 };

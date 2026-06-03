@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const sendEmail = require('../utils/sendEmail');
 const { sendLoginOtpSms } = require('../services/smsService');
+const { sendConfiguredOtp, verifyStoredOtp } = require('../services/otpAuthService');
 const { OAuth2Client } = require('google-auth-library');
 const admin = require('firebase-admin');
 const sharp = require('sharp');
@@ -847,6 +848,92 @@ const updateUserProfile = async (req, res) => {
 };
 
 /**
+ * @route   POST /api/users/profile/phone/request-otp
+ * @desc    Send OTP before adding or changing profile phone
+ * @access  Private
+ */
+const requestProfilePhoneOtp = async (req, res) => {
+  try {
+    const phoneKey = normalizePhoneDigits(req.body.phone);
+    if (!phoneKey || phoneKey.length !== 10) {
+      return res.status(400).json({ success: false, message: 'Enter a valid 10-digit mobile number' });
+    }
+
+    const taken = await User.findOne({
+      _id: { $ne: req.user.id },
+      $or: [{ phone: phoneKey }, { phone: `91${phoneKey}` }, { phone: `+91${phoneKey}` }],
+    });
+    if (taken) {
+      return res.status(400).json({ success: false, message: 'This phone number is already registered' });
+    }
+
+    const result = await sendConfiguredOtp({
+      rawIdentifier: phoneKey,
+      requestedChannel: req.body.channel || 'auto',
+      purpose: 'profile-phone',
+    });
+
+    res.json({
+      success: true,
+      channel: result.channel,
+      otpLength: result.otpLength,
+      message: `OTP sent via ${result.channel}`,
+      ...(result.devOtp ? { devOtp: result.devOtp } : {}),
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to send OTP',
+      waitSeconds: error.waitSeconds,
+    });
+  }
+};
+
+/**
+ * @route   POST /api/users/profile/phone/verify-otp
+ * @desc    Verify OTP and save profile phone
+ * @access  Private
+ */
+const verifyProfilePhoneOtp = async (req, res) => {
+  try {
+    const phoneKey = normalizePhoneDigits(req.body.phone);
+    if (!phoneKey || phoneKey.length !== 10) {
+      return res.status(400).json({ success: false, message: 'Enter a valid 10-digit mobile number' });
+    }
+
+    await verifyStoredOtp({
+      rawIdentifier: phoneKey,
+      otp: req.body.otp,
+      purpose: 'profile-phone',
+      consume: true,
+    });
+
+    const taken = await User.findOne({
+      _id: { $ne: req.user.id },
+      $or: [{ phone: phoneKey }, { phone: `91${phoneKey}` }, { phone: `+91${phoneKey}` }],
+    });
+    if (taken) {
+      return res.status(400).json({ success: false, message: 'This phone number is already registered' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.phone = phoneKey;
+    const updatedUser = await user.save();
+    const { password, ...safeUser } = updatedUser._doc;
+    res.json({ success: true, user: safeUser });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'OTP verification failed',
+    });
+  }
+};
+
+/**
  * @route   PUT /api/users/change-password
  * @desc    Change user password
  * @access  Private
@@ -1250,6 +1337,8 @@ module.exports = {
   loginUser,
   getUserProfile,
   updateUserProfile,
+  requestProfilePhoneOtp,
+  verifyProfilePhoneOtp,
   uploadProfileImage,
   resetPasswordRequest,
   requestForgotPasswordOtp,

@@ -93,6 +93,58 @@ const getVisaInformationDefaultValues = (source = {}) => ({
   entry: String(source?.entryType ?? '').trim() || 'Single',
 });
 
+const normalizeScopedTextConfig = (value = {}, fallbackAll = '') => ({
+  all: String(value?.all ?? fallbackAll ?? '').trim(),
+  single: String(value?.single ?? '').trim(),
+  some: String(value?.some ?? '').trim(),
+});
+
+const normalizeScopedTargetConfig = (value = {}, activeCountryIds = []) => {
+  const activeSet = new Set((activeCountryIds || []).map((id) => String(id ?? '').trim()).filter(Boolean));
+  const singleCountryId = String(value?.singleCountryId ?? '').trim();
+  const someCountryIds = normalizeControlSelectedCountries(value?.someCountryIds).filter((id) =>
+    activeSet.has(id)
+  );
+  return {
+    singleCountryId: activeSet.has(singleCountryId) ? singleCountryId : '',
+    someCountryIds,
+  };
+};
+
+const normalizeVisaTypeSingleCountryOverrides = (value = [], activeCountryIds = []) => {
+  const activeSet = new Set((activeCountryIds || []).map((id) => String(id ?? '').trim()).filter(Boolean));
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value
+    .map((item) => ({
+      countryId: String(item?.countryId ?? '').trim(),
+      visaType: String(item?.visaType ?? '').trim(),
+    }))
+    .filter((item) => item.countryId && item.visaType && activeSet.has(item.countryId))
+    .filter((item) => {
+      if (seen.has(item.countryId)) return false;
+      seen.add(item.countryId);
+      return true;
+    });
+};
+
+const normalizeLengthOfStaySingleCountryOverrides = (value = [], activeCountryIds = []) => {
+  const activeSet = new Set((activeCountryIds || []).map((id) => String(id ?? '').trim()).filter(Boolean));
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value
+    .map((item) => ({
+      countryId: String(item?.countryId ?? '').trim(),
+      lengthOfStay: String(item?.lengthOfStay ?? '').trim(),
+    }))
+    .filter((item) => item.countryId && item.lengthOfStay && activeSet.has(item.countryId))
+    .filter((item) => {
+      if (seen.has(item.countryId)) return false;
+      seen.add(item.countryId);
+      return true;
+    });
+};
+
 const buildDefaultVisaInformation = (source = {}) => {
   const values = getVisaInformationDefaultValues(source);
   return {
@@ -1504,8 +1556,40 @@ const getGlobalCountryDefaults = async (req, res) => {
           activeCountryIds
         ),
         globalVisaType: String(settings?.globalVisaType ?? '').trim(),
+        visaTypeScopeValues: normalizeScopedTextConfig(
+          settings?.visaTypeScopeValues,
+          settings?.globalVisaType
+        ),
+        visaTypeScopeTargets: normalizeScopedTargetConfig(
+          settings?.visaTypeScopeTargets,
+          activeCountryIds
+        ),
+        visaTypeSingleCountryOverrides: normalizeVisaTypeSingleCountryOverrides(
+          Array.isArray(settings?.visaTypeSingleCountryOverrides) && settings.visaTypeSingleCountryOverrides.length > 0
+            ? settings.visaTypeSingleCountryOverrides
+            : settings?.visaTypeScopeTargets?.singleCountryId && settings?.visaTypeScopeValues?.single
+              ? [{ countryId: settings.visaTypeScopeTargets.singleCountryId, visaType: settings.visaTypeScopeValues.single }]
+              : [],
+          activeCountryIds
+        ),
         globalValidity: String(settings?.globalValidity ?? '').trim(),
         globalLengthOfStay: String(settings?.globalLengthOfStay ?? '').trim(),
+        lengthOfStayScopeValues: normalizeScopedTextConfig(
+          settings?.lengthOfStayScopeValues,
+          settings?.globalLengthOfStay
+        ),
+        lengthOfStayScopeTargets: normalizeScopedTargetConfig(
+          settings?.lengthOfStayScopeTargets,
+          activeCountryIds
+        ),
+        lengthOfStaySingleCountryOverrides: normalizeLengthOfStaySingleCountryOverrides(
+          Array.isArray(settings?.lengthOfStaySingleCountryOverrides) && settings.lengthOfStaySingleCountryOverrides.length > 0
+            ? settings.lengthOfStaySingleCountryOverrides
+            : settings?.lengthOfStayScopeTargets?.singleCountryId && settings?.lengthOfStayScopeValues?.single
+              ? [{ countryId: settings.lengthOfStayScopeTargets.singleCountryId, lengthOfStay: settings.lengthOfStayScopeValues.single }]
+              : [],
+          activeCountryIds
+        ),
         globalEntryType: String(settings?.globalEntryType ?? '').trim(),
         globalEntryTypeVisibility: {
           applyToAllActiveCountries: settings?.globalEntryTypeVisibility?.applyToAllActiveCountries !== false,
@@ -2130,23 +2214,134 @@ const saveAllFeeConfigs = async (req, res) => {
  * @body    { visaType: string }
  */
 const updateGlobalVisaType = async (req, res) => {
+  if (req.body?.allCountries || req.body?.singleCountry || req.body?.someCountries) {
+    try {
+      const activeCountries = await Country.find({ isActive: { $ne: false } }, '_id').lean();
+      const activeCountryIds = activeCountries
+        .map((country) => String(country?._id ?? '').trim())
+        .filter(Boolean);
+      const activeCountryIdSet = new Set(activeCountryIds);
+
+      const allCountries = req.body?.allCountries || {};
+      const singleCountry = req.body?.singleCountry || {};
+      const singleCountryOverrides = Array.isArray(req.body?.singleCountryOverrides)
+        ? req.body.singleCountryOverrides
+        : [];
+      const someCountries = req.body?.someCountries || {};
+
+      const allVisaType = String(allCountries.visaType ?? '').trim();
+      if (!allVisaType) {
+        return res.status(400).json({ success: false, message: 'All Countries visa type is required.' });
+      }
+
+      const parsedSingleCountryOverrides = normalizeVisaTypeSingleCountryOverrides(
+        singleCountryOverrides,
+        activeCountryIds
+      );
+      const legacySingleCountryId = String(singleCountry.countryId ?? '').trim();
+      const legacySingleVisaType = String(singleCountry.visaType ?? '').trim();
+      const legacySingleHasAnyValue = Boolean(legacySingleCountryId || legacySingleVisaType);
+      if (legacySingleHasAnyValue && !activeCountryIdSet.has(legacySingleCountryId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select one active country for Single Country.',
+        });
+      }
+      if (legacySingleHasAnyValue && !legacySingleVisaType) {
+        return res.status(400).json({
+          success: false,
+          message: 'Single Country visa type is required.',
+        });
+      }
+      if (legacySingleHasAnyValue && !parsedSingleCountryOverrides.some((item) => item.countryId === legacySingleCountryId)) {
+        parsedSingleCountryOverrides.push({
+          countryId: legacySingleCountryId,
+          visaType: legacySingleVisaType,
+        });
+      }
+
+      const someCountryIds = normalizeControlSelectedCountries(someCountries.countryIds).filter((id) =>
+        activeCountryIdSet.has(id)
+      );
+      const someVisaType = String(someCountries.visaType ?? '').trim();
+      const someHasAnyValue = Boolean(someCountryIds.length > 0 || someVisaType);
+      if (someHasAnyValue && someCountryIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select at least one active country for Some Countries.',
+        });
+      }
+      if (someHasAnyValue && !someVisaType) {
+        return res.status(400).json({
+          success: false,
+          message: 'Some Countries visa type is required.',
+        });
+      }
+
+      const settings = await getOrCreateSettings();
+      settings.globalVisaType = allVisaType;
+      settings.visaTypeScopeValues = {
+        all: allVisaType,
+        single: parsedSingleCountryOverrides[0]?.visaType || '',
+        some: someHasAnyValue ? someVisaType : '',
+      };
+      settings.visaTypeScopeTargets = {
+        singleCountryId: parsedSingleCountryOverrides[0]?.countryId || '',
+        someCountryIds: someHasAnyValue ? someCountryIds : [],
+      };
+      settings.visaTypeSingleCountryOverrides = parsedSingleCountryOverrides;
+      await settings.save();
+
+      await Country.updateMany(
+        { _id: { $in: activeCountryIds } },
+        { $set: { useGlobalVisaType: true, visaType: allVisaType } }
+      );
+
+      if (someHasAnyValue) {
+        await Country.updateMany(
+          { _id: { $in: someCountryIds } },
+          { $set: { useGlobalVisaType: false, visaType: someVisaType } }
+        );
+      }
+
+      for (const override of parsedSingleCountryOverrides) {
+        await Country.updateOne(
+          { _id: override.countryId },
+          { $set: { useGlobalVisaType: false, visaType: override.visaType } }
+        );
+      }
+
+      return res.json({
+        success: true,
+        message: 'All visa type changes saved successfully',
+      });
+    } catch (err) {
+      console.error('[control] saveAllVisaTypeConfigs error:', err);
+      return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+    }
+  }
+
   const visaType = String(req.body?.visaType ?? '').trim();
   console.log('[control] updateGlobalVisaType:', { visaType, admin: req.user?.id || '(none)' });
   if (!visaType) {
     return res.status(400).json({
       success: false,
-      message: 'Visa Type is required — pick a value or type your own.',
+      message: 'Visa Type is required - pick a value or type your own.',
     });
   }
   try {
+    const scope = await resolveControlCountryScope(req.body || {});
     const settings = await getOrCreateSettings();
+    const previousAllVisaType = String(settings?.visaTypeScopeValues?.all ?? settings?.globalVisaType ?? '').trim();
     settings.globalVisaType = visaType;
+    settings.visaTypeScopeValues = {
+      all: scope.applyToAllActiveCountries ? visaType : previousAllVisaType,
+      single: String(settings?.visaTypeScopeValues?.single ?? '').trim(),
+      some: String(settings?.visaTypeScopeValues?.some ?? '').trim(),
+    };
     await settings.save();
-    // Persist on every Country doc too — both flip the "use global" flag and
-    // physically write the value so MongoDB reflects the universal change even
-    // outside the resolve-at-read path.
     const result = await Country.updateMany(
-      {},
+      { _id: { $in: scope.targetIds } },
       { $set: { useGlobalVisaType: true, visaType } }
     );
     res.json({
@@ -2154,14 +2349,13 @@ const updateGlobalVisaType = async (req, res) => {
       globalVisaType: visaType,
       matched: result.matchedCount ?? result.n ?? 0,
       modified: result.modifiedCount ?? result.nModified ?? 0,
-      message: `Visa Type set to "${visaType}" on all countries.`,
+      message: `Visa Type updated for ${scope.applyToAllActiveCountries ? 'all active countries' : 'selected countries'}.`,
     });
   } catch (err) {
     console.error('[control] updateGlobalVisaType error:', err);
-    res.status(500).json({ success: false, message: err.message || 'Server error' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
   }
 };
-
 /**
  * @route   POST /api/admin/control/validity
  * @desc    Mirror of `updateGlobalVisaType` but for `globalValidity`.
@@ -2206,19 +2400,138 @@ const updateGlobalValidity = async (req, res) => {
  * @body    { lengthOfStay: string }
  */
 const updateGlobalLengthOfStay = async (req, res) => {
+  if (req.body?.allCountries || req.body?.singleCountry || req.body?.someCountries) {
+    try {
+      const activeCountries = await Country.find({ isActive: { $ne: false } }, '_id').lean();
+      const activeCountryIds = activeCountries
+        .map((country) => String(country?._id ?? '').trim())
+        .filter(Boolean);
+      const activeCountryIdSet = new Set(activeCountryIds);
+
+      const allCountries = req.body?.allCountries || {};
+      const singleCountry = req.body?.singleCountry || {};
+      const singleCountryOverrides = Array.isArray(req.body?.singleCountryOverrides)
+        ? req.body.singleCountryOverrides
+        : [];
+      const someCountries = req.body?.someCountries || {};
+
+      const allLengthOfStay = String(allCountries.lengthOfStay ?? '').trim();
+      if (!allLengthOfStay) {
+        return res.status(400).json({ success: false, message: 'All Countries length of stay is required.' });
+      }
+
+      const parsedSingleCountryOverrides = normalizeLengthOfStaySingleCountryOverrides(
+        singleCountryOverrides,
+        activeCountryIds
+      );
+      const legacySingleCountryId = String(singleCountry.countryId ?? '').trim();
+      const legacySingleLengthOfStay = String(singleCountry.lengthOfStay ?? '').trim();
+      const legacySingleHasAnyValue = Boolean(legacySingleCountryId || legacySingleLengthOfStay);
+      if (legacySingleHasAnyValue && !activeCountryIdSet.has(legacySingleCountryId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select one active country for Single Country.',
+        });
+      }
+      if (legacySingleHasAnyValue && !legacySingleLengthOfStay) {
+        return res.status(400).json({
+          success: false,
+          message: 'Single Country length of stay is required.',
+        });
+      }
+      if (
+        legacySingleHasAnyValue &&
+        !parsedSingleCountryOverrides.some((item) => item.countryId === legacySingleCountryId)
+      ) {
+        parsedSingleCountryOverrides.push({
+          countryId: legacySingleCountryId,
+          lengthOfStay: legacySingleLengthOfStay,
+        });
+      }
+
+      const someCountryIds = normalizeControlSelectedCountries(someCountries.countryIds).filter((id) =>
+        activeCountryIdSet.has(id)
+      );
+      const someLengthOfStay = String(someCountries.lengthOfStay ?? '').trim();
+      const someHasAnyValue = Boolean(someCountryIds.length > 0 || someLengthOfStay);
+      if (someHasAnyValue && someCountryIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select at least one active country for Some Countries.',
+        });
+      }
+      if (someHasAnyValue && !someLengthOfStay) {
+        return res.status(400).json({
+          success: false,
+          message: 'Some Countries length of stay is required.',
+        });
+      }
+
+      const settings = await getOrCreateSettings();
+      settings.globalLengthOfStay = allLengthOfStay;
+      settings.lengthOfStayScopeValues = {
+        all: allLengthOfStay,
+        single: parsedSingleCountryOverrides[0]?.lengthOfStay || '',
+        some: someHasAnyValue ? someLengthOfStay : '',
+      };
+      settings.lengthOfStayScopeTargets = {
+        singleCountryId: parsedSingleCountryOverrides[0]?.countryId || '',
+        someCountryIds: someHasAnyValue ? someCountryIds : [],
+      };
+      settings.lengthOfStaySingleCountryOverrides = parsedSingleCountryOverrides;
+      await settings.save();
+
+      await Country.updateMany(
+        { _id: { $in: activeCountryIds } },
+        { $set: { useGlobalLengthOfStay: true, lengthOfStay: allLengthOfStay } }
+      );
+
+      if (someHasAnyValue) {
+        await Country.updateMany(
+          { _id: { $in: someCountryIds } },
+          { $set: { useGlobalLengthOfStay: false, lengthOfStay: someLengthOfStay } }
+        );
+      }
+
+      for (const override of parsedSingleCountryOverrides) {
+        await Country.updateOne(
+          { _id: override.countryId },
+          { $set: { useGlobalLengthOfStay: false, lengthOfStay: override.lengthOfStay } }
+        );
+      }
+
+      return res.json({
+        success: true,
+        message: 'All length of stay changes saved successfully',
+      });
+    } catch (err) {
+      console.error('[control] saveAllLengthOfStayConfigs error:', err);
+      return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+    }
+  }
+
   const lengthOfStay = String(req.body?.lengthOfStay ?? '').trim();
   if (!lengthOfStay) {
     return res.status(400).json({
       success: false,
-      message: 'Length of Stay is required — pick a value or type your own.',
+      message: 'Length of Stay is required - pick a value or type your own.',
     });
   }
   try {
+    const scope = await resolveControlCountryScope(req.body || {});
     const settings = await getOrCreateSettings();
+    const previousAllLengthOfStay = String(
+      settings?.lengthOfStayScopeValues?.all ?? settings?.globalLengthOfStay ?? ''
+    ).trim();
     settings.globalLengthOfStay = lengthOfStay;
+    settings.lengthOfStayScopeValues = {
+      all: scope.applyToAllActiveCountries ? lengthOfStay : previousAllLengthOfStay,
+      single: String(settings?.lengthOfStayScopeValues?.single ?? '').trim(),
+      some: String(settings?.lengthOfStayScopeValues?.some ?? '').trim(),
+    };
     await settings.save();
     const result = await Country.updateMany(
-      {},
+      { _id: { $in: scope.targetIds } },
       { $set: { useGlobalLengthOfStay: true, lengthOfStay } }
     );
     res.json({
@@ -2226,14 +2539,13 @@ const updateGlobalLengthOfStay = async (req, res) => {
       globalLengthOfStay: lengthOfStay,
       matched: result.matchedCount ?? result.n ?? 0,
       modified: result.modifiedCount ?? result.nModified ?? 0,
-      message: `Length of Stay set to "${lengthOfStay}" on all countries.`,
+      message: `Length of Stay updated for ${scope.applyToAllActiveCountries ? 'all active countries' : 'selected countries'}.`,
     });
   } catch (err) {
     console.error('[control] updateGlobalLengthOfStay error:', err);
-    res.status(500).json({ success: false, message: err.message || 'Server error' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
   }
 };
-
 /**
  * @route   POST /api/admin/control/entry-type
  * @desc    Set the universal `globalEntryType` and flip every country's
@@ -2675,3 +2987,5 @@ module.exports = {
   resetCountryPopularity,
   resetAllCountryPopularity,
 };
+
+
