@@ -99,8 +99,9 @@ async function getUnsplashPhoto(country, accessKey) {
   return null;
 }
 
-function buildCountryFilter(onlyMissing, onlyTrending) {
+function buildCountryFilter(onlyMissing, onlyTrending, onlyActive) {
   const parts = [];
+  if (onlyActive) parts.push({ isActive: { $ne: false } });
   if (onlyTrending) parts.push({ trending: true });
   if (onlyMissing) {
     parts.push({
@@ -120,6 +121,7 @@ function buildCountryFilter(onlyMissing, onlyTrending) {
 async function processUnsplashCountryImageBatch({
   onlyMissing = false,
   onlyTrending = false,
+  onlyActive = false,
   skip = 0,
   limit = 25,
   accessKeyOverride = '',
@@ -134,7 +136,7 @@ async function processUnsplashCountryImageBatch({
     };
   }
 
-  const filter = buildCountryFilter(onlyMissing, onlyTrending);
+  const filter = buildCountryFilter(onlyMissing, onlyTrending, onlyActive);
   const totalMatching = await Country.countDocuments(filter);
   const sort = onlyTrending ? { name: 1 } : { trending: -1, name: 1 };
   const countries = await Country.find(filter).sort(sort).skip(skip).limit(limit);
@@ -166,6 +168,7 @@ async function processUnsplashCountryImageBatch({
     success: true,
     onlyMissing,
     onlyTrending,
+    onlyActive,
     skip,
     limit,
     processed,

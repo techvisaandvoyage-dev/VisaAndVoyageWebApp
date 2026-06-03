@@ -131,7 +131,7 @@ const updateFooterSocialIcon = async (req, res) => {
     };
     if (payload.order !== undefined) update.order = payload.order;
 
-    const icon = await FooterSocialIcon.findByIdAndUpdate(req.params.id, update, { new: true });
+    const icon = await FooterSocialIcon.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after' });
     if (!icon) {
       return res.status(404).json({ success: false, message: 'Footer social icon not found.' });
     }

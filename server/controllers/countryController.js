@@ -1251,7 +1251,7 @@ const trackCountryVisit = async (req, res) => {
         $set: { lastVisitedAt: new Date() },
       },
       {
-        new: true,
+        returnDocument: 'after',
         projection: { _id: 1, slug: 1, visitCount: 1, lastVisitedAt: 1, isActive: 1 },
       }
     ).lean();
@@ -1476,6 +1476,7 @@ const refreshUnsplashCountryImages = async (req, res) => {
   try {
     const onlyMissing = Boolean(req.body?.onlyMissing);
     const onlyTrending = Boolean(req.body?.onlyTrending);
+    const onlyActive = Boolean(req.body?.onlyActive);
     const skip = Math.max(0, parseInt(String(req.body?.skip ?? '0'), 10) || 0);
     const rawLimit = parseInt(String(req.body?.limit ?? '25'), 10);
     const limit = Math.min(50, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 25));
@@ -1485,6 +1486,7 @@ const refreshUnsplashCountryImages = async (req, res) => {
     const result = await processUnsplashCountryImageBatch({
       onlyMissing,
       onlyTrending,
+      onlyActive,
       skip,
       limit,
       accessKeyOverride,
