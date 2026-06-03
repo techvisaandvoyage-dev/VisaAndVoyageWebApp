@@ -323,6 +323,24 @@ const settingsSchema = new mongoose.Schema({
   },
   /** Universal "Validity" applied the same way. */
   globalValidity: { type: String, default: '', trim: true },
+  validityScopeValues: {
+    all: { type: String, default: '', trim: true },
+    single: { type: String, default: '', trim: true },
+    some: { type: String, default: '', trim: true },
+  },
+  validityScopeTargets: {
+    singleCountryId: { type: String, trim: true, default: '' },
+    someCountryIds: [{ type: String, trim: true }],
+  },
+  validitySingleCountryOverrides: {
+    type: [
+      {
+        countryId: { type: String, trim: true, required: true },
+        validity: { type: String, trim: true, required: true },
+      },
+    ],
+    default: [],
+  },
   /** Universal "Length of Stay" applied the same way. */
   globalLengthOfStay: { type: String, default: '', trim: true },
   lengthOfStayScopeValues: {
@@ -345,8 +363,44 @@ const settingsSchema = new mongoose.Schema({
   },
   /** Universal "Entry" / entry type applied the same way. */
   globalEntryType: { type: String, default: '', trim: true },
+  entryTypeScopeValues: {
+    all: { type: String, default: '', trim: true },
+    single: { type: String, default: '', trim: true },
+    some: { type: String, default: '', trim: true },
+  },
+  entryTypeScopeTargets: {
+    singleCountryId: { type: String, trim: true, default: '' },
+    someCountryIds: [{ type: String, trim: true }],
+  },
+  entryTypeSingleCountryOverrides: {
+    type: [
+      {
+        countryId: { type: String, trim: true, required: true },
+        entryType: { type: String, trim: true, required: true },
+      },
+    ],
+    default: [],
+  },
   /** Universal "Processing Days" (free text e.g. "5-10", "2-3 weeks") applied the same way. */
   globalProcessingDays: { type: String, default: '', trim: true },
+  processingDaysScopeValues: {
+    all: { type: String, default: '', trim: true },
+    single: { type: String, default: '', trim: true },
+    some: { type: String, default: '', trim: true },
+  },
+  processingDaysScopeTargets: {
+    singleCountryId: { type: String, trim: true, default: '' },
+    someCountryIds: [{ type: String, trim: true }],
+  },
+  processingDaysSingleCountryOverrides: {
+    type: [
+      {
+        countryId: { type: String, trim: true, required: true },
+        processingDays: { type: String, trim: true, required: true },
+      },
+    ],
+    default: [],
+  },
   globalBasePrice: { type: Number, default: null },
   globalGovernmentFee: { type: Number, default: null },
   globalBasePriceVisibility: {

@@ -145,6 +145,57 @@ const normalizeLengthOfStaySingleCountryOverrides = (value = [], activeCountryId
     });
 };
 
+const normalizeEntryTypeSingleCountryOverrides = (value = [], activeCountryIds = []) => {
+  const activeSet = new Set((activeCountryIds || []).map((id) => String(id ?? '').trim()).filter(Boolean));
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value
+    .map((item) => ({
+      countryId: String(item?.countryId ?? '').trim(),
+      entryType: String(item?.entryType ?? '').trim(),
+    }))
+    .filter((item) => item.countryId && item.entryType && activeSet.has(item.countryId))
+    .filter((item) => {
+      if (seen.has(item.countryId)) return false;
+      seen.add(item.countryId);
+      return true;
+    });
+};
+
+const normalizeValiditySingleCountryOverrides = (value = [], activeCountryIds = []) => {
+  const activeSet = new Set((activeCountryIds || []).map((id) => String(id ?? '').trim()).filter(Boolean));
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value
+    .map((item) => ({
+      countryId: String(item?.countryId ?? '').trim(),
+      validity: String(item?.validity ?? '').trim(),
+    }))
+    .filter((item) => item.countryId && item.validity && activeSet.has(item.countryId))
+    .filter((item) => {
+      if (seen.has(item.countryId)) return false;
+      seen.add(item.countryId);
+      return true;
+    });
+};
+
+const normalizeProcessingDaysSingleCountryOverrides = (value = [], activeCountryIds = []) => {
+  const activeSet = new Set((activeCountryIds || []).map((id) => String(id ?? '').trim()).filter(Boolean));
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value
+    .map((item) => ({
+      countryId: String(item?.countryId ?? '').trim(),
+      processingDays: String(item?.processingDays ?? '').trim(),
+    }))
+    .filter((item) => item.countryId && item.processingDays && activeSet.has(item.countryId))
+    .filter((item) => {
+      if (seen.has(item.countryId)) return false;
+      seen.add(item.countryId);
+      return true;
+    });
+};
+
 const buildDefaultVisaInformation = (source = {}) => {
   const values = getVisaInformationDefaultValues(source);
   return {
@@ -1573,6 +1624,22 @@ const getGlobalCountryDefaults = async (req, res) => {
           activeCountryIds
         ),
         globalValidity: String(settings?.globalValidity ?? '').trim(),
+        validityScopeValues: normalizeScopedTextConfig(
+          settings?.validityScopeValues,
+          settings?.globalValidity
+        ),
+        validityScopeTargets: normalizeScopedTargetConfig(
+          settings?.validityScopeTargets,
+          activeCountryIds
+        ),
+        validitySingleCountryOverrides: normalizeValiditySingleCountryOverrides(
+          Array.isArray(settings?.validitySingleCountryOverrides) && settings.validitySingleCountryOverrides.length > 0
+            ? settings.validitySingleCountryOverrides
+            : settings?.validityScopeTargets?.singleCountryId && settings?.validityScopeValues?.single
+              ? [{ countryId: settings.validityScopeTargets.singleCountryId, validity: settings.validityScopeValues.single }]
+              : [],
+          activeCountryIds
+        ),
         globalLengthOfStay: String(settings?.globalLengthOfStay ?? '').trim(),
         lengthOfStayScopeValues: normalizeScopedTextConfig(
           settings?.lengthOfStayScopeValues,
@@ -1591,11 +1658,43 @@ const getGlobalCountryDefaults = async (req, res) => {
           activeCountryIds
         ),
         globalEntryType: String(settings?.globalEntryType ?? '').trim(),
+        entryTypeScopeValues: normalizeScopedTextConfig(
+          settings?.entryTypeScopeValues,
+          settings?.globalEntryType
+        ),
+        entryTypeScopeTargets: normalizeScopedTargetConfig(
+          settings?.entryTypeScopeTargets,
+          activeCountryIds
+        ),
+        entryTypeSingleCountryOverrides: normalizeEntryTypeSingleCountryOverrides(
+          Array.isArray(settings?.entryTypeSingleCountryOverrides) && settings.entryTypeSingleCountryOverrides.length > 0
+            ? settings.entryTypeSingleCountryOverrides
+            : settings?.entryTypeScopeTargets?.singleCountryId && settings?.entryTypeScopeValues?.single
+              ? [{ countryId: settings.entryTypeScopeTargets.singleCountryId, entryType: settings.entryTypeScopeValues.single }]
+              : [],
+          activeCountryIds
+        ),
         globalEntryTypeVisibility: {
           applyToAllActiveCountries: settings?.globalEntryTypeVisibility?.applyToAllActiveCountries !== false,
           selectedCountries: normalizeControlSelectedCountries(settings?.globalEntryTypeVisibility?.selectedCountries),
         },
         globalProcessingDays: String(settings?.globalProcessingDays ?? '').trim(),
+        processingDaysScopeValues: normalizeScopedTextConfig(
+          settings?.processingDaysScopeValues,
+          settings?.globalProcessingDays
+        ),
+        processingDaysScopeTargets: normalizeScopedTargetConfig(
+          settings?.processingDaysScopeTargets,
+          activeCountryIds
+        ),
+        processingDaysSingleCountryOverrides: normalizeProcessingDaysSingleCountryOverrides(
+          Array.isArray(settings?.processingDaysSingleCountryOverrides) && settings.processingDaysSingleCountryOverrides.length > 0
+            ? settings.processingDaysSingleCountryOverrides
+            : settings?.processingDaysScopeTargets?.singleCountryId && settings?.processingDaysScopeValues?.single
+              ? [{ countryId: settings.processingDaysScopeTargets.singleCountryId, processingDays: settings.processingDaysScopeValues.single }]
+              : [],
+          activeCountryIds
+        ),
         globalProcessingDaysVisibility: {
           applyToAllActiveCountries: settings?.globalProcessingDaysVisibility?.applyToAllActiveCountries !== false,
           selectedCountries: normalizeControlSelectedCountries(settings?.globalProcessingDaysVisibility?.selectedCountries),
@@ -2363,6 +2462,116 @@ const updateGlobalVisaType = async (req, res) => {
  * @body    { validity: string }
  */
 const updateGlobalValidity = async (req, res) => {
+  if (req.body?.allCountries || req.body?.singleCountry || req.body?.someCountries) {
+    try {
+      const activeCountries = await Country.find({ isActive: { $ne: false } }, '_id').lean();
+      const activeCountryIds = activeCountries
+        .map((country) => String(country?._id ?? '').trim())
+        .filter(Boolean);
+      const activeCountryIdSet = new Set(activeCountryIds);
+
+      const allCountries = req.body?.allCountries || {};
+      const singleCountry = req.body?.singleCountry || {};
+      const singleCountryOverrides = Array.isArray(req.body?.singleCountryOverrides)
+        ? req.body.singleCountryOverrides
+        : [];
+      const someCountries = req.body?.someCountries || {};
+
+      const allValidity = String(allCountries.validity ?? '').trim();
+      if (!allValidity) {
+        return res.status(400).json({ success: false, message: 'All Countries validity is required.' });
+      }
+
+      const parsedSingleCountryOverrides = normalizeValiditySingleCountryOverrides(
+        singleCountryOverrides,
+        activeCountryIds
+      );
+      const legacySingleCountryId = String(singleCountry.countryId ?? '').trim();
+      const legacySingleValidity = String(singleCountry.validity ?? '').trim();
+      const legacySingleHasAnyValue = Boolean(legacySingleCountryId || legacySingleValidity);
+      if (legacySingleHasAnyValue && !activeCountryIdSet.has(legacySingleCountryId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select one active country for Single Country.',
+        });
+      }
+      if (legacySingleHasAnyValue && !legacySingleValidity) {
+        return res.status(400).json({
+          success: false,
+          message: 'Single Country validity is required.',
+        });
+      }
+      if (
+        legacySingleHasAnyValue &&
+        !parsedSingleCountryOverrides.some((item) => item.countryId === legacySingleCountryId)
+      ) {
+        parsedSingleCountryOverrides.push({
+          countryId: legacySingleCountryId,
+          validity: legacySingleValidity,
+        });
+      }
+
+      const someCountryIds = normalizeControlSelectedCountries(someCountries.countryIds).filter((id) =>
+        activeCountryIdSet.has(id)
+      );
+      const someValidity = String(someCountries.validity ?? '').trim();
+      const someHasAnyValue = Boolean(someCountryIds.length > 0 || someValidity);
+      if (someHasAnyValue && someCountryIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select at least one active country for Some Countries.',
+        });
+      }
+      if (someHasAnyValue && !someValidity) {
+        return res.status(400).json({
+          success: false,
+          message: 'Some Countries validity is required.',
+        });
+      }
+
+      const settings = await getOrCreateSettings();
+      settings.globalValidity = allValidity;
+      settings.validityScopeValues = {
+        all: allValidity,
+        single: parsedSingleCountryOverrides[0]?.validity || '',
+        some: someHasAnyValue ? someValidity : '',
+      };
+      settings.validityScopeTargets = {
+        singleCountryId: parsedSingleCountryOverrides[0]?.countryId || '',
+        someCountryIds: someHasAnyValue ? someCountryIds : [],
+      };
+      settings.validitySingleCountryOverrides = parsedSingleCountryOverrides;
+      await settings.save();
+
+      await Country.updateMany(
+        { _id: { $in: activeCountryIds } },
+        { $set: { useGlobalValidity: true, validity: allValidity } }
+      );
+
+      if (someHasAnyValue) {
+        await Country.updateMany(
+          { _id: { $in: someCountryIds } },
+          { $set: { useGlobalValidity: false, validity: someValidity } }
+        );
+      }
+
+      for (const override of parsedSingleCountryOverrides) {
+        await Country.updateOne(
+          { _id: override.countryId },
+          { $set: { useGlobalValidity: false, validity: override.validity } }
+        );
+      }
+
+      return res.json({
+        success: true,
+        message: 'All validity changes saved successfully',
+      });
+    } catch (err) {
+      console.error('[control] saveAllValidityConfigs error:', err);
+      return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+    }
+  }
+
   const validity = String(req.body?.validity ?? '').trim();
   console.log('[control] updateGlobalValidity:', { validity, admin: req.user?.id || '(none)' });
   if (!validity) {
@@ -2373,10 +2582,17 @@ const updateGlobalValidity = async (req, res) => {
   }
   try {
     const settings = await getOrCreateSettings();
+    const scope = await resolveControlCountryScope(req.body || {});
+    const previousAllValidity = String(settings?.validityScopeValues?.all ?? settings?.globalValidity ?? '').trim();
     settings.globalValidity = validity;
+    settings.validityScopeValues = {
+      all: scope.applyToAllActiveCountries ? validity : previousAllValidity,
+      single: String(settings?.validityScopeValues?.single ?? '').trim(),
+      some: String(settings?.validityScopeValues?.some ?? '').trim(),
+    };
     await settings.save();
     const result = await Country.updateMany(
-      {},
+      { _id: { $in: scope.targetIds } },
       { $set: { useGlobalValidity: true, validity } }
     );
     res.json({
@@ -2384,7 +2600,7 @@ const updateGlobalValidity = async (req, res) => {
       globalValidity: validity,
       matched: result.matchedCount ?? result.n ?? 0,
       modified: result.modifiedCount ?? result.nModified ?? 0,
-      message: `Validity set to "${validity}" on all countries.`,
+      message: `Validity updated for ${scope.applyToAllActiveCountries ? 'all active countries' : 'selected countries'}.`,
     });
   } catch (err) {
     console.error('[control] updateGlobalValidity error:', err);
@@ -2554,6 +2770,120 @@ const updateGlobalLengthOfStay = async (req, res) => {
  * @body    { entryType: string }
  */
 const updateGlobalEntryType = async (req, res) => {
+  if (req.body?.allCountries || req.body?.singleCountry || req.body?.someCountries) {
+    try {
+      const activeCountries = await Country.find({ isActive: { $ne: false } }, '_id').lean();
+      const activeCountryIds = activeCountries
+        .map((country) => String(country?._id ?? '').trim())
+        .filter(Boolean);
+      const activeCountryIdSet = new Set(activeCountryIds);
+
+      const allCountries = req.body?.allCountries || {};
+      const singleCountry = req.body?.singleCountry || {};
+      const singleCountryOverrides = Array.isArray(req.body?.singleCountryOverrides)
+        ? req.body.singleCountryOverrides
+        : [];
+      const someCountries = req.body?.someCountries || {};
+
+      const allEntryType = String(allCountries.entryType ?? '').trim();
+      if (!allEntryType) {
+        return res.status(400).json({ success: false, message: 'All Countries entry type is required.' });
+      }
+
+      const parsedSingleCountryOverrides = normalizeEntryTypeSingleCountryOverrides(
+        singleCountryOverrides,
+        activeCountryIds
+      );
+      const legacySingleCountryId = String(singleCountry.countryId ?? '').trim();
+      const legacySingleEntryType = String(singleCountry.entryType ?? '').trim();
+      const legacySingleHasAnyValue = Boolean(legacySingleCountryId || legacySingleEntryType);
+      if (legacySingleHasAnyValue && !activeCountryIdSet.has(legacySingleCountryId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select one active country for Single Country.',
+        });
+      }
+      if (legacySingleHasAnyValue && !legacySingleEntryType) {
+        return res.status(400).json({
+          success: false,
+          message: 'Single Country entry type is required.',
+        });
+      }
+      if (
+        legacySingleHasAnyValue &&
+        !parsedSingleCountryOverrides.some((item) => item.countryId === legacySingleCountryId)
+      ) {
+        parsedSingleCountryOverrides.push({
+          countryId: legacySingleCountryId,
+          entryType: legacySingleEntryType,
+        });
+      }
+
+      const someCountryIds = normalizeControlSelectedCountries(someCountries.countryIds).filter((id) =>
+        activeCountryIdSet.has(id)
+      );
+      const someEntryType = String(someCountries.entryType ?? '').trim();
+      const someHasAnyValue = Boolean(someCountryIds.length > 0 || someEntryType);
+      if (someHasAnyValue && someCountryIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select at least one active country for Some Countries.',
+        });
+      }
+      if (someHasAnyValue && !someEntryType) {
+        return res.status(400).json({
+          success: false,
+          message: 'Some Countries entry type is required.',
+        });
+      }
+
+      const settings = await getOrCreateSettings();
+      settings.globalEntryType = allEntryType;
+      settings.entryTypeScopeValues = {
+        all: allEntryType,
+        single: parsedSingleCountryOverrides[0]?.entryType || '',
+        some: someHasAnyValue ? someEntryType : '',
+      };
+      settings.entryTypeScopeTargets = {
+        singleCountryId: parsedSingleCountryOverrides[0]?.countryId || '',
+        someCountryIds: someHasAnyValue ? someCountryIds : [],
+      };
+      settings.entryTypeSingleCountryOverrides = parsedSingleCountryOverrides;
+      settings.globalEntryTypeVisibility = {
+        applyToAllActiveCountries: true,
+        selectedCountries: [],
+      };
+      await settings.save();
+
+      await Country.updateMany(
+        { _id: { $in: activeCountryIds } },
+        { $set: { useGlobalEntryType: true, entryType: allEntryType } }
+      );
+
+      if (someHasAnyValue) {
+        await Country.updateMany(
+          { _id: { $in: someCountryIds } },
+          { $set: { useGlobalEntryType: false, entryType: someEntryType } }
+        );
+      }
+
+      for (const override of parsedSingleCountryOverrides) {
+        await Country.updateOne(
+          { _id: override.countryId },
+          { $set: { useGlobalEntryType: false, entryType: override.entryType } }
+        );
+      }
+
+      return res.json({
+        success: true,
+        message: 'All entry changes saved successfully',
+      });
+    } catch (err) {
+      console.error('[control] saveAllEntryTypeConfigs error:', err);
+      return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+    }
+  }
+
   const entryType = String(req.body?.entryType ?? '').trim();
   if (!entryType) {
     return res.status(400).json({
@@ -2565,6 +2895,12 @@ const updateGlobalEntryType = async (req, res) => {
     const scope = await resolveControlCountryScope(req.body || {});
     const settings = await getOrCreateSettings();
     settings.globalEntryType = entryType;
+    const previousAllEntryType = String(settings?.entryTypeScopeValues?.all ?? settings?.globalEntryType ?? '').trim();
+    settings.entryTypeScopeValues = {
+      all: scope.applyToAllActiveCountries ? entryType : previousAllEntryType,
+      single: String(settings?.entryTypeScopeValues?.single ?? '').trim(),
+      some: String(settings?.entryTypeScopeValues?.some ?? '').trim(),
+    };
     settings.globalEntryTypeVisibility = {
       applyToAllActiveCountries: scope.applyToAllActiveCountries,
       selectedCountries: scope.selectedCountries,
@@ -2595,6 +2931,120 @@ const updateGlobalEntryType = async (req, res) => {
  * @body    { processingDays: string }
  */
 const updateGlobalProcessingDays = async (req, res) => {
+  if (req.body?.allCountries || req.body?.singleCountry || req.body?.someCountries) {
+    try {
+      const activeCountries = await Country.find({ isActive: { $ne: false } }, '_id').lean();
+      const activeCountryIds = activeCountries
+        .map((country) => String(country?._id ?? '').trim())
+        .filter(Boolean);
+      const activeCountryIdSet = new Set(activeCountryIds);
+
+      const allCountries = req.body?.allCountries || {};
+      const singleCountry = req.body?.singleCountry || {};
+      const singleCountryOverrides = Array.isArray(req.body?.singleCountryOverrides)
+        ? req.body.singleCountryOverrides
+        : [];
+      const someCountries = req.body?.someCountries || {};
+
+      const allProcessingDays = String(allCountries.processingDays ?? '').trim();
+      if (!allProcessingDays) {
+        return res.status(400).json({ success: false, message: 'All Countries processing days is required.' });
+      }
+
+      const parsedSingleCountryOverrides = normalizeProcessingDaysSingleCountryOverrides(
+        singleCountryOverrides,
+        activeCountryIds
+      );
+      const legacySingleCountryId = String(singleCountry.countryId ?? '').trim();
+      const legacySingleProcessingDays = String(singleCountry.processingDays ?? '').trim();
+      const legacySingleHasAnyValue = Boolean(legacySingleCountryId || legacySingleProcessingDays);
+      if (legacySingleHasAnyValue && !activeCountryIdSet.has(legacySingleCountryId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select one active country for Single Country.',
+        });
+      }
+      if (legacySingleHasAnyValue && !legacySingleProcessingDays) {
+        return res.status(400).json({
+          success: false,
+          message: 'Single Country processing days is required.',
+        });
+      }
+      if (
+        legacySingleHasAnyValue &&
+        !parsedSingleCountryOverrides.some((item) => item.countryId === legacySingleCountryId)
+      ) {
+        parsedSingleCountryOverrides.push({
+          countryId: legacySingleCountryId,
+          processingDays: legacySingleProcessingDays,
+        });
+      }
+
+      const someCountryIds = normalizeControlSelectedCountries(someCountries.countryIds).filter((id) =>
+        activeCountryIdSet.has(id)
+      );
+      const someProcessingDays = String(someCountries.processingDays ?? '').trim();
+      const someHasAnyValue = Boolean(someCountryIds.length > 0 || someProcessingDays);
+      if (someHasAnyValue && someCountryIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select at least one active country for Some Countries.',
+        });
+      }
+      if (someHasAnyValue && !someProcessingDays) {
+        return res.status(400).json({
+          success: false,
+          message: 'Some Countries processing days is required.',
+        });
+      }
+
+      const settings = await getOrCreateSettings();
+      settings.globalProcessingDays = allProcessingDays;
+      settings.processingDaysScopeValues = {
+        all: allProcessingDays,
+        single: parsedSingleCountryOverrides[0]?.processingDays || '',
+        some: someHasAnyValue ? someProcessingDays : '',
+      };
+      settings.processingDaysScopeTargets = {
+        singleCountryId: parsedSingleCountryOverrides[0]?.countryId || '',
+        someCountryIds: someHasAnyValue ? someCountryIds : [],
+      };
+      settings.processingDaysSingleCountryOverrides = parsedSingleCountryOverrides;
+      settings.globalProcessingDaysVisibility = {
+        applyToAllActiveCountries: true,
+        selectedCountries: [],
+      };
+      await settings.save();
+
+      await Country.updateMany(
+        { _id: { $in: activeCountryIds } },
+        { $set: { useGlobalProcessingDays: true, processingDays: allProcessingDays } }
+      );
+
+      if (someHasAnyValue) {
+        await Country.updateMany(
+          { _id: { $in: someCountryIds } },
+          { $set: { useGlobalProcessingDays: false, processingDays: someProcessingDays } }
+        );
+      }
+
+      for (const override of parsedSingleCountryOverrides) {
+        await Country.updateOne(
+          { _id: override.countryId },
+          { $set: { useGlobalProcessingDays: false, processingDays: override.processingDays } }
+        );
+      }
+
+      return res.json({
+        success: true,
+        message: 'All processing days changes saved successfully',
+      });
+    } catch (err) {
+      console.error('[control] saveAllProcessingDaysConfigs error:', err);
+      return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+    }
+  }
+
   const processingDays = String(req.body?.processingDays ?? '').trim();
   console.log('[control] updateGlobalProcessingDays:', {
     processingDays,
@@ -2610,6 +3060,14 @@ const updateGlobalProcessingDays = async (req, res) => {
     const scope = await resolveControlCountryScope(req.body || {});
     const settings = await getOrCreateSettings();
     settings.globalProcessingDays = processingDays;
+    const previousAllProcessingDays = String(
+      settings?.processingDaysScopeValues?.all ?? settings?.globalProcessingDays ?? ''
+    ).trim();
+    settings.processingDaysScopeValues = {
+      all: scope.applyToAllActiveCountries ? processingDays : previousAllProcessingDays,
+      single: String(settings?.processingDaysScopeValues?.single ?? '').trim(),
+      some: String(settings?.processingDaysScopeValues?.some ?? '').trim(),
+    };
     settings.globalProcessingDaysVisibility = {
       applyToAllActiveCountries: scope.applyToAllActiveCountries,
       selectedCountries: scope.selectedCountries,
