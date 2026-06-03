@@ -12,36 +12,32 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 const app = express();
 app.set('trust proxy', 1); // Render / other reverse proxies
 
-const DEFAULT_ALLOWED_ORIGINS = [
-  'https://visavo.in',
-  'https://www.visavo.in',
-  'https://admin.visavo.in',
-  'https://www.admin.visavo.in',
-  'https://api.visavo.in',
-  'https://visa-voyage-client.onrender.com',
-  'https://visa-voyage-admin.onrender.com',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5177',
-  'http://localhost:3000',
+const allowedOrigins = [
+  "https://visavo.in",
+  "https://www.visavo.in",
+  "https://admin.visavo.in",
+  "https://www.admin.visavo.in",
+  "https://api.visavo.in",
+  "https://visa-voyage-client.onrender.com",
+  "https://visa-voyage-admin.onrender.com",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000"
 ];
 
-const allowedOrigins = new Set([
-  ...DEFAULT_ALLOWED_ORIGINS,
-  ...String(process.env.CORS_ORIGINS || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean),
-]);
-
 const corsOptions = {
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) {
-      callback(null, true);
-      return;
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
-    callback(new Error(`CORS blocked origin: ${origin}`));
+
+    return callback(new Error("Not allowed by CORS: " + origin));
   },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-auth-token"]
 };
 
 // Middleware
@@ -51,8 +47,25 @@ app.use(helmet({
   frameguard: false,
 }));
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
+
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
+
+// Health Check Routes
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Visavo API is running"
+  });
+});
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Backend is healthy"
+  });
+});
 
 // Optional request logger middleware. Keep disabled by default to avoid noisy terminals.
 const requestLoggingEnabled = String(process.env.ENABLE_API_REQUEST_LOGS || "").trim() === "1";
@@ -525,71 +538,63 @@ app.get('/api/support/conversations/client/chat', optionalAuth, async (req, res)
   }
 });
 
-// ✅ Simple test route (IMPORTANT)
-app.get('/', (req, res) => {
-  res.send('API is running...');
-});
-
-// Server start (wait for DB so MONGO_URI errors fail before binding the port)
+// Server start
 const PORT = process.env.PORT || 5000;
 
-(async () => {
-  await connectDB();
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
-  app.listen(PORT, async () => {
-    console.log(`Server running on port ${PORT}`);
+// Database connection and seeding (done asynchronously so app.listen isn't blocked)
+connectDB().then(async () => {
+  // Create a first admin only for a genuinely empty Admin collection.
+  // Never update an existing admin here: dashboard password changes must
+  // survive every redeploy/restart.
+  try {
+    const Admin = require('./models/Admin');
 
-    // Create a first admin only for a genuinely empty Admin collection.
-    // Never update an existing admin here: dashboard password changes must
-    // survive every redeploy/restart.
-    try {
-      const Admin = require('./models/Admin');
-
-      const adminCount = await Admin.countDocuments();
-      if (adminCount === 0) {
-        const bootstrapEmail = String(process.env.BOOTSTRAP_ADMIN_EMAIL || 'tech.visaandvoyage@gmail.com')
-          .trim()
-          .toLowerCase();
-        const bootstrapPassword = String(process.env.BOOTSTRAP_ADMIN_PASSWORD || 'admin123');
-        await Admin.create({ email: bootstrapEmail, password: bootstrapPassword });
-        console.log(`Bootstrap Admin account created: ${bootstrapEmail}`);
-      } else {
-        console.log(`Admin seed skipped: ${adminCount} admin account(s) already exist.`);
-      }
-    } catch (err) {
-      console.log('Skipping admin seed:', err.message);
+    const adminCount = await Admin.countDocuments();
+    if (adminCount === 0) {
+      const bootstrapEmail = String(process.env.BOOTSTRAP_ADMIN_EMAIL || 'tech.visaandvoyage@gmail.com')
+        .trim()
+        .toLowerCase();
+      const bootstrapPassword = String(process.env.BOOTSTRAP_ADMIN_PASSWORD || 'admin123');
+      await Admin.create({ email: bootstrapEmail, password: bootstrapPassword });
+      console.log(`Bootstrap Admin account created: ${bootstrapEmail}`);
+    } else {
+      console.log(`Admin seed skipped: ${adminCount} admin account(s) already exist.`);
     }
+  } catch (err) {
+    console.log('Skipping admin seed:', err.message);
+  }
 
-    // ── Seed countries on first boot + keep list at 195 ───────────
-    try {
-      const { seedCountries, syncMissingCountries } = require('./seedCountries');
-      await seedCountries();
-      await syncMissingCountries();
-    } catch (err) {
-      console.log('Skipping country seed:', err.message);
-    }
+  // ── Seed countries on first boot + keep list at 195 ───────────
+  try {
+    const { seedCountries, syncMissingCountries } = require('./seedCountries');
+    await seedCountries();
+    await syncMissingCountries();
+  } catch (err) {
+    console.log('Skipping country seed:', err.message);
+  }
 
-    // ── Seed default static CMS pages (Terms & Conditions, etc.) ──
-    // Idempotent: inserts only when slug is missing, never overwrites admin
-    // edits. Failures here must not block server boot.
-    try {
-      const { seedStaticPages } = require('./seedStaticPages');
-      await seedStaticPages();
-    } catch (err) {
-      console.log('Skipping static page seed:', err.message);
-    }
+  // ── Seed default static CMS pages (Terms & Conditions, etc.) ──
+  try {
+    const { seedStaticPages } = require('./seedStaticPages');
+    await seedStaticPages();
+  } catch (err) {
+    console.log('Skipping static page seed:', err.message);
+  }
 
-    // ── Seed sample blog categories + posts ─────────────────────
-    // Same idempotent contract: skips items whose slug is already present so
-    // admin edits and deletions persist across restarts.
-    try {
-      const { seedBlog } = require('./seedBlog');
-      const result = await seedBlog();
-      if (result.ok && result.postsInserted) {
-        console.log(`Seeded ${result.postsInserted} sample blog posts.`);
-      }
-    } catch (err) {
-      console.log('Skipping blog seed:', err.message);
+  // ── Seed sample blog categories + posts ─────────────────────
+  try {
+    const { seedBlog } = require('./seedBlog');
+    const result = await seedBlog();
+    if (result.ok && result.postsInserted) {
+      console.log(`Seeded ${result.postsInserted} sample blog posts.`);
     }
-  });
-})();
+  } catch (err) {
+    console.log('Skipping blog seed:', err.message);
+  }
+}).catch((err) => {
+  console.error('Failed to connect to database on startup:', err);
+});
