@@ -149,6 +149,11 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     default: 'We typically reply in a few minutes'
   },
+  footerLogo: {
+    type: String,
+    default: ''
+  },
+  // Deprecated fields: footerBrandPrimaryText and footerBrandAccentText
   footerBrandPrimaryText: {
     type: String,
     default: ''

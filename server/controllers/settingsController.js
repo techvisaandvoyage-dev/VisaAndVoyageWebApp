@@ -486,6 +486,7 @@ const updateSettings = async (req, res) => {
       customerChatDescription,
       customerChatHeaderTitle,
       customerChatHeaderSubtitle,
+      footerLogo,
       footerBrandPrimaryText,
       footerBrandAccentText,
       footerDescription,
@@ -573,6 +574,7 @@ const updateSettings = async (req, res) => {
     if (customerChatDescription !== undefined) settings.customerChatDescription = String(customerChatDescription || '').trim();
     if (customerChatHeaderTitle !== undefined) settings.customerChatHeaderTitle = String(customerChatHeaderTitle || '').trim();
     if (customerChatHeaderSubtitle !== undefined) settings.customerChatHeaderSubtitle = String(customerChatHeaderSubtitle || '').trim();
+    if (footerLogo !== undefined) settings.footerLogo = String(footerLogo || '').trim();
     if (footerBrandPrimaryText !== undefined) settings.footerBrandPrimaryText = String(footerBrandPrimaryText || '').trim();
     if (footerBrandAccentText !== undefined) settings.footerBrandAccentText = String(footerBrandAccentText || '').trim();
     if (footerDescription !== undefined) settings.footerDescription = String(footerDescription || '').trim();
@@ -834,6 +836,7 @@ const getFooterConfig = async (req, res) => {
     res.json({
       success: true,
       config: {
+        logo: settings?.footerLogo || '',
         brandPrimaryText:
           String(settings?.footerBrandPrimaryText || '').trim() ||
           FOOTER_CONFIG_FALLBACK.brandPrimaryText,
