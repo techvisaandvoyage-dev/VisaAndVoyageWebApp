@@ -1,4 +1,3 @@
-const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const {
@@ -9,29 +8,68 @@ const {
   findUserForIdentifier,
   normalizeIdentifier,
 } = require('../services/otpAuthService');
+const { publicAuthControlsFromSettings } = require('./authSettingsController');
 
 const generateToken = (id) => jwt.sign({ id: String(id), role: 'user' }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+const hasUserPassword = (user) => Boolean(user?.password && (user.passwordManuallySet || !user.phone));
+
+const splitName = (name) => {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || '',
+    lastName: parts.slice(1).join(' '),
+  };
+};
+
+const isProfileComplete = (user) =>
+  Boolean(user?.firstName && user?.lastName && (user?.email || user?.phone));
 
 const safeUserPayload = (user) => ({
   id: user._id,
   name: user.name,
+  firstName: user.firstName,
+  lastName: user.lastName,
   email: user.email,
   phone: user.phone,
+  authProvider: user.authProvider,
+  profileCompleted: Boolean(user.profileCompleted || isProfileComplete(user)),
   isVerified: user.isVerified,
   profileImage: user.profileImage,
-  hasPassword: Boolean(user.password),
+  hasPassword: hasUserPassword(user),
   createdAt: user.createdAt,
 });
 
 const getOtpConfig = async (_req, res) => {
   const settings = await loadOtpSettings();
-  res.json({ success: true, config: publicOtpConfigFromSettings(settings) });
+  res.json({
+    success: true,
+    config: publicOtpConfigFromSettings(settings),
+    authControls: publicAuthControlsFromSettings(settings),
+  });
 };
 
 const sendOtp = async (req, res) => {
   try {
+    const rawIdentifier = req.body.identifier || req.body.phone || req.body.email;
+    if (req.body.rejectExisting === true || req.body.rejectExisting === 'true') {
+      const parsed = normalizeIdentifier(rawIdentifier);
+      if (parsed.type !== 'invalid') {
+        const existingUser = await findUserForIdentifier(parsed);
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            message:
+              parsed.type === 'phone'
+                ? 'User already exists with this phone number.'
+                : 'User already exists with this email.',
+          });
+        }
+      }
+    }
+
     const result = await sendConfiguredOtp({
-      rawIdentifier: req.body.identifier || req.body.phone || req.body.email,
+      rawIdentifier,
       requestedChannel: req.body.channel || 'auto',
       purpose: req.body.purpose || 'auth',
     });
@@ -67,6 +105,7 @@ const verifyOtp = async (req, res) => {
     if (user) {
       user.isVerified = true;
       if (parsed.type === 'phone') user.phone = parsed.key;
+      if (!user.authProvider) user.authProvider = parsed.type === 'phone' ? 'phoneOtp' : 'emailOtp';
       await user.save();
       if (!consume) {
         await verifyStoredOtp({
@@ -76,7 +115,7 @@ const verifyOtp = async (req, res) => {
           consume: true,
         }).catch(() => {});
       }
-      const safe = await User.findById(user._id).select('-password').lean();
+      const safe = await User.findById(user._id).lean();
       return res.json({
         success: true,
         userExists: true,
@@ -93,8 +132,9 @@ const verifyOtp = async (req, res) => {
     ).trim();
     const email = String(req.body.email || profile.email || '').trim().toLowerCase();
     const password = String(req.body.password || profile.password || '').trim();
+    const nameParts = splitName(name);
 
-    if (!consume || !name) {
+    if (!consume) {
       return res.json({ success: true, userExists: false, verified: true, message: 'OTP verified. Continue signup.' });
     }
 
@@ -106,17 +146,20 @@ const verifyOtp = async (req, res) => {
       }
     }
 
-    const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
     user = await User.create({
       name,
       ...(parsed.type === 'email' ? { email: parsed.key } : {}),
       ...(parsed.type === 'phone' ? { phone: parsed.key } : {}),
       ...(parsed.type === 'phone' && email ? { email } : {}),
-      password: password || randomPassword,
+      ...(password ? { password, passwordManuallySet: true } : {}),
+      firstName: nameParts.firstName || undefined,
+      lastName: nameParts.lastName || undefined,
+      authProvider: password ? 'password' : parsed.type === 'phone' ? 'phoneOtp' : 'emailOtp',
+      profileCompleted: Boolean(password && nameParts.firstName && nameParts.lastName),
       isVerified: true,
     });
 
-    const safe = await User.findById(user._id).select('-password').lean();
+    const safe = await User.findById(user._id).lean();
     return res.json({
       success: true,
       userExists: false,

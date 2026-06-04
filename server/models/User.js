@@ -4,7 +4,15 @@ const bcrypt = require('bcryptjs');
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    default: '',
+    trim: true
+  },
+  firstName: {
+    type: String,
+    trim: true
+  },
+  lastName: {
+    type: String,
     trim: true
   },
   /** Optional handle for @mentions in blog comments (sparse, unique when set) */
@@ -49,10 +57,6 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    // Not stored when user signs in via Firebase (Google or Email/Password)
-    required: function() {
-      return !this.googleId && !this.facebookId && !this.firebaseUid;
-    },
     validate: {
       validator: function(v) {
         if (!v) return true;
@@ -65,6 +69,10 @@ const UserSchema = new mongoose.Schema({
       },
       message: 'Password must contain at least 8 characters, one uppercase, one lowercase, one number and one special character.'
     }
+  },
+  passwordManuallySet: {
+    type: Boolean,
+    default: false
   },
   isVerified: {
     type: Boolean,
@@ -85,6 +93,14 @@ const UserSchema = new mongoose.Schema({
     sparse: true,
     unique: true,
     trim: true
+  },
+  authProvider: {
+    type: String,
+    enum: ['password', 'google', 'facebook', 'phoneOtp', 'emailOtp', 'firebase'],
+  },
+  profileCompleted: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

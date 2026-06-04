@@ -10,6 +10,7 @@ const {
   updateEmailSettings,
   updatePrioritySettings,
   updateTestingSettings,
+  updateAuthControls,
 } = require('../controllers/authSettingsController');
 const { getAllTransactions } = require('../controllers/paymentController');
 const {
@@ -130,6 +131,7 @@ router.put('/auth-settings/whatsapp', protect, requireAdmin, updateWhatsappSetti
 router.put('/auth-settings/email', protect, requireAdmin, updateEmailSettings);
 router.put('/auth-settings/priority', protect, requireAdmin, updatePrioritySettings);
 router.put('/auth-settings/testing', protect, requireAdmin, updateTestingSettings);
+router.put('/auth-settings/auth-controls', protect, requireAdmin, updateAuthControls);
 
 // Admin Transactions route
 router.get('/transactions', protect, requireAdmin, getAllTransactions);

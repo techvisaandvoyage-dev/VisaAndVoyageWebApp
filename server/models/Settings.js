@@ -83,6 +83,11 @@ const settingsSchema = new mongoose.Schema({
   otpFallbackChannel2: { type: String, default: 'none' },
   otpTestingEnabled: { type: Boolean, default: false },
   otpTestingAutofillEnabled: { type: Boolean, default: true },
+  authPasswordEnabled: { type: Boolean, default: true },
+  authGoogleEnabled: { type: Boolean, default: true },
+  authFacebookEnabled: { type: Boolean, default: false },
+  authPhoneOtpEnabled: { type: Boolean, default: true },
+  authEmailOtpEnabled: { type: Boolean, default: true },
   /** Nodemailer — used for signup, login, and forgot-password OTP when set (overrides EMAIL_* env). */
   smtpEmailUser: {
     type: String,

@@ -9,6 +9,14 @@ const {
 const boolFromBody = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const str = (value) => String(value ?? '').trim();
 
+const publicAuthControlsFromSettings = (settings) => ({
+  passwordEnabled: settings?.authPasswordEnabled !== false,
+  googleEnabled: settings?.authGoogleEnabled !== false,
+  facebookEnabled: settings?.authFacebookEnabled === true,
+  phoneOtpEnabled: settings?.authPhoneOtpEnabled !== false,
+  emailOtpEnabled: settings?.authEmailOtpEnabled !== false,
+});
+
 const emailSenderReady = (settings, provider, apiKey, senderEmail) => {
   const selectedProvider = str(provider || settings.emailOtpProvider || 'Custom SMTP').toLowerCase();
   const hasBrevoApi = Boolean(
@@ -65,6 +73,7 @@ const withMaskedSecrets = (settings) => ({
     enabled: settings.otpTestingEnabled === true,
     autofillEnabled: settings.otpTestingAutofillEnabled !== false,
   },
+  authControls: publicAuthControlsFromSettings(settings),
   publicConfig: publicOtpConfigFromSettings(settings),
 });
 
@@ -172,6 +181,17 @@ const updateTestingSettings = async (req, res) => {
   res.json({ success: true, settings: withMaskedSecrets(settings), message: 'OTP testing settings saved.' });
 };
 
+const updateAuthControls = async (req, res) => {
+  const settings = await loadOtpSettings();
+  settings.authPasswordEnabled = req.body.passwordEnabled === undefined ? true : boolFromBody(req.body.passwordEnabled);
+  settings.authGoogleEnabled = req.body.googleEnabled === undefined ? true : boolFromBody(req.body.googleEnabled);
+  settings.authFacebookEnabled = boolFromBody(req.body.facebookEnabled);
+  settings.authPhoneOtpEnabled = req.body.phoneOtpEnabled === undefined ? true : boolFromBody(req.body.phoneOtpEnabled);
+  settings.authEmailOtpEnabled = req.body.emailOtpEnabled === undefined ? true : boolFromBody(req.body.emailOtpEnabled);
+  await settings.save();
+  res.json({ success: true, settings: withMaskedSecrets(settings), message: 'Authentication controls saved.' });
+};
+
 module.exports = {
   getAuthSettings,
   updateSmsSettings,
@@ -179,4 +199,6 @@ module.exports = {
   updateEmailSettings,
   updatePrioritySettings,
   updateTestingSettings,
+  updateAuthControls,
+  publicAuthControlsFromSettings,
 };

@@ -28,6 +28,40 @@ const EMAIL_OTP_CONFIG_HINT =
 
 
 
+const hasUserPassword = (user) => Boolean(user?.password && (user.passwordManuallySet || !user.phone));
+
+const splitName = (name) => {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || '',
+    lastName: parts.slice(1).join(' '),
+  };
+};
+
+const isProfileCompleteForUser = (user) => {
+  const provider = user?.authProvider;
+  const hasNames = Boolean(user?.firstName && user?.lastName);
+  if (!hasNames) return false;
+  if (provider === 'phoneOtp') return Boolean(user?.phone && user?.email);
+  if (provider === 'emailOtp' || provider === 'google' || provider === 'facebook') return Boolean(user?.email);
+  return Boolean(user?.email || user?.phone);
+};
+
+const publicUserPayload = (user, sourceUser = user) => ({
+  id: user._id,
+  name: user.name,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  email: user.email,
+  phone: user.phone,
+  profileImage: user.profileImage,
+  isVerified: user.isVerified,
+  authProvider: user.authProvider,
+  profileCompleted: Boolean(user.profileCompleted || isProfileCompleteForUser(user)),
+  hasPassword: hasUserPassword(sourceUser),
+  createdAt: user.createdAt,
+});
+
 const buildOtpBoxes = (otp) =>
   String(otp || '')
     .split('')
@@ -259,8 +293,12 @@ const signupUser = async (req, res) => {
 
       const user = await User.create({
         name,
+        ...splitName(name),
         email,
         password,
+        passwordManuallySet: true,
+        authProvider: 'password',
+        profileCompleted: true,
       });
 
       await Otp.deleteMany({ identifier, purpose: 'signup' });
@@ -325,8 +363,11 @@ const signupUser = async (req, res) => {
 
     const user = await User.create({
       name,
+      ...splitName(name),
       phone: phoneKey,
-      password,
+      ...(password ? { password, passwordManuallySet: true } : {}),
+      authProvider: password ? 'password' : 'phoneOtp',
+      profileCompleted: Boolean(password),
     });
 
     await Otp.deleteMany({ identifier, purpose: 'signup' });
@@ -577,7 +618,9 @@ const verifyLoginOtp = async (req, res) => {
         name: safe.name,
         email: safe.email,
         phone: safe.phone,
-        isVerified: safe.isVerified
+        isVerified: safe.isVerified,
+        hasPassword: hasUserPassword(user),
+        createdAt: safe.createdAt
       }
     });
   } catch (error) {
@@ -596,7 +639,7 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
   const isGoogle = signInProvider === 'google.com';
   const isFacebook = signInProvider === 'facebook.com';
 
-  if (!uid || !isValidEmail(email)) {
+  if (!uid || (!isFacebook && !isValidEmail(email))) {
     const err = new Error('Firebase account must include a valid email address');
     err.statusCode = 400;
     throw err;
@@ -604,20 +647,27 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
 
   const emailVerified = Boolean(decodedToken.email_verified);
   const isVerified = emailVerified || isGoogle || isFacebook;
+  const displayName = normalizeFirebaseName(decodedToken);
+  const nameParts = splitName(displayName);
+  const authProvider = isGoogle ? 'google' : isFacebook ? 'facebook' : 'firebase';
 
-  let user = await User.findOne({
-    $or: [{ email }, { firebaseUid: uid }, { googleId: uid }, { facebookId: uid }],
-  });
+  const lookup = [{ firebaseUid: uid }, { googleId: uid }, { facebookId: uid }];
+  if (isValidEmail(email)) lookup.push({ email });
+  let user = await User.findOne({ $or: lookup });
 
   const phoneDigits = normalizePhoneDigits(decodedToken.phone_number);
 
   if (!user) {
     user = await User.create({
-      name: normalizeFirebaseName(decodedToken),
-      email,
+      name: displayName,
+      firstName: nameParts.firstName || undefined,
+      lastName: nameParts.lastName || undefined,
+      ...(isValidEmail(email) ? { email } : {}),
       firebaseUid: uid,
       ...(isGoogle ? { googleId: uid } : {}),
       ...(isFacebook ? { facebookId: uid } : {}),
+      authProvider,
+      profileCompleted: false,
       profileImage:
         isGoogle || isFacebook ? String(decodedToken.picture || '').trim() : '',
       isVerified,
@@ -627,6 +677,7 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
   }
 
   user.firebaseUid = uid;
+  if (isValidEmail(email) && !user.email) user.email = email;
   if (isGoogle) {
     user.googleId = uid;
     if (!user.profileImage && decodedToken.picture) {
@@ -640,7 +691,10 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
     }
   }
   if (isVerified) user.isVerified = true;
-  if (!user.name) user.name = normalizeFirebaseName(decodedToken);
+  if (!user.name) user.name = displayName;
+  if (!user.firstName && nameParts.firstName) user.firstName = nameParts.firstName;
+  if (!user.lastName && nameParts.lastName) user.lastName = nameParts.lastName;
+  user.authProvider = authProvider;
   if (phoneDigits) user.phone = phoneDigits;
   await user.save();
   return user;
@@ -668,14 +722,7 @@ const firebaseAuthLogin = async (req, res) => {
     res.json({
       success: true,
       token: generateToken(user._id),
-      user: {
-        id: refreshed._id,
-        name: refreshed.name,
-        email: refreshed.email,
-        phone: refreshed.phone,
-        profileImage: refreshed.profileImage,
-        isVerified: refreshed.isVerified
-      }
+      user: publicUserPayload(refreshed, user)
     });
   } catch (error) {
     console.error('[Firebase Auth]', error);
@@ -773,11 +820,19 @@ const loginUser = async (req, res) => {
  */
 const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    res.json({ success: true, user: { ...user.toObject(), hasPassword: Boolean(user.password) } });
+    const { password, ...safeUser } = user.toObject();
+    res.json({
+      success: true,
+      user: {
+        ...safeUser,
+        profileCompleted: Boolean(user.profileCompleted || isProfileCompleteForUser(user)),
+        hasPassword: hasUserPassword(user),
+      },
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -797,9 +852,14 @@ const updateUserProfile = async (req, res) => {
     }
 
     // Extract allowed fields
-    const { name, age, gender, passportNumber, phone: rawPhone, email: rawEmail } = req.body;
+    const { name, firstName, lastName, age, gender, passportNumber, phone: rawPhone, email: rawEmail } = req.body;
 
     if (name) user.name = name;
+    if (firstName !== undefined) user.firstName = String(firstName || '').trim();
+    if (lastName !== undefined) user.lastName = String(lastName || '').trim();
+    if (firstName !== undefined || lastName !== undefined) {
+      user.name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name;
+    }
     if (age !== undefined) user.age = age;
     if (gender) user.gender = gender;
     if (passportNumber !== undefined) user.passportNumber = passportNumber;
@@ -836,14 +896,76 @@ const updateUserProfile = async (req, res) => {
       }
     }
 
+    user.profileCompleted = isProfileCompleteForUser(user);
     const updatedUser = await user.save();
     
     // Return sanitized user
     const { password, ...safeUser } = updatedUser._doc;
-    res.json({ success: true, user: safeUser });
+    res.json({ success: true, user: { ...safeUser, hasPassword: hasUserPassword(updatedUser) } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Server error updating profile' });
+  }
+};
+
+/**
+ * @route   PUT /api/users/profile/complete
+ * @desc    Complete register-page onboarding profile details
+ * @access  Private
+ */
+const completeUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const provider = String(req.body.provider || user.authProvider || '').trim();
+    const firstName = String(req.body.firstName || '').trim();
+    const lastName = String(req.body.lastName || '').trim();
+    const rawEmail = req.body.email !== undefined ? String(req.body.email || '').trim().toLowerCase() : undefined;
+
+    if (!firstName) {
+      return res.status(400).json({ success: false, message: 'First name is required' });
+    }
+    if (!lastName) {
+      return res.status(400).json({ success: false, message: 'Last name is required' });
+    }
+
+    if (provider === 'phoneOtp' || rawEmail !== undefined) {
+      if (!rawEmail || !isValidEmail(rawEmail)) {
+        return res.status(400).json({ success: false, message: 'Enter a valid email address' });
+      }
+      const emailTaken = await User.findOne({ email: rawEmail, _id: { $ne: user._id } });
+      if (emailTaken) {
+        return res.status(400).json({ success: false, message: 'This email is already registered' });
+      }
+      user.email = rawEmail;
+    }
+
+    if ((provider === 'google' || provider === 'facebook' || provider === 'emailOtp') && !user.email) {
+      return res.status(400).json({ success: false, message: 'Email is required for this account' });
+    }
+
+    user.firstName = firstName;
+    user.lastName = lastName;
+    user.name = `${firstName} ${lastName}`.trim();
+    if (provider) user.authProvider = provider;
+    user.profileCompleted = isProfileCompleteForUser(user);
+
+    const updatedUser = await user.save();
+    const { password, ...safeUser } = updatedUser.toObject();
+    res.json({
+      success: true,
+      user: {
+        ...safeUser,
+        profileCompleted: Boolean(updatedUser.profileCompleted),
+        hasPassword: hasUserPassword(updatedUser),
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error completing profile' });
   }
 };
 
@@ -924,7 +1046,7 @@ const verifyProfilePhoneOtp = async (req, res) => {
     user.phone = phoneKey;
     const updatedUser = await user.save();
     const { password, ...safeUser } = updatedUser._doc;
-    res.json({ success: true, user: safeUser });
+    res.json({ success: true, user: { ...safeUser, hasPassword: hasUserPassword(updatedUser) } });
   } catch (error) {
     res.status(error.statusCode || 500).json({
       success: false,
@@ -947,8 +1069,9 @@ const changePassword = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    if (!user.password) {
+    if (!hasUserPassword(user)) {
       user.password = newPassword;
+      user.passwordManuallySet = true;
       await user.save();
       return res.json({ success: true, message: 'Password created successfully' });
     }
@@ -959,6 +1082,7 @@ const changePassword = async (req, res) => {
     }
 
     user.password = newPassword;
+    user.passwordManuallySet = true;
     await user.save();
 
     res.json({ success: true, message: 'Password updated successfully' });
@@ -1184,6 +1308,7 @@ const resetForgotPassword = async (req, res) => {
     }
 
     user.password = newPassword;
+    user.passwordManuallySet = true;
     if (type === 'phone' && key && /^\d{10}$/.test(String(key))) {
       user.phone = String(key);
     }
@@ -1258,7 +1383,9 @@ const popupVerifyOtp = async (req, res) => {
           name: safe.name,
           email: safe.email,
           phone: safe.phone,
-          isVerified: safe.isVerified
+          isVerified: safe.isVerified,
+          hasPassword: hasUserPassword(user),
+          createdAt: safe.createdAt
         }
       });
     }
@@ -1300,7 +1427,6 @@ const popupCompleteSignup = async (req, res) => {
       name: `${firstName || ''} ${lastName || ''}`.trim() || 'User',
       phone: phoneKey,
       email: email ? email.toLowerCase() : undefined,
-      password: require('crypto').randomBytes(16).toString('hex') + 'A1!',
       isVerified: true
     });
 
@@ -1315,7 +1441,9 @@ const popupCompleteSignup = async (req, res) => {
         name: safe.name,
         email: safe.email,
         phone: safe.phone,
-        isVerified: safe.isVerified
+        isVerified: safe.isVerified,
+        hasPassword: hasUserPassword(user),
+        createdAt: safe.createdAt
       }
     });
   } catch (error) {
@@ -1337,6 +1465,7 @@ module.exports = {
   loginUser,
   getUserProfile,
   updateUserProfile,
+  completeUserProfile,
   requestProfilePhoneOtp,
   verifyProfilePhoneOtp,
   uploadProfileImage,
