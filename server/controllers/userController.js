@@ -673,7 +673,7 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
       isVerified,
       ...(phoneDigits ? { phone: phoneDigits } : {}),
     });
-    return user;
+    return { user, isNewUser: true };
   }
 
   user.firebaseUid = uid;
@@ -697,7 +697,7 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
   user.authProvider = authProvider;
   if (phoneDigits) user.phone = phoneDigits;
   await user.save();
-  return user;
+  return { user, isNewUser: false };
 };
 
 /**
@@ -715,14 +715,15 @@ const firebaseAuthLogin = async (req, res) => {
 
     const firebaseApp = await getFirebaseAdminApp();
     const decodedToken = await firebaseApp.auth().verifyIdToken(idToken);
-    const user = await syncUserFromFirebaseToken(decodedToken);
+    const { user, isNewUser } = await syncUserFromFirebaseToken(decodedToken);
 
     const refreshed = await User.findById(user._id).select('-password').lean();
 
     res.json({
       success: true,
       token: generateToken(user._id),
-      user: publicUserPayload(refreshed, user)
+      user: publicUserPayload(refreshed, user),
+      isNewUser,
     });
   } catch (error) {
     console.error('[Firebase Auth]', error);

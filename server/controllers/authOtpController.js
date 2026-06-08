@@ -176,6 +176,17 @@ const verifyOtp = async (req, res) => {
       }
     }
 
+    const profileCompleted =
+      Boolean(
+        nameParts.firstName &&
+        nameParts.lastName &&
+        (
+          (parsed.type === 'phone' && email) ||
+          parsed.type === 'email' ||
+          password
+        )
+      );
+
     user = await User.create({
       name,
       ...(parsed.type === 'email' ? { email: parsed.key } : {}),
@@ -185,7 +196,7 @@ const verifyOtp = async (req, res) => {
       firstName: nameParts.firstName || undefined,
       lastName: nameParts.lastName || undefined,
       authProvider: password ? 'password' : parsed.type === 'phone' ? 'phoneOtp' : 'emailOtp',
-      profileCompleted: Boolean(password && nameParts.firstName && nameParts.lastName),
+      profileCompleted,
       isVerified: true,
     });
 
