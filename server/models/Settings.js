@@ -467,6 +467,29 @@ const settingsSchema = new mongoose.Schema({
   },
 
   /**
+   * Universal optional/supporting documents. Uses the same country visibility
+   * metadata as `globalRequiredDocuments`, but does not affect required upload
+   * completion.
+   */
+  globalOptionalDocuments: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: []
+  },
+  globalOptionalDocumentsConfigured: { type: Boolean, default: false },
+  requiredDocumentsHeading: { type: String, trim: true, default: 'Documents Required' },
+  requiredDocumentsDescription: {
+    type: String,
+    trim: true,
+    default: 'These are the country documents required for this application.'
+  },
+  optionalDocumentsHeading: { type: String, trim: true, default: 'Optional Documents' },
+  optionalDocumentsDescription: {
+    type: String,
+    trim: true,
+    default: 'You can also attach other documents in the same Drive link.'
+  },
+
+  /**
    * Admin-added document types extending the built-in catalog. Each entry is
    * `{ key, label }`. Keys are auto-prefixed with `custom_` on the server so
    * built-ins can never be accidentally overwritten.

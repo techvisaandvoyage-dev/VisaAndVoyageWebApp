@@ -576,6 +576,8 @@ const sanitizeGlobalRequiredDocumentEntries = (items) =>
         .filter(Boolean)
     : [];
 
+const sanitizeGlobalOptionalDocumentEntries = sanitizeGlobalRequiredDocumentEntries;
+
 const resolveVisibleGlobalRequiredDocuments = (items, country) => {
   const candidates = new Set(normalizeCountryVisibilityIdCandidates(country));
   return sanitizeGlobalRequiredDocumentEntries(items)
@@ -586,6 +588,28 @@ const resolveVisibleGlobalRequiredDocuments = (items, country) => {
     })
     .map((item) => item.key);
 };
+
+const resolveVisibleGlobalOptionalDocuments = (items, country) => {
+  const candidates = new Set(normalizeCountryVisibilityIdCandidates(country));
+  return sanitizeGlobalOptionalDocumentEntries(items)
+    .filter((item) => {
+      if (item.showInAllActiveCountries !== false) return true;
+      if (!candidates.size) return false;
+      return item.selectedCountries.some((value) => candidates.has(String(value ?? '').trim()));
+    })
+    .map((item) => item.key);
+};
+
+const resolveDocumentSectionCopy = (settings) => ({
+  requiredHeading: String(settings?.requiredDocumentsHeading ?? 'Documents Required').trim() || 'Documents Required',
+  requiredDescription:
+    String(settings?.requiredDocumentsDescription ?? 'These are the country documents required for this application.').trim() ||
+    'These are the country documents required for this application.',
+  optionalHeading: String(settings?.optionalDocumentsHeading ?? 'Optional Documents').trim() || 'Optional Documents',
+  optionalDescription:
+    String(settings?.optionalDocumentsDescription ?? 'You can also attach other documents in the same Drive link.').trim() ||
+    'You can also attach other documents in the same Drive link.',
+});
 
 /**
  * Convert a stored country document into the public-facing shape consumed by every
@@ -610,6 +634,9 @@ const resolveCountryDoc = (country, settings) => {
   const globalProcessingDays = String(settings?.globalProcessingDays ?? '').trim();
   const globalRequiredDocumentEntries = sanitizeGlobalRequiredDocumentEntries(settings?.globalRequiredDocuments);
   const globalRequiredDocuments = resolveVisibleGlobalRequiredDocuments(globalRequiredDocumentEntries, obj);
+  const globalOptionalDocumentEntries = sanitizeGlobalOptionalDocumentEntries(settings?.globalOptionalDocuments);
+  const globalOptionalDocuments = resolveVisibleGlobalOptionalDocuments(globalOptionalDocumentEntries, obj);
+  const hasConfiguredOptionalDocuments = settings?.globalOptionalDocumentsConfigured === true;
   const useGlobalVisaType = obj.useGlobalVisaType !== false;
   const useGlobalValidity = obj.useGlobalValidity !== false;
   const useGlobalLengthOfStay = obj.useGlobalLengthOfStay !== false;
@@ -694,6 +721,10 @@ const resolveCountryDoc = (country, settings) => {
     visaInformation: syncedVisaInformation,
     processingDays: resolvedProcessingDays,
     requiredDocuments: resolvedRequiredDocuments,
+    ...(hasConfiguredOptionalDocuments
+      ? { optionalDocuments: globalOptionalDocuments.filter((key) => !resolvedRequiredDocuments.includes(key)) }
+      : {}),
+    documentSectionCopy: resolveDocumentSectionCopy(settings),
     useGlobalVisaType,
     useGlobalValidity,
     useGlobalLengthOfStay,
@@ -1555,6 +1586,8 @@ const getGlobalCountryDefaults = async (req, res) => {
     });
     const globalRequiredDocumentEntries = sanitizeGlobalRequiredDocumentEntries(settings?.globalRequiredDocuments);
     const globalRequiredDocuments = globalRequiredDocumentEntries.map((item) => item.key);
+    const globalOptionalDocumentEntries = sanitizeGlobalOptionalDocumentEntries(settings?.globalOptionalDocuments);
+    const globalOptionalDocuments = globalOptionalDocumentEntries.map((item) => item.key);
     res.json({
       success: true,
       defaults: {
@@ -1707,6 +1740,10 @@ const getGlobalCountryDefaults = async (req, res) => {
         },
         globalRequiredDocuments,
         globalRequiredDocumentEntries,
+        globalOptionalDocuments,
+        globalOptionalDocumentEntries,
+        globalOptionalDocumentsConfigured: settings?.globalOptionalDocumentsConfigured === true,
+        documentSectionCopy: resolveDocumentSectionCopy(settings),
       },
       display: resolveDisplayToggles(settings),
       documentCatalog: buildDocumentCatalog(settings, true),
@@ -3209,6 +3246,96 @@ const updateGlobalRequiredDocuments = async (req, res) => {
 };
 
 /**
+ * @route   POST /api/admin/control/optional-documents
+ * @desc    Set universal optional documents with per-country visibility.
+ * @access  Admin
+ * @body    { optionalDocuments: string[] | { key:string, showInAllActiveCountries?:boolean, selectedCountries?:string[] }[] }
+ */
+const updateGlobalOptionalDocuments = async (req, res) => {
+  const incoming = Array.isArray(req.body?.optionalDocuments) ? req.body.optionalDocuments : null;
+  if (!incoming) {
+    return res.status(400).json({
+      success: false,
+      message: 'optionalDocuments must be an array of document keys.',
+    });
+  }
+  try {
+    const settings = await getOrCreateSettings();
+    const activeCatalog = buildDocumentCatalog(settings);
+    const activeKeys = new Set(activeCatalog.map((d) => d.key));
+    const cleaned = [];
+    const seen = new Set();
+    for (const raw of incoming) {
+      const key = String(typeof raw === 'string' ? raw : raw?.key ?? '').trim();
+      if (!key || seen.has(key)) continue;
+      if (!activeKeys.has(key)) continue;
+      seen.add(key);
+      cleaned.push({
+        key,
+        showInAllActiveCountries: typeof raw === 'object' && raw ? raw.showInAllActiveCountries !== false : true,
+        selectedCountries:
+          typeof raw === 'object' && raw && Array.isArray(raw.selectedCountries)
+            ? raw.selectedCountries.map((value) => String(value ?? '').trim()).filter(Boolean)
+            : [],
+      });
+    }
+    settings.globalOptionalDocuments = cleaned;
+    settings.globalOptionalDocumentsConfigured = true;
+    await settings.save();
+    console.log('[control] updateGlobalOptionalDocuments:', {
+      count: cleaned.length,
+      admin: req.user?.id || '(none)',
+    });
+    res.json({
+      success: true,
+      globalOptionalDocuments: cleaned.map((item) => item.key),
+      globalOptionalDocumentEntries: cleaned,
+      message: cleaned.length
+        ? `Optional Documents updated (${cleaned.length} item${cleaned.length === 1 ? '' : 's'}).`
+        : 'Optional Documents cleared.',
+    });
+  } catch (err) {
+    console.error('[control] updateGlobalOptionalDocuments error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
+ * @route   POST /api/admin/control/document-section-copy
+ * @desc    Update the public headings/descriptions for required and optional document sections.
+ * @access  Admin
+ */
+const updateDocumentSectionCopy = async (req, res) => {
+  try {
+    const settings = await getOrCreateSettings();
+    const next = {
+      requiredDocumentsHeading:
+        String(req.body?.requiredDocumentsHeading ?? settings.requiredDocumentsHeading ?? '').trim() ||
+        'Documents Required',
+      requiredDocumentsDescription:
+        String(req.body?.requiredDocumentsDescription ?? settings.requiredDocumentsDescription ?? '').trim() ||
+        'These are the country documents required for this application.',
+      optionalDocumentsHeading:
+        String(req.body?.optionalDocumentsHeading ?? settings.optionalDocumentsHeading ?? '').trim() ||
+        'Optional Documents',
+      optionalDocumentsDescription:
+        String(req.body?.optionalDocumentsDescription ?? settings.optionalDocumentsDescription ?? '').trim() ||
+        'You can also attach other documents in the same Drive link.',
+    };
+    Object.assign(settings, next);
+    await settings.save();
+    res.json({
+      success: true,
+      documentSectionCopy: resolveDocumentSectionCopy(settings),
+      message: 'Document section copy updated.',
+    });
+  } catch (err) {
+    console.error('[control] updateDocumentSectionCopy error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
  * @route   POST /api/admin/control/custom-documents
  * @desc    Manage the document catalog metadata used by admin + public pages.
  *          Supports:
@@ -3262,6 +3389,8 @@ const manageCustomDocuments = async (req, res) => {
             nextOverrides.push({ key, deleted: true });
           }
           settings.globalRequiredDocuments = sanitizeGlobalRequiredDocumentEntries(settings.globalRequiredDocuments)
+            .filter((entry) => entry.key !== key);
+          settings.globalOptionalDocuments = sanitizeGlobalOptionalDocumentEntries(settings.globalOptionalDocuments)
             .filter((entry) => entry.key !== key);
         }
       }
@@ -3404,6 +3533,8 @@ const manageCustomDocuments = async (req, res) => {
     }
     settings.globalRequiredDocuments = sanitizeGlobalRequiredDocumentEntries(settings.globalRequiredDocuments)
       .filter((entry) => entry.key !== key);
+    settings.globalOptionalDocuments = sanitizeGlobalOptionalDocumentEntries(settings.globalOptionalDocuments)
+      .filter((entry) => entry.key !== key);
     await settings.save();
     // Strip the deleted key from every per-country requiredDocuments override so
     // applicants don't see stale entries referring to a doc that no longer exists.
@@ -3445,6 +3576,8 @@ module.exports = {
   updateGlobalEntryType,
   updateGlobalProcessingDays,
   updateGlobalRequiredDocuments,
+  updateGlobalOptionalDocuments,
+  updateDocumentSectionCopy,
   manageCustomDocuments,
   updateCountryDisplayToggles,
   bulkUpdateCountryVisibility,

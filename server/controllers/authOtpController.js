@@ -52,8 +52,38 @@ const getOtpConfig = async (_req, res) => {
 const sendOtp = async (req, res) => {
   try {
     const rawIdentifier = req.body.identifier || req.body.phone || req.body.email;
-    if (req.body.rejectExisting === true || req.body.rejectExisting === 'true') {
-      const parsed = normalizeIdentifier(rawIdentifier);
+    const purpose = req.body.purpose || 'auth';
+    const parsed = normalizeIdentifier(rawIdentifier);
+    const rejectExisting = req.body.rejectExisting === true || req.body.rejectExisting === 'true';
+
+    if (purpose === 'auth' && !rejectExisting) {
+      if (parsed.type === 'invalid') {
+        return res.status(400).json({
+          success: false,
+          message: 'Please enter a valid email address or 10-digit mobile number',
+        });
+      }
+
+      const existingUser = await findUserForIdentifier(parsed);
+      if (!existingUser) {
+        return res.status(404).json({
+          success: false,
+          message:
+            parsed.type === 'phone'
+              ? 'This mobile number is not registered. Please sign up first.'
+              : 'This email is not registered. Please sign up first.',
+        });
+      }
+
+      if (!existingUser.isVerified) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account not verified. Please complete signup first.',
+        });
+      }
+    }
+
+    if (rejectExisting) {
       if (parsed.type !== 'invalid') {
         const existingUser = await findUserForIdentifier(parsed);
         if (existingUser) {
@@ -71,7 +101,7 @@ const sendOtp = async (req, res) => {
     const result = await sendConfiguredOtp({
       rawIdentifier,
       requestedChannel: req.body.channel || 'auto',
-      purpose: req.body.purpose || 'auth',
+      purpose,
     });
     res.json({
       success: true,

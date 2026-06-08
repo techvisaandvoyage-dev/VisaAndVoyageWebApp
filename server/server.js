@@ -92,6 +92,8 @@ const {
   updateGlobalEntryType,
   updateGlobalProcessingDays,
   updateGlobalRequiredDocuments,
+  updateGlobalOptionalDocuments,
+  updateDocumentSectionCopy,
   manageCustomDocuments,
   updateCountryDisplayToggles,
 } = require('./controllers/countryController');
@@ -104,6 +106,8 @@ app.post('/api/admin/control/length-of-stay', protect, requireAdmin, updateGloba
 app.post('/api/admin/control/entry-type', protect, requireAdmin, updateGlobalEntryType);
 app.post('/api/admin/control/processing-days', protect, requireAdmin, updateGlobalProcessingDays);
 app.post('/api/admin/control/required-documents', protect, requireAdmin, updateGlobalRequiredDocuments);
+app.post('/api/admin/control/optional-documents', protect, requireAdmin, updateGlobalOptionalDocuments);
+app.post('/api/admin/control/document-section-copy', protect, requireAdmin, updateDocumentSectionCopy);
 app.post('/api/admin/control/custom-documents', protect, requireAdmin, manageCustomDocuments);
 app.post('/api/admin/control/display-toggles', protect, requireAdmin, updateCountryDisplayToggles);
 

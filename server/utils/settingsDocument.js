@@ -109,6 +109,31 @@ const sanitizeSettingsPayload = (raw = {}) => ({
         : null;
     })
     .filter(Boolean),
+  globalOptionalDocuments: (Array.isArray(raw.globalOptionalDocuments) ? raw.globalOptionalDocuments : [])
+    .map((item) => {
+      if (typeof item === 'string') {
+        const key = String(item).trim();
+        return key ? { key, showInAllActiveCountries: true, selectedCountries: [] } : null;
+      }
+      const key = String(item?.key ?? '').trim();
+      return key
+        ? {
+            key,
+            showInAllActiveCountries: item?.showInAllActiveCountries !== false,
+            selectedCountries: normalizeStringList(item?.selectedCountries),
+          }
+        : null;
+    })
+    .filter(Boolean),
+  globalOptionalDocumentsConfigured: raw.globalOptionalDocumentsConfigured === true,
+  requiredDocumentsHeading: String(raw.requiredDocumentsHeading ?? 'Documents Required').trim() || 'Documents Required',
+  requiredDocumentsDescription:
+    String(raw.requiredDocumentsDescription ?? 'These are the country documents required for this application.').trim() ||
+    'These are the country documents required for this application.',
+  optionalDocumentsHeading: String(raw.optionalDocumentsHeading ?? 'Optional Documents').trim() || 'Optional Documents',
+  optionalDocumentsDescription:
+    String(raw.optionalDocumentsDescription ?? 'You can also attach other documents in the same Drive link.').trim() ||
+    'You can also attach other documents in the same Drive link.',
 });
 
 const loadSettingsDocument = async () => {

@@ -774,7 +774,12 @@ const loginUser = async (req, res) => {
     }
 
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res.status(404).json({
+        success: false,
+        message: isValidEmail(lower)
+          ? 'This email is not registered. Please sign up first.'
+          : 'This mobile number is not registered. Please sign up first.',
+      });
     }
 
     if (!user.password) {
