@@ -49,14 +49,29 @@ const getOtpConfig = async (_req, res) => {
   });
 };
 
+const checkPhone = async (req, res) => {
+  try {
+    const parsed = normalizeIdentifier(req.body.phone);
+    if (parsed.type !== 'phone') {
+      return res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number' });
+    }
+
+    const existingUser = await findUserForIdentifier(parsed);
+    return res.json({ exists: Boolean(existingUser) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || 'Could not check phone number' });
+  }
+};
+
 const sendOtp = async (req, res) => {
   try {
     const rawIdentifier = req.body.identifier || req.body.phone || req.body.email;
     const purpose = req.body.purpose || 'auth';
     const parsed = normalizeIdentifier(rawIdentifier);
     const rejectExisting = req.body.rejectExisting === true || req.body.rejectExisting === 'true';
+    const popupFlow = req.body.popupFlow === true || req.body.popupFlow === 'true';
 
-    if (purpose === 'auth' && !rejectExisting) {
+    if (purpose === 'auth' && !rejectExisting && !popupFlow) {
       if (parsed.type === 'invalid') {
         return res.status(400).json({
           success: false,
@@ -215,4 +230,4 @@ const verifyOtp = async (req, res) => {
   }
 };
 
-module.exports = { getOtpConfig, sendOtp, verifyOtp };
+module.exports = { getOtpConfig, checkPhone, sendOtp, verifyOtp };
