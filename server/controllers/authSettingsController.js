@@ -5,6 +5,10 @@ const {
   normalizeChannel,
   publicOtpConfigFromSettings,
 } = require('../services/otpAuthService');
+const {
+  normalizeCountryCodeSettings,
+  publicCountryCodeSettings,
+} = require('../utils/countryCodeSettings');
 
 const boolFromBody = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const str = (value) => String(value ?? '').trim();
@@ -74,6 +78,7 @@ const withMaskedSecrets = (settings) => ({
     autofillEnabled: settings.otpTestingAutofillEnabled !== false,
   },
   authControls: publicAuthControlsFromSettings(settings),
+  countryCodeSettings: normalizeCountryCodeSettings(settings.countryCodeSettings),
   publicConfig: publicOtpConfigFromSettings(settings),
 });
 
@@ -192,6 +197,19 @@ const updateAuthControls = async (req, res) => {
   res.json({ success: true, settings: withMaskedSecrets(settings), message: 'Authentication controls saved.' });
 };
 
+const updateCountryCodeSettings = async (req, res) => {
+  const settings = await loadOtpSettings();
+  const normalized = normalizeCountryCodeSettings(req.body);
+  settings.countryCodeSettings = normalized;
+  await settings.save();
+  res.json({ success: true, settings: withMaskedSecrets(settings), message: 'Country code settings saved.' });
+};
+
+const getPublicCountryCodeSettings = async (_req, res) => {
+  const settings = await loadOtpSettings();
+  res.json({ success: true, config: publicCountryCodeSettings(settings) });
+};
+
 module.exports = {
   getAuthSettings,
   updateSmsSettings,
@@ -200,5 +218,7 @@ module.exports = {
   updatePrioritySettings,
   updateTestingSettings,
   updateAuthControls,
+  updateCountryCodeSettings,
+  getPublicCountryCodeSettings,
   publicAuthControlsFromSettings,
 };

@@ -88,6 +88,22 @@ const settingsSchema = new mongoose.Schema({
   authFacebookEnabled: { type: Boolean, default: false },
   authPhoneOtpEnabled: { type: Boolean, default: true },
   authEmailOtpEnabled: { type: Boolean, default: true },
+  countryCodeSettings: {
+    defaultCountryCode: { type: String, default: '+91' },
+    defaultCountryName: { type: String, default: 'India' },
+    enabledCountries: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: [
+        {
+          name: 'India',
+          code: '+91',
+          flag: '🇮🇳',
+          active: true,
+          locked: true,
+        },
+      ],
+    },
+  },
   /** Nodemailer — used for signup, login, and forgot-password OTP when set (overrides EMAIL_* env). */
   smtpEmailUser: {
     type: String,
@@ -425,6 +441,14 @@ const settingsSchema = new mongoose.Schema({
   serviceFeeScopeTargets: {
     singleCountryId: { type: String, trim: true, default: '' },
     someCountryIds: [{ type: String, trim: true }],
+  },
+  governmentFeeCountryOverrides: {
+    type: [{
+      countryId: { type: String, trim: true, required: true },
+      amount: { type: Number, min: 0, required: true },
+      updatedAt: { type: Date, default: Date.now },
+    }],
+    default: []
   },
   serviceFeeCountryOverrides: {
     type: [{

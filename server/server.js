@@ -130,6 +130,7 @@ const {
   getFooterConfig,
   getSeoConfig,
 } = require('./controllers/settingsController');
+const { getPublicCountryCodeSettings } = require('./controllers/authSettingsController');
 app.get('/api/config/razorpay', getRazorpayKeyId);
 app.get('/api/config/payment', getPaymentConfig);
 app.get('/api/config/firebase', getFirebaseConfig);
@@ -139,6 +140,7 @@ app.get('/api/config/site-state', getSiteState);
 app.get('/api/config/customer-chat', getCustomerChatConfig);
 app.get('/api/config/footer', getFooterConfig);
 app.get('/api/config/seo', getSeoConfig);
+app.get('/api/config/country-codes', getPublicCountryCodeSettings);
 
 // Public Countries Routes
 const { getCountries, getCountryBySlug, getPopularCountries, trackCountryVisit } = require('./controllers/countryController');

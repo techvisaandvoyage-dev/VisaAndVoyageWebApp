@@ -11,6 +11,7 @@ const {
   updatePrioritySettings,
   updateTestingSettings,
   updateAuthControls,
+  updateCountryCodeSettings,
 } = require('../controllers/authSettingsController');
 const { getAllTransactions } = require('../controllers/paymentController');
 const {
@@ -28,6 +29,9 @@ const {
   getServiceFeeCountryOverrides,
   upsertServiceFeeCountryOverride,
   removeServiceFeeCountryOverride,
+  getGovernmentFeeCountryOverrides,
+  upsertGovernmentFeeCountryOverride,
+  removeGovernmentFeeCountryOverride,
 } = require('../controllers/countryController');
 const {
   createStaticPage,
@@ -132,6 +136,7 @@ router.put('/auth-settings/email', protect, requireAdmin, updateEmailSettings);
 router.put('/auth-settings/priority', protect, requireAdmin, updatePrioritySettings);
 router.put('/auth-settings/testing', protect, requireAdmin, updateTestingSettings);
 router.put('/auth-settings/auth-controls', protect, requireAdmin, updateAuthControls);
+router.put('/auth-settings/country-codes', protect, requireAdmin, updateCountryCodeSettings);
 
 // Admin Transactions route
 router.get('/transactions', protect, requireAdmin, getAllTransactions);
@@ -140,6 +145,9 @@ router.put('/fees/save-all', protect, requireAdmin, saveAllFeeConfigs);
 router.get('/service-fee-overrides', protect, requireAdmin, getServiceFeeCountryOverrides);
 router.put('/service-fee-overrides/:countryId', protect, requireAdmin, upsertServiceFeeCountryOverride);
 router.delete('/service-fee-overrides/:countryId', protect, requireAdmin, removeServiceFeeCountryOverride);
+router.get('/government-fee-overrides', protect, requireAdmin, getGovernmentFeeCountryOverrides);
+router.put('/government-fee-overrides/:countryId', protect, requireAdmin, upsertGovernmentFeeCountryOverride);
+router.delete('/government-fee-overrides/:countryId', protect, requireAdmin, removeGovernmentFeeCountryOverride);
 
 router.get('/fee-manager', protect, requireAdmin, getFeeManagerRows);
 router.post('/fee-manager/convert', protect, requireAdmin, convertFeeManagerValues);

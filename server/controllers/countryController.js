@@ -1560,6 +1560,17 @@ const getGlobalCountryDefaults = async (req, res) => {
       settings.serviceFeeCountryOverrides = serviceFeeCountryOverrides;
       await settings.save();
     }
+    const governmentFeeCountryOverrides = normalizeServiceFeeCountryOverrides(
+      settings?.governmentFeeCountryOverrides,
+      activeCountryIds
+    );
+    if (
+      serializeServiceFeeCountryOverrides(governmentFeeCountryOverrides) !==
+      serializeServiceFeeCountryOverrides(settings?.governmentFeeCountryOverrides || [])
+    ) {
+      settings.governmentFeeCountryOverrides = governmentFeeCountryOverrides;
+      await settings.save();
+    }
     const usingGlobalBasePrice = await Country.countDocuments({
       useGlobalBasePrice: true,
     });
@@ -1644,6 +1655,10 @@ const getGlobalCountryDefaults = async (req, res) => {
         governmentFeeScopeTargets: normalizeFeeScopeTargetConfig(
           settings?.governmentFeeScopeTargets,
           activeCountryIds
+        ),
+        governmentFeeCountryOverrides: formatServiceFeeCountryOverrideRows(
+          governmentFeeCountryOverrides,
+          activeCountries
         ),
         globalVisaType: String(settings?.globalVisaType ?? '').trim(),
         visaTypeScopeValues: normalizeScopedTextConfig(
@@ -1901,6 +1916,85 @@ const removeServiceFeeCountryOverride = async (req, res) => {
     return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
   }
 };
+
+/**
+ * @route   GET /api/admin/government-fee-overrides
+ * @desc    Fetch all active per-country government-fee overrides
+ * @access  Admin
+ */
+const getGovernmentFeeCountryOverrides = async (_req, res) => {
+  try {
+    const settings = await getOrCreateSettings();
+    const activeCountries = await Country.find({ isActive: { $ne: false } }).select('_id name').lean();
+    const activeCountryIds = activeCountries.map((c) => String(c._id).trim()).filter(Boolean);
+    const overrides = normalizeServiceFeeCountryOverrides(settings && settings.governmentFeeCountryOverrides, activeCountryIds);
+    return res.json({ success: true, overrides: formatServiceFeeCountryOverrideRows(overrides, activeCountries) });
+  } catch (err) {
+    console.error('[control] getGovernmentFeeCountryOverrides error:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
+ * @route   PUT /api/admin/government-fee-overrides/:countryId
+ * @access  Admin
+ */
+const upsertGovernmentFeeCountryOverride = async (req, res) => {
+  try {
+    const countryId = String(req.params && req.params.countryId ? req.params.countryId : '').trim();
+    const amount = Number(req.body && req.body.amount);
+    if (!mongoose.Types.ObjectId.isValid(countryId))
+      return res.status(400).json({ success: false, message: 'Invalid country id.' });
+    if (!Number.isFinite(amount) || amount <= 0)
+      return res.status(400).json({ success: false, message: 'Government fee must be a positive number.' });
+    const country = await Country.findOne({ _id: countryId, isActive: { $ne: false } }).select('_id name governmentFee');
+    if (!country) return res.status(404).json({ success: false, message: 'Country not found.' });
+    const settings = await getOrCreateSettings();
+    const activeCountries = await Country.find({ isActive: { $ne: false } }).select('_id name').lean();
+    const activeCountryIds = activeCountries.map((c) => String(c._id).trim()).filter(Boolean);
+    const existing = normalizeServiceFeeCountryOverrides(settings && settings.governmentFeeCountryOverrides, activeCountryIds);
+    const nextOverrides = existing.filter((item) => item.countryId !== countryId).concat([{ countryId, amount, updatedAt: new Date() }]);
+    settings.governmentFeeCountryOverrides = normalizeServiceFeeCountryOverrides(nextOverrides, activeCountryIds);
+    await settings.save();
+    await Country.updateOne({ _id: countryId, isActive: { $ne: false } }, { $set: { useGlobalGovernmentFee: false, governmentFee: amount } });
+    return res.json({ success: true, message: country.name + ' government fee updated successfully.', overrides: formatServiceFeeCountryOverrideRows(settings.governmentFeeCountryOverrides, activeCountries) });
+  } catch (err) {
+    console.error('[control] upsertGovernmentFeeCountryOverride error:', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+/**
+ * @route   DELETE /api/admin/government-fee-overrides/:countryId
+ * @access  Admin
+ */
+const removeGovernmentFeeCountryOverride = async (req, res) => {
+  try {
+    const countryId = String(req.params && req.params.countryId ? req.params.countryId : '').trim();
+    if (!mongoose.Types.ObjectId.isValid(countryId))
+      return res.status(400).json({ success: false, message: 'Invalid country id.' });
+    const country = await Country.findOne({ _id: countryId, isActive: { $ne: false } }).select('_id name governmentFee');
+    if (!country) return res.status(404).json({ success: false, message: 'Country not found.' });
+    const settings = await getOrCreateSettings();
+    const activeCountries = await Country.find({ isActive: { $ne: false } }).select('_id name').lean();
+    const activeCountryIds = activeCountries.map((c) => String(c._id).trim()).filter(Boolean);
+    const existing = normalizeServiceFeeCountryOverrides(settings && settings.governmentFeeCountryOverrides, activeCountryIds);
+    const nextOverrides = existing.filter((item) => item.countryId !== countryId);
+    if (nextOverrides.length === existing.length)
+      return res.status(404).json({ success: false, message: 'Government fee override not found.' });
+    settings.governmentFeeCountryOverrides = nextOverrides;
+    await settings.save();
+    const globalGovernmentFee = Number(settings && settings.globalGovernmentFee);
+    const fallback = Number.isFinite(globalGovernmentFee) && globalGovernmentFee >= 0 ? globalGovernmentFee : Number((country && country.governmentFee) || 0);
+    await Country.updateOne({ _id: countryId, isActive: { $ne: false } }, { $set: { useGlobalGovernmentFee: true, governmentFee: fallback } });
+    return res.json({ success: true, message: country.name + ' now uses the default all-countries government fee again.', overrides: formatServiceFeeCountryOverrideRows(nextOverrides, activeCountries) });
+  } catch (err) {
+    console.error('[control] removeGovernmentFeeCountryOverride error:', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+
 
 /**
  * @route   POST /api/admin/control/base-price
@@ -3566,6 +3660,9 @@ module.exports = {
   getServiceFeeCountryOverrides,
   upsertServiceFeeCountryOverride,
   removeServiceFeeCountryOverride,
+  getGovernmentFeeCountryOverrides,
+  upsertGovernmentFeeCountryOverride,
+  removeGovernmentFeeCountryOverride,
   updateGlobalBasePrice,
   updateGlobalGovernmentFee,
   updateFeesBulk,
@@ -3584,5 +3681,3 @@ module.exports = {
   resetCountryPopularity,
   resetAllCountryPopularity,
 };
-
-
