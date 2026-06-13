@@ -58,7 +58,19 @@ app.use(express.json());
 
 // Health Check Routes
 app.get("/", (req, res) => {
-  res.send("API is running...");
+  res.status(200).json({
+    success: true,
+    message: "Visavo API is running"
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Backend is healthy",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.get("/api/health", (req, res) => {
@@ -548,7 +560,10 @@ app.get('/api/support/conversations/client/chat', optionalAuth, async (req, res)
 // Server start
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+console.log("Environment:", process.env.NODE_ENV || "development");
+console.log("Mongo URI exists:", Boolean(process.env.MONGO_URI));
+
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
 
