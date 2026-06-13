@@ -83,12 +83,17 @@ const channelConfigured = (settings, channel) => {
       String(settings?.smtpEmailUser || process.env.EMAIL_USER || process.env.BREVO_SMTP_USER || '').trim() &&
       String(settings?.smtpEmailPass || process.env.EMAIL_PASS || process.env.BREVO_SMTP_KEY || '').trim()
     );
-    const apiReady = Boolean(
+    const brevoReady = Boolean(
       provider === 'brevo' &&
       String(settings?.emailOtpApiKey || '').trim() &&
       String(settings?.emailOtpSenderEmail || settings?.smtpFromEmail || '').trim()
     );
-    return Boolean(settings?.emailOtpEnabled && (smtpReady || apiReady));
+    const msg91Ready = Boolean(
+      provider === 'msg91 email' &&
+      String(settings?.emailOtpApiKey || '').trim() &&
+      String(settings?.emailOtpSenderEmail || settings?.smtpFromEmail || '').trim()
+    );
+    return Boolean(settings?.emailOtpEnabled && (smtpReady || brevoReady || msg91Ready));
   }
   return false;
 };
@@ -221,7 +226,9 @@ const sendEmailOtp = async (email, otp, settings) => {
   const senderName = String(settings?.emailOtpSenderName || 'Visa & Voyage Security').trim();
   const provider = String(settings?.emailOtpProvider || '').trim().toLowerCase();
   const brevoKey = String(settings?.emailOtpApiKey || '').trim();
+  const msg91Key = String(settings?.emailOtpApiKey || '').trim();
   const senderEmail = String(settings?.emailOtpSenderEmail || settings?.smtpFromEmail || '').trim();
+  
   if (provider === 'brevo' && brevoKey && senderEmail && typeof fetch === 'function') {
     try {
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -256,6 +263,96 @@ const sendEmailOtp = async (email, otp, settings) => {
       return { sent: false, skipped: false, message: 'Email OTP is not configured' };
     }
   }
+  
+  if (provider === 'msg91 email' && msg91Key && senderEmail && typeof fetch === 'function') {
+    try {
+      const templateId = String(settings?.emailOtpTemplateId || '').trim();
+      if (!templateId) {
+        console.error('[MSG91 Email OTP] Template ID is required but not set');
+        return { sent: false, skipped: true, message: 'Email OTP is not configured' };
+      }
+
+      // Extract domain from sender email (e.g., "no-reply@yashrajtech.online" → "yashrajtech.online")
+      const domain = senderEmail.includes('@') 
+        ? senderEmail.split('@')[1] 
+        : senderEmail;
+
+      const companyName = String(settings?.companyName || 'YashRajTech').trim();
+
+      console.log("[MSG91 Email OTP] Variables attached:", {
+        hasCompanyName: true,
+        hasOtp: !!otp,
+        otpLength: String(otp).length
+      });
+
+      const body = {
+        recipients: [
+          {
+            to: [
+              {
+                email: email,
+              }
+            ],
+            variables: {
+              company_name: companyName,
+              otp: String(otp)
+            }
+          }
+        ],
+        from: {
+          email: senderEmail,
+          name: senderName
+        },
+        domain: domain,
+        template_id: templateId
+      };
+
+      const response = await fetch('https://control.msg91.com/api/v5/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'authkey': msg91Key
+        },
+        body: JSON.stringify(body)
+      });
+
+      const bodyText = await response.text();
+      let json;
+      try {
+        json = JSON.parse(bodyText);
+      } catch {
+        json = { raw: bodyText };
+      }
+
+      const result = json;
+      const isSuccess = result.status === "success" || result.hasError === false;
+      const isFailed = result.status === "fail" || result.hasError === true;
+
+      if (isSuccess && !isFailed) {
+        const uniqueId = result.data?.unique_id;
+        console.log(`[MSG91 Email OTP] Queued successfully: ${uniqueId}`);
+        return {
+          sent: true,
+          success: true,
+          message: "OTP sent successfully. Please check your email.",
+          uniqueId: uniqueId
+        };
+      } else {
+        console.error('[MSG91 Email OTP] Send failed:', result);
+        return {
+          sent: false,
+          success: false,
+          skipped: false,
+          message: result.message || 'Email OTP is not configured'
+        };
+      }
+    } catch (error) {
+      console.error('[MSG91 Email OTP] Send error:', error.message || error);
+      return { sent: false, success: false, skipped: false, message: 'Email OTP is not configured' };
+    }
+  }
+  
   const ok = await sendEmail({
     email,
     subject: 'Visa & Voyage - OTP Verification',

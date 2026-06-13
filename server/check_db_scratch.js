@@ -1,9 +1,14 @@
 const mongoose = require('mongoose');
+require('dotenv').config();
 
-const MONGO_URI = "mongodb+srv://Yash:dYQS9imycdkqhBc0@cluster0.wp8rmxv.mongodb.net/VisaandvoyageDB";
+const MONGO_URI = process.env.MONGO_URI;
 
 const run = async () => {
   try {
+    if (!MONGO_URI) {
+      console.error('Error: MONGO_URI environment variable is not set in .env');
+      process.exit(1);
+    }
     await mongoose.connect(MONGO_URI);
     console.log("Connected to MongoDB.");
 

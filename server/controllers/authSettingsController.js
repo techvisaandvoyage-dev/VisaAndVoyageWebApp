@@ -28,6 +28,11 @@ const emailSenderReady = (settings, provider, apiKey, senderEmail) => {
     str(apiKey || settings.emailOtpApiKey) &&
     str(senderEmail || settings.emailOtpSenderEmail || settings.smtpFromEmail)
   );
+  const hasMsg91Email = Boolean(
+    selectedProvider === 'msg91 email' &&
+    str(apiKey || settings.emailOtpApiKey) &&
+    str(senderEmail || settings.emailOtpSenderEmail || settings.smtpFromEmail)
+  );
   const hasSmtp = Boolean(
     str(settings.smtpEmailUser || process.env.EMAIL_USER || process.env.BREVO_SMTP_USER) &&
     str(settings.smtpEmailPass || process.env.EMAIL_PASS || process.env.BREVO_SMTP_KEY)
@@ -37,7 +42,7 @@ const emailSenderReady = (settings, provider, apiKey, senderEmail) => {
     str(process.env.FIREBASE_SERVICE_ACCOUNT_JSON) &&
     String(settings.smtpEmailService || process.env.EMAIL_SERVICE || '').toLowerCase() === 'gmail-oauth'
   );
-  return Boolean(hasBrevoApi || hasSmtp || hasGmailOauth);
+  return Boolean(hasBrevoApi || hasMsg91Email || hasSmtp || hasGmailOauth);
 };
 
 const withMaskedSecrets = (settings) => ({
@@ -149,7 +154,7 @@ const updateEmailSettings = async (req, res) => {
   if (enabled && !emailSenderReady(settings, provider, apiKey, senderEmail)) {
     return res.status(400).json({
       success: false,
-      message: 'Email OTP Settings: Brevo API key or SMTP credentials required before enabling.',
+      message: 'Email OTP Settings: API key (Brevo/MSG91) or SMTP credentials required before enabling.',
     });
   }
 

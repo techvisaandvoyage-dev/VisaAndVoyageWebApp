@@ -49,6 +49,54 @@ const getOtpConfig = async (_req, res) => {
   });
 };
 
+const checkDuplicateUser = async (email, phone) => {
+  const emailToCheck = email ? String(email).trim().toLowerCase() : null;
+  
+  let phoneToCheck = null;
+  if (phone) {
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length >= 10) {
+      phoneToCheck = digits.slice(-10);
+    }
+  }
+
+  if (!emailToCheck && !phoneToCheck) return null;
+
+  let emailMatchedUser = null;
+  let phoneMatchedUser = null;
+
+  if (emailToCheck) {
+    emailMatchedUser = await User.findOne({ email: emailToCheck });
+  }
+  if (phoneToCheck) {
+    phoneMatchedUser = await User.findOne({
+      $or: [
+        { phone: phoneToCheck },
+        { phone: `91${phoneToCheck}` },
+        { phone: `+91${phoneToCheck}` }
+      ]
+    });
+  }
+
+  if (emailMatchedUser && phoneMatchedUser) {
+    return {
+      message: "User already exists with this email and phone number.",
+      field: "both"
+    };
+  } else if (emailMatchedUser) {
+    return {
+      message: "User already exists with this email.",
+      field: "email"
+    };
+  } else if (phoneMatchedUser) {
+    return {
+      message: "User already exists with this phone number.",
+      field: "phone"
+    };
+  }
+  return null;
+};
+
 const checkPhone = async (req, res) => {
   try {
     const parsed = normalizeIdentifier(req.body.phone);
@@ -71,14 +119,14 @@ const sendOtp = async (req, res) => {
     const rejectExisting = req.body.rejectExisting === true || req.body.rejectExisting === 'true';
     const popupFlow = req.body.popupFlow === true || req.body.popupFlow === 'true';
 
-    if (purpose === 'auth' && !rejectExisting && !popupFlow) {
-      if (parsed.type === 'invalid') {
-        return res.status(400).json({
-          success: false,
-          message: 'Please enter a valid email address or 10-digit mobile number',
-        });
-      }
+    if (parsed.type === 'invalid') {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid email address or 10-digit mobile number',
+      });
+    }
 
+    if (purpose === 'auth' && !rejectExisting && !popupFlow) {
       const existingUser = await findUserForIdentifier(parsed);
       if (!existingUser) {
         return res.status(404).json({
@@ -100,14 +148,15 @@ const sendOtp = async (req, res) => {
 
     if (rejectExisting) {
       if (parsed.type !== 'invalid') {
-        const existingUser = await findUserForIdentifier(parsed);
-        if (existingUser) {
+        const dup = await checkDuplicateUser(
+          parsed.type === 'email' ? parsed.key : null,
+          parsed.type === 'phone' ? parsed.key : null
+        );
+        if (dup) {
           return res.status(400).json({
             success: false,
-            message:
-              parsed.type === 'phone'
-                ? 'User already exists with this phone number.'
-                : 'User already exists with this email.',
+            message: dup.message,
+            field: dup.field
           });
         }
       }
@@ -180,15 +229,28 @@ const verifyOtp = async (req, res) => {
     const nameParts = splitName(name);
 
     if (!consume) {
+      const emailToCheck = parsed.type === 'email' ? parsed.key : null;
+      const phoneToCheck = parsed.type === 'phone' ? parsed.key : null;
+      const dup = await checkDuplicateUser(emailToCheck, phoneToCheck);
+      if (dup) {
+        return res.status(400).json({
+          success: false,
+          message: dup.message,
+          field: dup.field
+        });
+      }
       return res.json({ success: true, userExists: false, verified: true, message: 'OTP verified. Continue signup.' });
     }
 
-    if (parsed.type === 'email' || email) {
-      const emailToCheck = parsed.type === 'email' ? parsed.key : email;
-      if (emailToCheck) {
-        const emailTaken = await User.findOne({ email: emailToCheck });
-        if (emailTaken) return res.status(400).json({ success: false, message: 'Email already in use' });
-      }
+    const emailToCheck = parsed.type === 'email' ? parsed.key : email;
+    const phoneToCheck = parsed.type === 'phone' ? parsed.key : (req.body.phone || req.body.profile?.phone);
+    const dup = await checkDuplicateUser(emailToCheck, phoneToCheck);
+    if (dup) {
+      return res.status(400).json({
+        success: false,
+        message: dup.message,
+        field: dup.field
+      });
     }
 
     const profileCompleted =
