@@ -58,7 +58,7 @@ app.use(
   })
 );
 
-app.options("*", cors());
+app.options(/(.*)/, cors());
 app.use(express.json());
 
 // Health Check Routes
