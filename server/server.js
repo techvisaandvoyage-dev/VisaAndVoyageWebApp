@@ -21,28 +21,13 @@ const allowedOrigins = [
   "https://api.visavo.in",
   "https://visa-voyage-client.onrender.com",
   "https://visa-voyage-admin.onrender.com",
+  "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:5174",
-  "http://localhost:5175",
-  "http://localhost:5176",
-  "http://localhost:5177",
-  "http://localhost:3000"
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174"
 ];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error("Not allowed by CORS: " + origin));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "x-auth-token"]
-};
 
 // Middleware
 app.use(compression());
@@ -52,8 +37,28 @@ app.use(helmet({
 }));
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 
-app.use(cors(corsOptions));
-app.options(/(.*)/, cors(corsOptions));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin, like curl, Postman, mobile apps, server-to-server, and health checks
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.warn("Blocked by CORS:", origin);
+      return callback(null, false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "x-auth-token"]
+  })
+);
+
+app.options("*", cors());
 app.use(express.json());
 
 // Health Check Routes
