@@ -6,7 +6,8 @@ const compression = require('compression');
 const path = require('path');
 const connectDB = require('./config/db');
 
-// Load env from server/ so `npm run server` from repo root still finds MONGO_URI, etc.
+// Load env from root directory (for Hostinger/cPanel deployments) and server/ directory
+dotenv.config();
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
