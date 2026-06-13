@@ -51,11 +51,13 @@ app.use(
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      const normalizedOrigin = origin.trim().replace(/\/$/, "");
+
+      if (allowedOrigins.includes(normalizedOrigin)) {
         return callback(null, true);
       }
 
-      console.warn("Blocked by CORS:", origin);
+      console.warn("Blocked by CORS:", JSON.stringify(origin), "Length:", origin.length);
       return callback(null, false);
     },
     credentials: true,
