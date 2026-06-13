@@ -563,14 +563,18 @@ app.get('/api/support/conversations/client/chat', optionalAuth, async (req, res)
 });
 
 // Server start
-const PORT = process.env.PORT || 5000;
-
 console.log("Environment:", process.env.NODE_ENV || "development");
 console.log("Mongo URI exists:", Boolean(process.env.MONGO_URI));
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (process.env.PORT) {
+  app.listen(process.env.PORT, () => {
+    console.log(`Server running on dynamically assigned port/socket: ${process.env.PORT}`);
+  });
+} else {
+  app.listen(5000, "0.0.0.0", () => {
+    console.log("Server running on port 5000");
+  });
+}
 
 // Database connection and seeding (done asynchronously so app.listen isn't blocked)
 connectDB().then(async () => {
