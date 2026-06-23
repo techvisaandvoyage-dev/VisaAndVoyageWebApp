@@ -656,6 +656,9 @@ const resolveCountryDoc = (country, settings) => {
   const requiredDocumentsOverride = Array.isArray(obj.requiredDocuments)
     ? obj.requiredDocuments.map((k) => String(k ?? '').trim()).filter(Boolean)
     : [];
+  const optionalDocumentsOverride = Array.isArray(obj.optionalDocuments)
+    ? obj.optionalDocuments.map((k) => String(k ?? '').trim()).filter(Boolean)
+    : [];
   const resolvedGstEnabled = useGlobalGst
     ? settings?.gstEnabled !== false
     : obj.gstEnabled !== false;
@@ -721,9 +724,11 @@ const resolveCountryDoc = (country, settings) => {
     visaInformation: syncedVisaInformation,
     processingDays: resolvedProcessingDays,
     requiredDocuments: resolvedRequiredDocuments,
-    ...(hasConfiguredOptionalDocuments
-      ? { optionalDocuments: globalOptionalDocuments.filter((key) => !resolvedRequiredDocuments.includes(key)) }
-      : {}),
+    optionalDocuments: optionalDocumentsOverride.length
+      ? optionalDocumentsOverride
+      : hasConfiguredOptionalDocuments
+        ? globalOptionalDocuments.filter((key) => !resolvedRequiredDocuments.includes(key))
+        : [],
     documentSectionCopy: resolveDocumentSectionCopy(settings),
     useGlobalVisaType,
     useGlobalValidity,
@@ -746,6 +751,7 @@ const resolveCountryDoc = (country, settings) => {
     entryTypeOverride,
     processingDaysOverride,
     requiredDocumentsOverride,
+    optionalDocumentsOverride,
   };
 };
 
@@ -914,6 +920,7 @@ const addCountry = async (req, res) => {
       excludeDestinationVisaRequirements,
       useCustomVisaTypes,
       customVisaTypes,
+      optionalDocuments,
     } = req.body;
 
     if (!name || !basePrice) {
@@ -1011,6 +1018,9 @@ const addCountry = async (req, res) => {
       description: description || '',
       requirements: Array.isArray(requirements) ? requirements.filter(Boolean) : [],
       requiredDocuments: typedReqDocs.length ? typedReqDocs : ['passport'],
+      optionalDocuments: Array.isArray(optionalDocuments)
+        ? optionalDocuments.map((k) => String(k ?? '').trim()).filter(Boolean)
+        : [],
       useGlobalGst: useGlobalGst !== false,
       gstEnabled: gstEnabled !== undefined ? Boolean(gstEnabled) : undefined,
       gstRate: gstRate !== undefined ? (Number.isFinite(Number(gstRate)) ? Number(gstRate) : 0) : undefined,
@@ -1047,7 +1057,7 @@ const updateCountry = async (req, res) => {
       name, flagEmoji, basePrice, governmentFee, processingDays, difficulty,
       visaType, validity, lengthOfStay, entryType, continent, imageUrl, description,
       visaInformation,
-      requirements, requiredDocuments, trending, successRate, isActive,
+      requirements, requiredDocuments, optionalDocuments, trending, successRate, isActive,
       whyBookNow, includedItems, faqs, howItWorks,
       gstEnabled, gstRate, useGlobalGst,
       excludeDestinationWhyBookNow,
@@ -1055,6 +1065,7 @@ const updateCountry = async (req, res) => {
       excludeDestinationFaqQuestions,
       excludeDestinationHowItWorksTitles,
       excludeDestinationVisaRequirements,
+      customVisaTypes, useCustomVisaTypes,
     } = req.body;
 
     const country = await findCountry(req.params.id);
@@ -1205,6 +1216,9 @@ const updateCountry = async (req, res) => {
         country.requiredDocuments = typed;
       }
     }
+    if (Array.isArray(optionalDocuments)) {
+      country.optionalDocuments = optionalDocuments.map((k) => String(k ?? '').trim()).filter(Boolean);
+    }
     if (visaInformation !== undefined) {
       country.visaInformation = sanitizeVisaInformation(visaInformation, {
         validity: country.validity,
@@ -1232,6 +1246,16 @@ const updateCountry = async (req, res) => {
     }
     if (excludeDestinationVisaRequirements !== undefined) {
       country.excludeDestinationVisaRequirements = sanitizeExcludeKeys(excludeDestinationVisaRequirements);
+    }
+    if (useCustomVisaTypes !== undefined) country.useCustomVisaTypes = Boolean(useCustomVisaTypes);
+    if (customVisaTypes !== undefined) {
+      country.customVisaTypes = Array.isArray(customVisaTypes)
+        ? customVisaTypes.map((vt) => ({
+            id: String(vt?.id ?? new mongoose.Types.ObjectId().toString()),
+            name: String(vt?.name ?? '').trim(),
+            active: vt?.active !== false,
+          }))
+        : [];
     }
 
     await country.save();

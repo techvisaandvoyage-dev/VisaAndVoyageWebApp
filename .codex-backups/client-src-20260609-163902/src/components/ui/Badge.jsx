@@ -1,0 +1,122 @@
+// ============================================================
+//  Badge Component
+//  Displays status labels with color-coded styles.
+//  Variants map to BOOKING_STATUS values.
+// ============================================================
+
+/**
+ * @param {"pending"|"approved"|"review"|"rejected"|"submitted"|"easy"|"moderate"|"hard"} variant
+ * @param {boolean} dot  — show animated status dot
+ * @param {"sm"|"md"} size
+ */
+const Badge = ({ children, variant = "pending", dot = false, size = "md", className = "", tooltip = "" }) => {
+  // ── Variant color map ────────────────────────────────────
+  const variants = {
+    // Booking statuses
+    pending:   "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    approved:  "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    review:    "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    rejected:  "bg-red-500/15 text-red-400 border-red-500/30",
+    submitted: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    cancelled: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
+    pending_payment: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+    doc_pending: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    drive_link_pending: "bg-cyan/12 text-cyan border-cyan/30",
+    completed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+
+    // Difficulty levels
+    easy:      "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    moderate:  "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    hard:      "bg-red-500/15 text-red-400 border-red-500/30",
+
+    // Neutral / general
+    default:   "bg-surface-3 text-text-secondary border-border",
+    cyan:      "bg-cyan/10 text-cyan border-cyan/30",
+    gold:      "bg-gold/10 text-gold border-gold/30",
+  };
+
+  // Dot color matches badge color
+  const dotColors = {
+    pending:   "bg-amber-400",
+    approved:  "bg-emerald-400",
+    review:    "bg-blue-400",
+    rejected:  "bg-red-400",
+    submitted: "bg-purple-400",
+    cancelled: "bg-zinc-400",
+    pending_payment: "bg-orange-400",
+    doc_pending: "bg-amber-400",
+    drive_link_pending: "bg-cyan",
+    completed: "bg-emerald-400",
+    easy:      "bg-emerald-400",
+    moderate:  "bg-amber-400",
+    hard:      "bg-red-400",
+    default:   "bg-text-muted",
+    cyan:      "bg-cyan",
+    gold:      "bg-gold",
+  };
+
+  const sizes = {
+    sm: "px-2 py-0.5 text-2xs",
+    md: "px-2.5 py-1 text-xs",
+  };
+
+  return (
+    <span className={`relative inline-flex ${tooltip  "group cursor-help" : ""}`}>
+      <span
+        className={`
+          inline-flex items-center gap-1.5 rounded-full font-medium border
+          ${variants[variant] || variants.default}
+          ${sizes[size]}
+          ${className}
+        `}
+      >
+        {/* Optional animated dot */}
+        {dot && (
+          <span
+            className={`
+              w-1.5 h-1.5 rounded-full flex-shrink-0 status-dot-pulse
+              ${dotColors[variant] || "bg-text-muted"}
+            `}
+          />
+        )}
+        {children}
+      </span>
+      {tooltip  (
+        <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-56 -translate-x-1/2 rounded-xl border border-border bg-surface px-3 py-2 text-[11px] font-normal leading-relaxed text-text-secondary shadow-lg group-hover:block">
+          {tooltip}
+        </span>
+      ) : null}
+    </span>
+  );
+};
+
+// ── Convenience exports for specific statuses ──────────────
+export const StatusBadge = ({ status, ...props }) => {
+  const labels = {
+    pending:   "Pending Upload Doc",
+    approved:  "Approved",
+    review:    "Under Review",
+    rejected:  "Rejected",
+    submitted: "Submitted",
+    cancelled: "Cancelled",
+    pending_payment: "Pending Payment",
+    doc_pending: "Pending Upload Doc",
+    drive_link_pending: "Upload Drive Link",
+    completed: "Completed",
+  };
+  const tooltips = {
+    pending: "We are waiting for your documents",
+    doc_pending: "We are waiting for your documents",
+    drive_link_pending: "Passport is uploaded. Add the Google Drive link to move this application to review.",
+    review: "Our team is checking your documents and details. We will update the status after review.",
+    completed: "Payment successfully",
+    cancelled: "Payment cancel",
+  };
+  return (
+    <Badge variant={status} dot tooltip={tooltips[status] || ""} {...props}>
+      {labels[status] || status}
+    </Badge>
+  );
+};
+
+export default Badge;

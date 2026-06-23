@@ -1,0 +1,202 @@
+import { initializeApp, getApps } from "firebase/app";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { api } from "../store/authStore";
+
+let firebaseConfigPromise = null;
+
+/** Only keys Firebase Web SDK accepts (strip googleClientId etc. from API payload). */
+const toFirebaseWebConfig = (raw) => ({
+  apiKey: raw.apiKey,
+  authDomain: raw.authDomain,
+  projectId: raw.projectId,
+  storageBucket: raw.storageBucket || undefined,
+  messagingSenderId: raw.messagingSenderId || undefined,
+  appId: raw.appId,
+});
+
+const loadFirebaseConfig = async () => {
+  if (!firebaseConfigPromise) {
+    firebaseConfigPromise = api
+      .get("/config/firebase")
+      .then(({ data }) => {
+        if (!data.success || !data.config) {
+          throw new Error(
+            data.message ||
+              "Firebase is not configured. Add API Key, App ID, and Messaging Sender ID in admin settings."
+          );
+        }
+        return toFirebaseWebConfig(data.config);
+      })
+      .catch((error) => {
+        firebaseConfigPromise = null;
+        throw error;
+      });
+  }
+  return firebaseConfigPromise;
+};
+
+const getFirebaseAuth = async () => {
+  const webConfig = await loadFirebaseConfig();
+  const app = getApps().length ? getApps()[0] : initializeApp(webConfig);
+  return getAuth(app);
+};
+
+/**
+ * Warm-up: call this from the login / register page on mount so that by the time the
+ * user clicks "Continue with Google" the Firebase config request and SDK init have
+ * already completed. Saves ~300–800ms on the first click on a fresh page load.
+ */
+export const prefetchFirebaseAuth = () => {
+  getFirebaseAuth().catch(() => {
+    /* prefetch is best-effort; real click will surface errors */
+  });
+};
+
+/**
+ * Google sign-in uses popup only. `signInWithRedirect` relies on sessionStorage across the
+ * Google redirect; browsers often partition or clear it ' "missing initial state". Popup avoids that.
+ * @deprecated kept only if you experiment with redirect again
+ */
+export const signInWithGoogleRedirect = async () => {
+  try {
+    const auth = await getFirebaseAuth();
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    await signInWithRedirect(auth, provider);
+  } catch (err) {
+    throw new Error(mapFirebaseAuthError(err), { cause: err });
+  }
+};
+
+/** Call once on /login or /register mount after returning from Google redirect. Returns token or null. */
+export const consumeGoogleRedirectIdToken = async () => {
+  try {
+    const auth = await getFirebaseAuth();
+    const result = await getRedirectResult(auth);
+    if (!result.user) return null;
+    return await result.user.getIdToken();
+  } catch (err) {
+    throw new Error(mapFirebaseAuthError(err), { cause: err });
+  }
+};
+
+/** Google OAuth — popup window (required for reliable auth when storage-partitioned). */
+export const signInWithGooglePopup = async () => {
+  try {
+    const auth = await getFirebaseAuth();
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    const credential = await signInWithPopup(auth, provider);
+    return credential.user.getIdToken();
+  } catch (err) {
+    throw new Error(mapFirebaseAuthError(err), { cause: err });
+  }
+};
+
+/** Requires Facebook Login enabled in Firebase Console ' Authentication ' Sign-in method ' Facebook. */
+export const signInWithFacebookPopup = async () => {
+  try {
+    const auth = await getFirebaseAuth();
+    const provider = new FacebookAuthProvider();
+    provider.addScope("email");
+    provider.addScope("public_profile");
+    const credential = await signInWithPopup(auth, provider);
+    return credential.user.getIdToken();
+  } catch (err) {
+    throw new Error(mapFirebaseAuthError(err), { cause: err });
+  }
+};
+
+const mapFirebaseAuthError = (err) => {
+  const rawMsg = String(err.message || "");
+  if (/missing initial state/i.test(rawMsg)) {
+    return (
+      "Google could not finish sign-in (browser blocked redirect storage). Try again, allow cookies/storage for this site, or sign in with email. " +
+      "If this persists, use a normal browser window—not embedded WebViews or strict private mode."
+    );
+  }
+  const code = err.code || "";
+  if (code === "auth/unauthorized-domain") {
+    const host =
+      typeof window !== "undefined" ? window.location.hostname : "";
+    if (host) {
+      return (
+        `Firebase does not allow sign-in from this address yet. Open the same Firebase project as your API key ' Authentication ' Settings ' Authorized domains ' Add domain ' enter exactly: ${host}` +
+        (host === "localhost"
+          ? " If you use http://127.0.0.1:… in the browser, add 127.0.0.1 as a separate domain too."
+          : "")
+      );
+    }
+    return (
+      "Firebase does not allow sign-in from this site yet. In Firebase Console (same project as your web app config) go to Authentication ' Settings ' Authorized domains and add the hostname shown in your browser’s address bar (no https://, no path)."
+    );
+  }
+  const messages = {
+    "auth/email-already-in-use": "That email is already registered. Log in instead.",
+    "auth/invalid-email": "Enter a valid email address.",
+    "auth/weak-password": "Password is too weak. Use at least 6 characters.",
+    "auth/user-disabled": "This account has been disabled.",
+    "auth/user-not-found": "No account found for this email.",
+    "auth/wrong-password": "Incorrect password. Try again or reset it in Firebase.",
+    "auth/invalid-credential": "Invalid email or password.",
+    "auth/too-many-requests": "Too many attempts. Try again later.",
+    "auth/network-request-failed": "Network error. Check your connection.",
+    "auth/account-exists-with-different-credential": "An account already exists with this email using another sign-in method.",
+    "auth/popup-closed-by-user": "Sign-in was cancelled.",
+    "auth/cancelled-popup-request": "Only one sign-in window can run at a time.",
+    "auth/operation-not-allowed":
+      "Google sign-in is not enabled for this Firebase project. In Firebase Console ' Authentication ' Sign-in method, turn on Google.",
+  };
+  return messages[code] || err.message || "Firebase authentication failed.";
+};
+
+/**
+ * Register with Firebase Email/Password, set display name, return ID token for your API.
+ */
+export const signUpWithFirebaseEmail = async (email, password, displayName) => {
+  try {
+    const auth = await getFirebaseAuth();
+    const cred = await createUserWithEmailAndPassword(
+      auth,
+      String(email || "").trim(),
+      password
+    );
+    const name = String(displayName || "").trim();
+    if (name) {
+      try {
+        await updateProfile(cred.user, { displayName: name });
+      } catch {
+        /* non-fatal; server can derive name from email */
+      }
+    }
+    return cred.user.getIdToken();
+  } catch (err) {
+    throw new Error(mapFirebaseAuthError(err), { cause: err });
+  }
+};
+
+export const signInWithFirebaseEmail = async (email, password) => {
+  try {
+    const auth = await getFirebaseAuth();
+    const cred = await signInWithEmailAndPassword(
+      auth,
+      String(email || "").trim(),
+      password
+    );
+    return cred.user.getIdToken();
+  } catch (err) {
+    throw new Error(mapFirebaseAuthError(err), { cause: err });
+  }
+};
+
+export const firebaseEmailAuthErrorMessage = (err) => mapFirebaseAuthError(err);

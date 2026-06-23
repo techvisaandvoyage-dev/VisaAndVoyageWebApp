@@ -153,6 +153,7 @@ const countrySchema = new mongoose.Schema({
   requiredDocuments: [{ type: String }],
   /** If true, public responses ignore this country's `requiredDocuments` and use the global list. */
   useGlobalRequiredDocuments: { type: Boolean, default: true },
+  optionalDocuments: [{ type: String }],
 
   trending: { type: Boolean, default: false },
   successRate: { type: Number, default: 80, min: 0, max: 100 },
