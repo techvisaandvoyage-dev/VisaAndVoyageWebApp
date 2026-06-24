@@ -59,6 +59,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+const {
+  createOrUpdateDefault,
+  updateCountryOverride,
+  getVisa,
+  getAllVisasAdmin
+} = require('../controllers/visaController');
+
 // Storage for country banner images
 const countryImagesDir = path.join(__dirname, '..', 'uploads', 'country-images');
 if (!fs.existsSync(countryImagesDir)) fs.mkdirSync(countryImagesDir, { recursive: true });
@@ -168,6 +175,12 @@ router.post('/countries/refresh-unsplash-images', protect, requireAdmin, refresh
 router.post('/countries', protect, requireAdmin, addCountry);
 router.put('/countries/:id', protect, requireAdmin, updateCountry);
 router.delete('/countries/:id', protect, requireAdmin, deleteCountry);
+
+// Visa Details Management (Architecture v2)
+router.get('/visa', protect, requireAdmin, getAllVisasAdmin);
+router.post('/visa/default', protect, requireAdmin, createOrUpdateDefault);
+router.get('/visa/:countryId', protect, requireAdmin, getVisa);
+router.put('/visa/:countryId', protect, requireAdmin, updateCountryOverride);
 
 // Static pages CMS
 router.get('/pages', protect, requireAdmin, getAdminPages);

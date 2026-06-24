@@ -1,6 +1,7 @@
 const Country = require('../models/Country');
 const Application = require('../models/Application');
 const Settings = require('../models/Settings');
+const VisaConfiguration = require('../models/VisaConfiguration');
 const { processUnsplashCountryImageBatch } = require('../services/unsplashCountryImages');
 const { loadSettingsDocument } = require('../utils/settingsDocument');
 
@@ -88,7 +89,7 @@ const VISA_INFORMATION_ITEM_DEFAULTS = Object.freeze([
 ]);
 
 const getVisaInformationDefaultValues = (source = {}) => ({
-  lengthOfStay: String(source?.lengthOfStay ?? source?.validity ?? '').trim() || 'On request',
+  lengthOfStay: String(source?.lengthOfStay ?? '').trim() || 'On request',
   validity: String(source?.validity ?? '').trim() || 'On request',
   entry: String(source?.entryType ?? '').trim() || 'Single',
 });
@@ -850,6 +851,42 @@ const normalizePopularCountriesLimit = (value, fallback = POPULAR_COUNTRIES_LIMI
   return Math.min(parsed, 300);
 };
 
+const applyDefaultVisaToSettings = (settings, defaultVisa) => {
+  if (!defaultVisa || !settings) return;
+  if (defaultVisa.visaType !== undefined && defaultVisa.visaType !== '') settings.globalVisaType = defaultVisa.visaType;
+  if (defaultVisa.validity !== undefined && defaultVisa.validity !== '') settings.globalValidity = defaultVisa.validity;
+  if (defaultVisa.lengthOfStay !== undefined && defaultVisa.lengthOfStay !== '') settings.globalLengthOfStay = defaultVisa.lengthOfStay;
+  if (defaultVisa.entryType !== undefined && defaultVisa.entryType !== '') settings.globalEntryType = defaultVisa.entryType;
+  if (defaultVisa.processingDays !== undefined && defaultVisa.processingDays !== '') settings.globalProcessingDays = defaultVisa.processingDays;
+  if (Array.isArray(defaultVisa.requiredDocuments) && defaultVisa.requiredDocuments.length > 0) {
+    settings.globalRequiredDocuments = defaultVisa.requiredDocuments.map(key => ({ key, showInAllActiveCountries: true }));
+  }
+  if (Array.isArray(defaultVisa.optionalDocuments) && defaultVisa.optionalDocuments.length > 0) {
+    settings.globalOptionalDocuments = defaultVisa.optionalDocuments.map(key => ({ key, showInAllActiveCountries: true }));
+  }
+};
+
+const applyVisaConfigToCountry = (cObj, overrideVisa) => {
+  if (!overrideVisa || !cObj) return;
+  if (overrideVisa.visaType !== undefined && overrideVisa.visaType !== '') cObj.visaType = overrideVisa.visaType;
+  if (overrideVisa.validity !== undefined && overrideVisa.validity !== '') cObj.validity = overrideVisa.validity;
+  if (overrideVisa.lengthOfStay !== undefined && overrideVisa.lengthOfStay !== '') cObj.lengthOfStay = overrideVisa.lengthOfStay;
+  if (overrideVisa.entryType !== undefined && overrideVisa.entryType !== '') cObj.entryType = overrideVisa.entryType;
+  if (overrideVisa.processingDays !== undefined && overrideVisa.processingDays !== '') cObj.processingDays = overrideVisa.processingDays;
+  if (Array.isArray(overrideVisa.requiredDocuments) && overrideVisa.requiredDocuments.length > 0) cObj.requiredDocuments = overrideVisa.requiredDocuments;
+  if (Array.isArray(overrideVisa.optionalDocuments) && overrideVisa.optionalDocuments.length > 0) cObj.optionalDocuments = overrideVisa.optionalDocuments;
+  if (Array.isArray(overrideVisa.customVisaTypes) && overrideVisa.customVisaTypes.length > 0) cObj.customVisaTypes = overrideVisa.customVisaTypes;
+
+  if (overrideVisa.useGlobalVisaType !== undefined) cObj.useGlobalVisaType = overrideVisa.useGlobalVisaType;
+  if (overrideVisa.useGlobalValidity !== undefined) cObj.useGlobalValidity = overrideVisa.useGlobalValidity;
+  if (overrideVisa.useGlobalLengthOfStay !== undefined) cObj.useGlobalLengthOfStay = overrideVisa.useGlobalLengthOfStay;
+  if (overrideVisa.useGlobalEntryType !== undefined) cObj.useGlobalEntryType = overrideVisa.useGlobalEntryType;
+  if (overrideVisa.useGlobalProcessingDays !== undefined) cObj.useGlobalProcessingDays = overrideVisa.useGlobalProcessingDays;
+  if (overrideVisa.useGlobalRequiredDocuments !== undefined) cObj.useGlobalRequiredDocuments = overrideVisa.useGlobalRequiredDocuments;
+  if (overrideVisa.useGlobalOptionalDocuments !== undefined) cObj.useGlobalOptionalDocuments = overrideVisa.useGlobalOptionalDocuments;
+  if (overrideVisa.useGlobalCustomVisaTypes !== undefined) cObj.useGlobalCustomVisaTypes = overrideVisa.useGlobalCustomVisaTypes;
+};
+
 /**
  * @route   GET /api/countries
  * @desc    Get all countries (public)
@@ -860,11 +897,24 @@ const getCountries = async (req, res) => {
     if (req.query.active === 'true') {
       filter.isActive = { $ne: false };
     }
-    const [countries, settings] = await Promise.all([
+    const [countries, settings, defaultVisa, overrides] = await Promise.all([
       Country.find(filter).sort({ name: 1 }),
       getOrCreateSettings(),
+      VisaConfiguration.findOne({ sourceType: 'DEFAULT' }),
+      VisaConfiguration.find({ sourceType: 'OVERRIDE' })
     ]);
-    const resolved = countries.map((c) => resolveCountryDoc(c, settings));
+    
+    applyDefaultVisaToSettings(settings, defaultVisa);
+    const overridesMap = {};
+    overrides.forEach(o => overridesMap[String(o.countryId)] = o);
+
+    const resolved = countries.map((c) => {
+      const cObj = c.toObject();
+      const overrideVisa = overridesMap[String(c._id)];
+      applyVisaConfigToCountry(cObj, overrideVisa);
+      return resolveCountryDoc(cObj, settings);
+    });
+
     res.json({
       success: true,
       countries: resolved,
@@ -883,14 +933,23 @@ const getCountries = async (req, res) => {
  */
 const getCountryBySlug = async (req, res) => {
   try {
-    const [country, settings] = await Promise.all([
-      Country.findOne({ slug: req.params.slug }),
+    const countryRaw = await Country.findOne({ slug: req.params.slug });
+    if (!countryRaw) return res.status(404).json({ success: false, message: 'Country not found' });
+
+    const [settings, defaultVisa, overrideVisa] = await Promise.all([
       getOrCreateSettings(),
+      VisaConfiguration.findOne({ sourceType: 'DEFAULT' }),
+      VisaConfiguration.findOne({ countryId: countryRaw._id, sourceType: 'OVERRIDE' }),
     ]);
-    if (!country) return res.status(404).json({ success: false, message: 'Country not found' });
+
+    applyDefaultVisaToSettings(settings, defaultVisa);
+    
+    const cObj = countryRaw.toObject();
+    applyVisaConfigToCountry(cObj, overrideVisa);
+
     res.json({
       success: true,
-      country: resolveCountryDoc(country, settings),
+      country: resolveCountryDoc(cObj, settings),
       display: resolveDisplayToggles(settings),
       documentCatalog: buildDocumentCatalog(settings),
     });
