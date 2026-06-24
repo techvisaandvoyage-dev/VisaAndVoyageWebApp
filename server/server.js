@@ -614,7 +614,17 @@ app.get('/api/support/conversations/client/chat', optionalAuth, async (req, res)
 // ── Global Error Handler (must be LAST middleware) ─────────────────────────────
 app.use(errorHandler);
 
-// ── 4. Bootstrap: Connect DB → Seed → Start Server ────────────────────────────
+// ── Start HTTP server immediately (required by Hostinger/Passenger) ────────────
+const port = process.env.PORT || 5000;
+const host = process.env.PORT ? undefined : "0.0.0.0";
+
+app.listen(port, host, () => {
+  logger.startup(`Server running on port ${port} ✓`);
+  logger.startup(`Health check: http://localhost:${port}/api/health`);
+  logger.startup('Ready to accept requests.');
+});
+
+// ── 4. Bootstrap: Connect DB → Seed ───────────────────────────────────────────
 const bootstrap = async () => {
   // ── 4a. Connect to MongoDB (retries internally) ─────────────────────────────
   await connectDB();
@@ -671,16 +681,6 @@ const bootstrap = async () => {
   } else {
     logger.startup("Seeders skipped to optimize boot time. (Set RUN_SEEDERS=true to enable)");
   }
-
-  // ── 4c. Start HTTP server (only after DB is connected) ──────────────────────
-  const port = process.env.PORT || 5000;
-  const host = process.env.PORT ? undefined : "0.0.0.0";
-
-  app.listen(port, host, () => {
-    logger.startup(`Server running on port ${port} ✓`);
-    logger.startup(`Health check: http://localhost:${port}/api/health`);
-    logger.startup('Ready to accept requests.');
-  });
 };
 
 // ── 5. Process-Level Crash Guards ──────────────────────────────────────────────
