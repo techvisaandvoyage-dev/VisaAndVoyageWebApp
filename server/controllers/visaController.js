@@ -1,6 +1,102 @@
 const VisaConfiguration = require('../models/VisaConfiguration');
 const Country = require('../models/Country');
 
+const COUNTRY_VISA_FLAG_BY_FIELD = {
+  visaType: 'useGlobalVisaType',
+  processingDays: 'useGlobalProcessingDays',
+  validity: 'useGlobalValidity',
+  lengthOfStay: 'useGlobalLengthOfStay',
+  entryType: 'useGlobalEntryType',
+  requiredDocuments: 'useGlobalRequiredDocuments',
+};
+
+const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+
+const normalizeCustomVisaTypes = (values) =>
+  Array.isArray(values)
+    ? values
+        .map((item) => ({
+          id: String(item?.id ?? item?.name ?? '').trim(),
+          name: String(item?.name ?? '').trim(),
+          active: item?.active !== false,
+        }))
+        .filter((item) => item.name)
+    : [];
+
+const buildCountryVisaSet = (data, { forceGlobal = false } = {}) => {
+  const set = {};
+
+  Object.entries(COUNTRY_VISA_FLAG_BY_FIELD).forEach(([field, flag]) => {
+    if (hasOwn(data, field)) {
+      set[field] = data[field];
+    }
+    if (hasOwn(data, flag)) {
+      set[flag] = Boolean(data[flag]);
+    } else if (forceGlobal && hasOwn(data, field)) {
+      set[flag] = true;
+    }
+  });
+
+  if (hasOwn(data, 'optionalDocuments')) {
+    set.optionalDocuments = Array.isArray(data.optionalDocuments)
+      ? data.optionalDocuments.map((key) => String(key ?? '').trim()).filter(Boolean)
+      : [];
+  }
+
+  if (hasOwn(data, 'customVisaTypes')) {
+    set.customVisaTypes = normalizeCustomVisaTypes(data.customVisaTypes);
+  }
+
+  if (hasOwn(data, 'useGlobalCustomVisaTypes')) {
+    set.useCustomVisaTypes = !Boolean(data.useGlobalCustomVisaTypes);
+  } else if (hasOwn(data, 'useCustomVisaTypes')) {
+    set.useCustomVisaTypes = Boolean(data.useCustomVisaTypes);
+  } else if (forceGlobal && hasOwn(data, 'customVisaTypes')) {
+    set.useCustomVisaTypes = false;
+  }
+
+  return set;
+};
+
+const syncSelectedCountriesToDefaultVisa = async (countryIds, data) => {
+  const selectedIds = Array.isArray(countryIds)
+    ? countryIds.map((id) => String(id ?? '').trim()).filter(Boolean)
+    : [];
+  if (selectedIds.length === 0) return;
+
+  const set = buildCountryVisaSet(data, { forceGlobal: true });
+  if (Object.keys(set).length === 0) return;
+
+  await Country.updateMany(
+    { _id: { $in: selectedIds } },
+    { $set: set }
+  );
+};
+
+const syncGlobalVisaDefaultsToCountries = async (data) => {
+  const updates = [];
+
+  Object.entries(COUNTRY_VISA_FLAG_BY_FIELD).forEach(([field, flag]) => {
+    if (!hasOwn(data, field)) return;
+    updates.push(
+      Country.updateMany(
+        { [flag]: { $ne: false } },
+        { $set: { [field]: data[field] } }
+      )
+    );
+  });
+
+  if (updates.length > 0) {
+    await Promise.all(updates);
+  }
+};
+
+const syncCountryToVisaOverride = async (countryId, data) => {
+  const set = buildCountryVisaSet(data);
+  if (Object.keys(set).length === 0) return;
+  await Country.updateOne({ _id: countryId }, { $set: set });
+};
+
 // @desc    Create or update the global DEFAULT visa configuration
 // @route   POST /api/admin/visa/default
 // @access  Private/Admin
@@ -26,6 +122,9 @@ const createOrUpdateDefault = async (req, res) => {
         countryId: { $in: selectedCountries },
         sourceType: 'OVERRIDE'
       });
+      await syncSelectedCountriesToDefaultVisa(selectedCountries, data);
+    } else {
+      await syncGlobalVisaDefaultsToCountries(data);
     }
 
     res.status(200).json({
@@ -68,6 +167,8 @@ const updateCountryOverride = async (req, res) => {
         countryId
       });
     }
+
+    await syncCountryToVisaOverride(countryId, data);
 
     res.status(200).json({
       success: true,

@@ -87,6 +87,7 @@ const settingsSchema = new mongoose.Schema({
   authGoogleEnabled: { type: Boolean, default: true },
   authFacebookEnabled: { type: Boolean, default: false },
   authPhoneOtpEnabled: { type: Boolean, default: true },
+  authSmsOtpEnabled: { type: Boolean, default: false },
   authEmailOtpEnabled: { type: Boolean, default: true },
   countryCodeSettings: {
     defaultCountryCode: { type: String, default: '+91' },

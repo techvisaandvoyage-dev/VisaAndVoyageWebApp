@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { getFirebaseAdminApp } = require('../utils/firebaseAdmin');
+const { getAuth } = require('firebase-admin/auth');
 
 const generateToken = (id) => {
   return jwt.sign({ id: String(id), role: 'user' }, process.env.JWT_SECRET, {
@@ -651,11 +652,12 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
   const nameParts = splitName(displayName);
   const authProvider = isGoogle ? 'google' : isFacebook ? 'facebook' : 'firebase';
 
+  const phoneDigits = normalizePhoneDigits(decodedToken.phone_number);
+
   const lookup = [{ firebaseUid: uid }, { googleId: uid }, { facebookId: uid }];
   if (isValidEmail(email)) lookup.push({ email });
+  if (phoneDigits) lookup.push({ phone: phoneDigits });
   let user = await User.findOne({ $or: lookup });
-
-  const phoneDigits = normalizePhoneDigits(decodedToken.phone_number);
 
   if (!user) {
     user = await User.create({
@@ -707,14 +709,16 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
  * @access  Public
  */
 const firebaseAuthLogin = async (req, res) => {
+  console.log('[API] /firebase-auth hit');
   try {
     const { idToken } = req.body;
     if (!idToken) {
+      console.log('[API] /firebase-auth missing idToken');
       return res.status(400).json({ success: false, message: 'Firebase ID token is required' });
     }
 
     const firebaseApp = await getFirebaseAdminApp();
-    const decodedToken = await firebaseApp.auth().verifyIdToken(idToken);
+    const decodedToken = await getAuth(firebaseApp).verifyIdToken(idToken);
     const { user, isNewUser } = await syncUserFromFirebaseToken(decodedToken);
 
     const refreshed = await User.findById(user._id).select('-password').lean();
@@ -734,16 +738,8 @@ const firebaseAuthLogin = async (req, res) => {
       msg.includes('Firebase project ID') ||
       msg.includes('invalid') && msg.includes('JSON');
     const status = error.statusCode === 400 ? 400 : notConfigured ? 503 : 401;
-    const message =
-      error.statusCode === 400
-        ? error.message
-        : notConfigured
-          ? msg ||
-            'Firebase Admin is not configured. Paste the service account JSON in Admin → Settings → Firebase, and ensure the project matches your web app.'
-          : msg.includes('Firebase') || msg.includes('auth/')
-            ? msg
-            : 'Firebase log-in failed. Check that the ID token is valid and Admin settings match your Firebase project.';
-    res.status(status).json({ success: false, message });
+    const message = error.message || 'Firebase log-in failed.';
+    res.status(status).json({ success: false, message, rawError: String(error.stack || error) });
   }
 };
 

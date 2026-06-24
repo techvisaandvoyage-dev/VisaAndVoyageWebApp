@@ -36,7 +36,8 @@ const getFirebaseAdminApp = async () => {
   });
   
   const configSignature = `${projectId}:${storageBucket}:${rawUsed}`;
-  const existingApp = admin.apps.find((app) => app.name === FIREBASE_ADMIN_APP_NAME);
+  const { getApps } = require('firebase-admin/app');
+  const existingApp = getApps().find((app) => app.name === FIREBASE_ADMIN_APP_NAME);
 
   if (existingApp && firebaseAdminConfigSignature === configSignature) {
     return existingApp;
@@ -51,12 +52,13 @@ const getFirebaseAdminApp = async () => {
     storageBucket: storageBucket || undefined,
   };
 
+  const { cert, applicationDefault } = require('firebase-admin/app');
   if (parsedAccount && typeof parsedAccount === 'object') {
     const serviceAccount = normalizePrivateKeyNewlines(parsedAccount);
-    config.credential = admin.credential.cert(serviceAccount);
+    config.credential = cert(serviceAccount);
     if (serviceAccount.project_id) config.projectId = serviceAccount.project_id;
   } else {
-    config.credential = admin.credential.applicationDefault();
+    config.credential = applicationDefault();
   }
 
   if (!config.projectId) {
@@ -64,8 +66,9 @@ const getFirebaseAdminApp = async () => {
     // However, we'll try to let it fail during initializeApp if it's really needed.
   }
 
+  const { initializeApp } = require('firebase-admin/app');
   firebaseAdminConfigSignature = configSignature;
-  return admin.initializeApp(config, FIREBASE_ADMIN_APP_NAME);
+  return initializeApp(config, FIREBASE_ADMIN_APP_NAME);
 };
 
 module.exports = { getFirebaseAdminApp };

@@ -5,11 +5,23 @@ const helmet = require('helmet');
 const compression = require('compression');
 const path = require('path');
 const connectDB = require('./config/db');
+const { getDbStatus } = require('./config/db');
+const logger = require('./utils/logger');
+const validateEnv = require('./utils/validateEnv');
+const errorHandler = require('./middleware/errorHandler');
 
+// ── 1. Load environment ────────────────────────────────────────────────────────
 // Load env from root directory (for Hostinger/cPanel deployments) and server/ directory
 dotenv.config();
 dotenv.config({ path: path.join(__dirname, '.env') });
 
+// ── 2. Validate environment variables (exits if critical vars are missing) ─────
+const envCheck = validateEnv();
+if (!envCheck.valid) {
+  process.exit(1);
+}
+
+// ── 3. Express app setup ───────────────────────────────────────────────────────
 const app = express();
 app.set('trust proxy', 1); // Render / other reverse proxies
 
@@ -35,7 +47,7 @@ const allowedOrigins = [
   "http://127.0.0.1:5177"
 ];
 
-// Middleware
+// ── Middleware ──────────────────────────────────────────────────────────────────
 app.use(compression());
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -57,7 +69,7 @@ app.use(
         return callback(null, true);
       }
 
-      console.warn("Blocked by CORS:", JSON.stringify(origin), "Length:", origin.length);
+      logger.warn(`Blocked by CORS: ${JSON.stringify(origin)} (length: ${origin.length})`);
       return callback(null, false);
     },
     credentials: true,
@@ -69,7 +81,20 @@ app.use(
 app.options(/(.*)/, cors());
 app.use(express.json());
 
-// Health Check Routes
+// ── Health Check Routes ────────────────────────────────────────────────────────
+const formatUptime = (seconds) => {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const parts = [];
+  if (d) parts.push(`${d}d`);
+  if (h) parts.push(`${h}h`);
+  if (m) parts.push(`${m}m`);
+  parts.push(`${s}s`);
+  return parts.join(' ');
+};
+
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -78,18 +103,34 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Backend is healthy",
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
+  const dbStatus = getDbStatus();
+  res.status(dbStatus === 'connected' ? 200 : 503).json({
+    status: dbStatus === 'connected' ? 'OK' : 'DEGRADED',
+    uptime: formatUptime(process.uptime()),
+    uptimeSeconds: Math.floor(process.uptime()),
+    database: dbStatus,
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+    memory: {
+      rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+    },
   });
 });
 
 app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Backend is healthy"
+  const dbStatus = getDbStatus();
+  res.status(dbStatus === 'connected' ? 200 : 503).json({
+    status: dbStatus === 'connected' ? 'OK' : 'DEGRADED',
+    uptime: formatUptime(process.uptime()),
+    uptimeSeconds: Math.floor(process.uptime()),
+    database: dbStatus,
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+    memory: {
+      rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+    },
   });
 });
 
@@ -97,7 +138,7 @@ app.get("/api/health", (req, res) => {
 const requestLoggingEnabled = String(process.env.ENABLE_API_REQUEST_LOGS || "").trim() === "1";
 app.use((req, res, next) => {
   if (requestLoggingEnabled) {
-    console.log(`[API REQUEST] ${req.method} ${req.originalUrl}`);
+    logger.request(req.method, req.originalUrl, '-', 0);
   }
   next();
 });
@@ -254,7 +295,7 @@ app.get('/api/chat/my-conversation', optionalAuth, async (req, res) => {
       res.json({ success: true, conversation: null });
     }
   } catch (err) {
-    console.error("Error in my-conversation:", err);
+    logger.error("Error in my-conversation:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -332,7 +373,7 @@ app.post('/api/chat/message', optionalAuth, async (req, res) => {
     const mapped = await mapConversation(convo);
     res.json({ success: true, conversation: mapped });
   } catch (err) {
-    console.error("Error sending user message:", err);
+    logger.error("Error sending user message:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -346,7 +387,7 @@ app.get('/api/admin/chat/conversations', protect, requireAdmin, async (req, res)
     const mapped = await Promise.all(convos.map(c => mapConversation(c)));
     res.json({ success: true, conversations: mapped });
   } catch (err) {
-    console.error("Error getting admin conversations:", err);
+    logger.error("Error getting admin conversations:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -363,7 +404,7 @@ app.get('/api/admin/chat/conversations/:conversationId/messages', protect, requi
     }));
     res.json({ success: true, messages: mappedMessages });
   } catch (err) {
-    console.error("Error getting conversation messages:", err);
+    logger.error("Error getting conversation messages:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -400,7 +441,7 @@ app.post('/api/admin/chat/conversations/:conversationId/reply', protect, require
     const mapped = await mapConversation(convo);
     res.json({ success: true, conversation: mapped });
   } catch (err) {
-    console.error("Error sending admin reply:", err);
+    logger.error("Error sending admin reply:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -420,7 +461,7 @@ app.post('/api/admin/chat/conversations/:conversationId/typing', protect, requir
 
     res.json({ success: true });
   } catch (err) {
-    console.error("Error updating admin typing status:", err);
+    logger.error("Error updating admin typing status:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -535,7 +576,7 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
       time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }});
   } catch (err) {
-    console.error(err);
+    logger.error('Legacy chat message error:', err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -570,25 +611,15 @@ app.get('/api/support/conversations/client/chat', optionalAuth, async (req, res)
   }
 });
 
-// Server start
-console.log("Environment:", process.env.NODE_ENV || "development");
-console.log("Mongo URI exists:", Boolean(process.env.MONGO_URI));
+// ── Global Error Handler (must be LAST middleware) ─────────────────────────────
+app.use(errorHandler);
 
-if (process.env.PORT) {
-  app.listen(process.env.PORT, () => {
-    console.log(`Server running on dynamically assigned port/socket: ${process.env.PORT}`);
-  });
-} else {
-  app.listen(5000, "0.0.0.0", () => {
-    console.log("Server running on port 5000");
-  });
-}
+// ── 4. Bootstrap: Connect DB → Seed → Start Server ────────────────────────────
+const bootstrap = async () => {
+  // ── 4a. Connect to MongoDB (retries internally) ─────────────────────────────
+  await connectDB();
 
-// Database connection and seeding (done asynchronously so app.listen isn't blocked)
-connectDB().then(async () => {
-  // Create a first admin only for a genuinely empty Admin collection.
-  // Never update an existing admin here: dashboard password changes must
-  // survive every redeploy/restart.
+  // ── 4b. Admin seed ──────────────────────────────────────────────────────────
   try {
     const Admin = require('./models/Admin');
 
@@ -599,41 +630,84 @@ connectDB().then(async () => {
         .toLowerCase();
       const bootstrapPassword = String(process.env.BOOTSTRAP_ADMIN_PASSWORD || 'admin123');
       await Admin.create({ email: bootstrapEmail, password: bootstrapPassword });
-      console.log(`Bootstrap Admin account created: ${bootstrapEmail}`);
+      logger.startup(`Bootstrap Admin account created: ${bootstrapEmail}`);
     } else {
-      console.log(`Admin seed skipped: ${adminCount} admin account(s) already exist.`);
+      logger.startup(`Admin seed skipped: ${adminCount} admin account(s) already exist.`);
     }
   } catch (err) {
-    console.log('Skipping admin seed:', err.message);
+    logger.warn(`Skipping admin seed: ${err.message}`);
   }
 
-  // ── Seed countries on first boot + keep list at 195 ───────────
-  try {
-    const { seedCountries, syncMissingCountries } = require('./seedCountries');
-    await seedCountries();
-    await syncMissingCountries();
-  } catch (err) {
-    console.log('Skipping country seed:', err.message);
-  }
-
-  // ── Seed default static CMS pages (Terms & Conditions, etc.) ──
-  try {
-    const { seedStaticPages } = require('./seedStaticPages');
-    await seedStaticPages();
-  } catch (err) {
-    console.log('Skipping static page seed:', err.message);
-  }
-
-  // ── Seed sample blog categories + posts ─────────────────────
-  try {
-    const { seedBlog } = require('./seedBlog');
-    const result = await seedBlog();
-    if (result.ok && result.postsInserted) {
-      console.log(`Seeded ${result.postsInserted} sample blog posts.`);
+  // ── Auto-Seeding (Disabled by default to speed up Hostinger boot times) ──
+  // To run these on startup, add RUN_SEEDERS=true to your Hostinger environment variables.
+  if (process.env.RUN_SEEDERS === 'true') {
+    // ── Seed countries on first boot + keep list at 195 ───────────
+    try {
+      const { seedCountries, syncMissingCountries } = require('./seedCountries');
+      await seedCountries();
+      await syncMissingCountries();
+    } catch (err) {
+      logger.warn(`Skipping country seed: ${err.message}`);
     }
-  } catch (err) {
-    console.log('Skipping blog seed:', err.message);
+
+    // ── Seed default static CMS pages (Terms & Conditions, etc.) ──
+    try {
+      const { seedStaticPages } = require('./seedStaticPages');
+      await seedStaticPages();
+    } catch (err) {
+      logger.warn(`Skipping static page seed: ${err.message}`);
+    }
+
+    // ── Seed sample blog categories + posts ─────────────────────
+    try {
+      const { seedBlog } = require('./seedBlog');
+      const result = await seedBlog();
+      if (result.ok && result.postsInserted) {
+        logger.startup(`Seeded ${result.postsInserted} sample blog posts.`);
+      }
+    } catch (err) {
+      logger.warn(`Skipping blog seed: ${err.message}`);
+    }
+  } else {
+    logger.startup("Seeders skipped to optimize boot time. (Set RUN_SEEDERS=true to enable)");
   }
-}).catch((err) => {
-  console.error('Failed to connect to database on startup:', err);
+
+  // ── 4c. Start HTTP server (only after DB is connected) ──────────────────────
+  const port = process.env.PORT || 5000;
+  const host = process.env.PORT ? undefined : "0.0.0.0";
+
+  app.listen(port, host, () => {
+    logger.startup(`Server running on port ${port} ✓`);
+    logger.startup(`Health check: http://localhost:${port}/api/health`);
+    logger.startup('Ready to accept requests.');
+  });
+};
+
+// ── 5. Process-Level Crash Guards ──────────────────────────────────────────────
+
+process.on('uncaughtException', (err) => {
+  logger.error('UNCAUGHT EXCEPTION — shutting down…', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('UNHANDLED REJECTION — shutting down…', reason instanceof Error ? reason : new Error(String(reason)));
+  process.exit(1);
+});
+
+// Graceful shutdown on SIGTERM (Hostinger / Docker / systemd)
+process.on('SIGTERM', () => {
+  logger.startup('SIGTERM received — graceful shutdown');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  logger.startup('SIGINT received — shutting down');
+  process.exit(0);
+});
+
+// ── 6. Run ─────────────────────────────────────────────────────────────────────
+bootstrap().catch((err) => {
+  logger.error('Fatal error during bootstrap:', err);
+  process.exit(1);
 });

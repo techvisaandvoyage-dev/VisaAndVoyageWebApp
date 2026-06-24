@@ -18,6 +18,7 @@ const publicAuthControlsFromSettings = (settings) => ({
   googleEnabled: settings?.authGoogleEnabled !== false,
   facebookEnabled: settings?.authFacebookEnabled === true,
   phoneOtpEnabled: settings?.authPhoneOtpEnabled !== false,
+  smsOtpEnabled: settings?.authSmsOtpEnabled === true,
   emailOtpEnabled: settings?.authEmailOtpEnabled !== false,
 });
 
@@ -197,6 +198,7 @@ const updateAuthControls = async (req, res) => {
   settings.authGoogleEnabled = req.body.googleEnabled === undefined ? true : boolFromBody(req.body.googleEnabled);
   settings.authFacebookEnabled = boolFromBody(req.body.facebookEnabled);
   settings.authPhoneOtpEnabled = req.body.phoneOtpEnabled === undefined ? true : boolFromBody(req.body.phoneOtpEnabled);
+  settings.authSmsOtpEnabled = boolFromBody(req.body.smsOtpEnabled);
   settings.authEmailOtpEnabled = req.body.emailOtpEnabled === undefined ? true : boolFromBody(req.body.emailOtpEnabled);
   await settings.save();
   res.json({ success: true, settings: withMaskedSecrets(settings), message: 'Authentication controls saved.' });

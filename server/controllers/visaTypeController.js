@@ -1,5 +1,6 @@
 const VisaType = require('../models/VisaType');
 const Country = require('../models/Country');
+const VisaConfiguration = require('../models/VisaConfiguration');
 const mongoose = require('mongoose');
 
 const normalizeCountryIds = (values) =>
@@ -51,6 +52,23 @@ const matchesCountry = (visaType, countryId) => {
   return selected.includes(String(countryId ?? '').trim());
 };
 
+const normalizeCustomVisaTypes = (values) =>
+  Array.isArray(values)
+    ? values
+        .map((item) => ({
+          id: String(item?.id ?? item?.name ?? '').trim(),
+          name: String(item?.name ?? '').trim(),
+          active: item?.active !== false,
+        }))
+        .filter((item) => item.name && item.active)
+    : [];
+
+const setDynamicVisaTypeResponseHeaders = (res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+};
+
 exports.getAllVisaTypes = async (req, res) => {
   try {
     const visaTypes = await VisaType.find().sort({ createdAt: -1 });
@@ -62,6 +80,7 @@ exports.getAllVisaTypes = async (req, res) => {
 
 exports.getActiveVisaTypes = async (req, res) => {
   try {
+    setDynamicVisaTypeResponseHeaders(res);
     const requestedCountryId = String(req.query?.countryId ?? '').trim();
     if (requestedCountryId) {
       let country;
@@ -71,8 +90,24 @@ exports.getActiveVisaTypes = async (req, res) => {
         country = await Country.findOne({ slug: requestedCountryId });
       }
 
+      if (country) {
+        const [defaultVisa, overrideVisa] = await Promise.all([
+          VisaConfiguration.findOne({ sourceType: 'DEFAULT' }),
+          VisaConfiguration.findOne({ countryId: country._id, sourceType: 'OVERRIDE' }),
+        ]);
+
+        const configuredCustomVisaTypes =
+          overrideVisa?.useGlobalCustomVisaTypes === false
+            ? overrideVisa.customVisaTypes
+            : defaultVisa?.customVisaTypes;
+        const customActive = normalizeCustomVisaTypes(configuredCustomVisaTypes);
+        if (customActive.length > 0) {
+          return res.status(200).json({ success: true, visaTypes: customActive });
+        }
+      }
+
       if (country && country.useCustomVisaTypes) {
-        const customActive = (country.customVisaTypes || []).filter(vt => vt.active);
+        const customActive = normalizeCustomVisaTypes(country.customVisaTypes);
         return res.status(200).json({ success: true, visaTypes: customActive });
       }
     }
