@@ -33,12 +33,18 @@ const parseEditablePayload = async (country, body = {}) => {
 
   const settings = await loadSettingsDocument();
   const row = buildFeeManagerRow(country, settings);
+  
+  const serviceFeeBeforeGSTFromClient = body.serviceFeeBeforeGST !== undefined ? Number(body.serviceFeeBeforeGST) : undefined;
+  const serviceFeeBeforeGST = serviceFeeBeforeGSTFromClient !== undefined && Number.isFinite(serviceFeeBeforeGSTFromClient) && serviceFeeBeforeGSTFromClient >= 0
+    ? serviceFeeBeforeGSTFromClient
+    : row.serviceFeeBeforeGST;
+
   const exchangeRate = currency === 'INR' ? 1 : await fetchInrExchangeRate(currency);
   const totals = calculateFeeTotals({
     amount,
     exchangeRate,
     forexFeePercent,
-    serviceFeeBeforeGST: row.serviceFeeBeforeGST,
+    serviceFeeBeforeGST: serviceFeeBeforeGST,
     gstEnabled: country?.useGlobalGst !== false ? settings?.gstEnabled !== false : country?.gstEnabled !== false,
     gstRate:
       country?.useGlobalGst !== false
@@ -132,6 +138,11 @@ const updateFeeManagerRow = async (req, res) => {
     country.governmentFee = totals.finalGovernmentFeeInINR;
     country.useGlobalGovernmentFee = false;
 
+    if (req.body.serviceFeeBeforeGST !== undefined) {
+      country.basePrice = totals.serviceFeeBeforeGST;
+      country.useGlobalBasePrice = false;
+    }
+
     await country.save();
 
     res.json({
@@ -148,9 +159,81 @@ const updateFeeManagerRow = async (req, res) => {
     });
   }
 };
+const bulkUpdateFeeManagerRows = async (req, res) => {
+  try {
+    const { selectedCountries = [], bulkValues = {} } = req.body;
+    if (!Array.isArray(selectedCountries) || selectedCountries.length === 0) {
+      return res.status(400).json({ success: false, message: 'No countries selected.' });
+    }
+
+    const validCountries = [];
+    for (const id of selectedCountries) {
+      if (mongoose.Types.ObjectId.isValid(id)) validCountries.push(id);
+    }
+    if (validCountries.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid country IDs provided.' });
+    }
+
+    const { loadSettingsDocument } = require('../utils/settingsDocument');
+    const { buildFeeManagerRow } = require('../services/feeManagerService');
+    const settings = await loadSettingsDocument();
+    
+    // get countries
+    const countries = await Country.find({ _id: { $in: validCountries }, isActive: { $ne: false } });
+
+    const updatedRows = [];
+    for (const country of countries) {
+      const stored = country.feeManager && typeof country.feeManager === 'object' ? country.feeManager : {};
+      
+      const body = {
+        currency: bulkValues.currency !== undefined && bulkValues.currency !== "" ? bulkValues.currency : (stored.currency || 'INR'),
+        amount: bulkValues.amount !== undefined && bulkValues.amount !== "" ? bulkValues.amount : (stored.amount !== undefined ? stored.amount : (country.governmentFee || 0)),
+        forexFeePercent: bulkValues.forexFeePercent !== undefined && bulkValues.forexFeePercent !== "" ? bulkValues.forexFeePercent : (stored.forexFeePercent || 0),
+      };
+      
+      if (bulkValues.serviceFeeBeforeGST !== undefined && bulkValues.serviceFeeBeforeGST !== "") {
+        body.serviceFeeBeforeGST = bulkValues.serviceFeeBeforeGST;
+      }
+
+      const { currency, amount, exchangeRate, forexFeePercent, totals } = await parseEditablePayload(country, body);
+
+      country.feeManager = {
+        currency,
+        amount,
+        exchangeRate,
+        forexFeePercent,
+        finalGovernmentFeeInINR: totals.finalGovernmentFeeInINR,
+        serviceFeeBeforeGST: totals.serviceFeeBeforeGST,
+        serviceFeeAfterGST: totals.serviceFeeAfterGST,
+        totalFeeInINR: totals.totalFeeInINR,
+        updatedAt: new Date(),
+      };
+      country.governmentFee = totals.finalGovernmentFeeInINR;
+      country.useGlobalGovernmentFee = false;
+
+      if (bulkValues.serviceFeeBeforeGST !== undefined && bulkValues.serviceFeeBeforeGST !== "") {
+        country.basePrice = totals.serviceFeeBeforeGST;
+        country.useGlobalBasePrice = false;
+      }
+
+      await country.save();
+      updatedRows.push(buildFeeManagerRow(country, settings));
+    }
+
+    res.json({
+      success: true,
+      message: 'Fees updated successfully',
+      rows: updatedRows,
+    });
+  } catch (error) {
+    console.error('bulkUpdateFeeManagerRows error:', error);
+    res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Bulk update failed' });
+  }
+};
 
 module.exports = {
   getFeeManagerRows,
   convertFeeManagerValues,
   updateFeeManagerRow,
+  bulkUpdateFeeManagerRows,
 };

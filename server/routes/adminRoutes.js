@@ -48,6 +48,7 @@ const {
   getFeeManagerRows,
   convertFeeManagerValues,
   updateFeeManagerRow,
+  bulkUpdateFeeManagerRows,
 } = require('../controllers/feeManagerController');
 const {
   getAdminFooterSocialIcons,
@@ -158,6 +159,7 @@ router.delete('/government-fee-overrides/:countryId', protect, requireAdmin, rem
 
 router.get('/fee-manager', protect, requireAdmin, getFeeManagerRows);
 router.post('/fee-manager/convert', protect, requireAdmin, convertFeeManagerValues);
+router.put('/fee-manager/bulk', protect, requireAdmin, bulkUpdateFeeManagerRows);
 router.put('/fee-manager/:countryId', protect, requireAdmin, updateFeeManagerRow);
 
 router.get('/footer-social-icons', protect, requireAdmin, getAdminFooterSocialIcons);
