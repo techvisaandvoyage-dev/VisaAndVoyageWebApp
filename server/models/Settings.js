@@ -558,6 +558,11 @@ const settingsSchema = new mongoose.Schema({
   showProcessingDays: { type: Boolean, default: true },
   showRequiredDocuments: { type: Boolean, default: true },
   showVisaRequirements: { type: Boolean, default: true },
+  showHowItWorks: { type: Boolean, default: true },
+  showWhyBookNow: { type: Boolean, default: true },
+  showDestinationDocuments: { type: Boolean, default: true },
+  showWhatsIncluded: { type: Boolean, default: true },
+  showFaqs: { type: Boolean, default: true },
   maintenanceModeEnabled: { type: Boolean, default: false },
   showPopularCountries: { type: Boolean, default: true },
 
