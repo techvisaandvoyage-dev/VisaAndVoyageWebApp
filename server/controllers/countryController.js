@@ -769,6 +769,11 @@ const resolveDisplayToggles = (settings) => ({
   showProcessingDays: settings?.showProcessingDays !== false,
   showRequiredDocuments: settings?.showRequiredDocuments !== false,
   showVisaRequirements: settings?.showVisaRequirements !== false,
+  showHowItWorks: settings?.showHowItWorks !== false,
+  showWhyBookNow: settings?.showWhyBookNow !== false,
+  showDestinationDocuments: settings?.showDestinationDocuments !== false,
+  showWhatsIncluded: settings?.showWhatsIncluded !== false,
+  showFaqs: settings?.showFaqs !== false,
   maintenanceModeEnabled: settings?.maintenanceModeEnabled === true,
 });
 
@@ -3355,13 +3360,23 @@ const updateCountryDisplayToggles = async (req, res) => {
     changed.showRequiredDocuments = incoming.showRequiredDocuments;
   if (typeof incoming.showVisaRequirements === 'boolean')
     changed.showVisaRequirements = incoming.showVisaRequirements;
+  if (typeof incoming.showHowItWorks === 'boolean')
+    changed.showHowItWorks = incoming.showHowItWorks;
+  if (typeof incoming.showWhyBookNow === 'boolean')
+    changed.showWhyBookNow = incoming.showWhyBookNow;
+  if (typeof incoming.showDestinationDocuments === 'boolean')
+    changed.showDestinationDocuments = incoming.showDestinationDocuments;
+  if (typeof incoming.showWhatsIncluded === 'boolean')
+    changed.showWhatsIncluded = incoming.showWhatsIncluded;
+  if (typeof incoming.showFaqs === 'boolean')
+    changed.showFaqs = incoming.showFaqs;
   if (typeof incoming.maintenanceModeEnabled === 'boolean')
     changed.maintenanceModeEnabled = incoming.maintenanceModeEnabled;
   if (Object.keys(changed).length === 0) {
     return res.status(400).json({
       success: false,
       message:
-        'Provide at least one of showVisaType, showValidity, showLengthOfStay, showEntryType, showProcessingDays, showRequiredDocuments, showVisaRequirements, maintenanceModeEnabled (boolean).',
+        'Provide at least one display toggle to update.',
     });
   }
   console.log('[control] updateCountryDisplayToggles:', changed);
