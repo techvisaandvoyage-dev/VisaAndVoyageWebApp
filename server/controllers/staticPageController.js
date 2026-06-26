@@ -12,7 +12,7 @@ const getFooterSectionKeys = async () => {
       return new Set(settings.footerSections.map((s) => s.key));
     }
   } catch {}
-  return new Set(['company', 'services', 'support', 'legal']);
+  return new Set();
 };
 
 const serializePage = (page) => ({
@@ -30,7 +30,7 @@ const serializePage = (page) => ({
   },
   status: page.status,
   template: page.template || 'general',
-  footerSection: page.footerSection || 'company',
+  footerSection: page.footerSection || '',
   featuredImage: page.featuredImage || '',
   publishedAt: page.publishedAt || null,
   createdAt: page.createdAt,
@@ -48,7 +48,7 @@ const buildPayload = async (body = {}) => {
   const validSections = await getFooterSectionKeys();
   const footerSection = validSections.has(String(body.footerSection || '').trim())
     ? String(body.footerSection).trim()
-    : 'company';
+    : '';
 
   return {
     title,

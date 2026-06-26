@@ -851,12 +851,7 @@ const getFooterConfig = async (req, res) => {
     const settings = await loadSettingsDocument();
     const sections = settings?.footerSections?.length
       ? settings.footerSections
-      : [
-          { key: 'company', label: 'Company' },
-          { key: 'services', label: 'Services' },
-          { key: 'support', label: 'Support' },
-          { key: 'legal', label: 'Legal' },
-        ];
+      : [];
     res.json({
       success: true,
       config: {
@@ -956,12 +951,7 @@ module.exports = {
       const settings = await loadSettingsDocument();
       const sections = settings?.footerSections?.length
         ? settings.footerSections
-        : [
-            { key: 'company', label: 'Company' },
-            { key: 'services', label: 'Services' },
-            { key: 'support', label: 'Support' },
-            { key: 'legal', label: 'Legal' },
-          ];
+        : [];
       res.json({ success: true, data: sections });
     } catch (error) {
       console.error('getFooterSections:', error);

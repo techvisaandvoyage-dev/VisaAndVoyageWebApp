@@ -190,12 +190,7 @@ const settingsSchema = new mongoose.Schema({
         label: { type: String, required: true, trim: true },
       },
     ],
-    default: [
-      { key: 'company', label: 'Company' },
-      { key: 'services', label: 'Services' },
-      { key: 'support', label: 'Support' },
-      { key: 'legal', label: 'Legal' },
-    ],
+    default: [],
   },
   seoWebsiteTitle: {
     type: String,
