@@ -12,7 +12,7 @@ const getFooterSectionKeys = async () => {
       return new Set(settings.footerSections.map((s) => s.key));
     }
   } catch {}
-  return new Set();
+  return new Set(['Company', 'Services', 'Support', 'Legal']);
 };
 
 const serializePage = (page) => ({

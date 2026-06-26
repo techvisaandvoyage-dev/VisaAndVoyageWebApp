@@ -851,7 +851,7 @@ const getFooterConfig = async (req, res) => {
     const settings = await loadSettingsDocument();
     const sections = settings?.footerSections?.length
       ? settings.footerSections
-      : [];
+      : [{ key: 'Company', label: 'Company' }, { key: 'Services', label: 'Services' }, { key: 'Support', label: 'Support' }, { key: 'Legal', label: 'Legal' }];
     res.json({
       success: true,
       config: {
@@ -951,7 +951,7 @@ module.exports = {
       const settings = await loadSettingsDocument();
       const sections = settings?.footerSections?.length
         ? settings.footerSections
-        : [];
+        : [{ key: 'Company', label: 'Company' }, { key: 'Services', label: 'Services' }, { key: 'Support', label: 'Support' }, { key: 'Legal', label: 'Legal' }];
       res.json({ success: true, data: sections });
     } catch (error) {
       console.error('getFooterSections:', error);
@@ -961,16 +961,14 @@ module.exports = {
   updateFooterSections: async (req, res) => {
     try {
       const sections = req.body.sections;
-      if (!Array.isArray(sections) || !sections.length) {
-        return res.status(400).json({ success: false, message: 'Provide at least one footer section.' });
+      if (!Array.isArray(sections)) {
+        return res.status(400).json({ success: false, message: 'Sections must be an array.' });
       }
-      const normalized = sections.map((s, i) => ({
-        key: String(s.key || `section-${i}`).trim().toLowerCase().replace(/\s+/g, '-'),
-        label: String(s.label || s.key || '').trim(),
-      })).filter((s) => s.key && s.label);
-      if (!normalized.length) {
-        return res.status(400).json({ success: false, message: 'Each section needs a key and label.' });
-      }
+      const normalized = sections.map((s) => {
+        const label = String(s.label || s.key || '').trim();
+        const key = String(s.key || label || '').trim();
+        return key && label ? { key, label } : null;
+      }).filter(Boolean);
       const settings = await loadSettingsDocument();
       settings.footerSections = normalized;
       await settings.save();
