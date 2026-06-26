@@ -777,7 +777,13 @@ const getDestinationPageContent = async (req, res) => {
       Array.isArray(rawLandingHighlights) && rawLandingHighlights.length
         ? sanitizeLandingHeroHighlights(rawLandingHighlights)
         : LANDING_HERO_HIGHLIGHTS_FALLBACK;
-    const showVisaRequirements = settings?.showVisaRequirements !== false;
+    const showVisaRequirements = settings?.showVisaRequirements === true;
+    const showHowItWorks = settings?.showHowItWorks !== false;
+    const showWhyBookNow = settings?.showWhyBookNow !== false;
+    const showRequiredDocuments = settings?.showRequiredDocuments !== false;
+    const showDestinationDocuments = settings?.showDestinationDocuments !== false;
+    const showWhatsIncluded = settings?.showWhatsIncluded !== false;
+    const showFaqs = settings?.showFaqs !== false;
     const popularCountries = Array.isArray(settings?.popularCountries) && settings.popularCountries.length > 0
       ? settings.popularCountries
       : ["USA", "UK", "EU Schengen", "Dubai", "Japan"];
@@ -792,6 +798,12 @@ const getDestinationPageContent = async (req, res) => {
         howItWorks,
         visaRequirements,
         showVisaRequirements,
+        showHowItWorks,
+        showWhyBookNow,
+        showRequiredDocuments,
+        showDestinationDocuments,
+        showWhatsIncluded,
+        showFaqs,
         landingHeroHighlights,
         popularCountries,
         showPopularCountries,

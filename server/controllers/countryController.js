@@ -768,7 +768,7 @@ const resolveDisplayToggles = (settings) => ({
   showEntryType: settings?.showEntryType !== false,
   showProcessingDays: settings?.showProcessingDays !== false,
   showRequiredDocuments: settings?.showRequiredDocuments !== false,
-  showVisaRequirements: settings?.showVisaRequirements !== false,
+  showVisaRequirements: settings?.showVisaRequirements === true,
   showHowItWorks: settings?.showHowItWorks !== false,
   showWhyBookNow: settings?.showWhyBookNow !== false,
   showDestinationDocuments: settings?.showDestinationDocuments !== false,
