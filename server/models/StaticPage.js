@@ -32,7 +32,6 @@ const staticPageSchema = new mongoose.Schema(
     },
     footerSection: {
       type: String,
-      enum: ['company', 'services', 'support', 'legal'],
       default: 'company',
       index: true,
     },

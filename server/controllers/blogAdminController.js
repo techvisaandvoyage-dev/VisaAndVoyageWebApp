@@ -89,6 +89,29 @@ const adminDeleteComment = async (req, res) => {
   }
 };
 
+const togglePublishBlog = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid id' });
+    }
+    const status =
+      req.body && Object.prototype.hasOwnProperty.call(req.body, 'status')
+        ? String(req.body.status)
+        : undefined;
+    const post = await BlogPost.findOne({ _id: id, softDeleted: { $ne: true } });
+    if (!post) return res.status(404).json({ success: false, message: 'Not found' });
+    if (status === undefined) post.status = post.status === 'published' ? 'draft' : 'published';
+    else post.status = status;
+    if (post.status === 'published' && !post.publishedAt) post.publishedAt = new Date();
+    await post.save();
+    res.json({ success: true, data: { id: post._id, status: post.status } });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 const toggleFeatureBlog = async (req, res) => {
   try {
     const { id } = req.params;
@@ -190,6 +213,7 @@ module.exports = {
   listAdminBlogs,
   listAdminComments,
   adminDeleteComment,
+  togglePublishBlog,
   toggleFeatureBlog,
   togglePinComment,
   listReports,

@@ -73,7 +73,7 @@ const listBlogs = async (req, res) => {
     let sort = { publishedAt: -1, createdAt: -1 };
     if (req.query.sort === 'likes') sort = { likesCount: -1, publishedAt: -1 };
     else if (req.query.sort === 'views' || req.query.sort === 'trending') {
-      sort = { viewsCount: -1, publishedAt: -1 };
+      sort = { featured: -1, viewsCount: -1, publishedAt: -1 };
     } else if (req.query.sort === 'featured') sort = { featured: -1, publishedAt: -1 };
 
     const [items, total] = await Promise.all([

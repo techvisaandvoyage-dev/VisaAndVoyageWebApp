@@ -92,6 +92,13 @@ const pageMediaUpload = multer({
     /^image\//.test(file.mimetype) ? cb(null, true) : cb(new Error('Only image files are allowed'));
   },
 });
+const blogImageUpload = multer({
+  storage: pageMediaStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    /^image\//.test(file.mimetype) ? cb(null, true) : cb(new Error('Only image files are allowed'));
+  },
+});
 const visaFileUpload = multer({
   storage: visaFileStorage,
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -194,10 +201,27 @@ router.patch('/pages/:id/toggle-status', protect, requireAdmin, toggleStaticPage
 router.delete('/pages/:id', protect, requireAdmin, deleteStaticPage);
 
 // Visa blog CMS
+router.post('/blog/upload-image', protect, requireAdmin, blogImageUpload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No image file provided.' });
+  }
+  try {
+    const { uploadBlogImageToFirebase } = require('../utils/uploadOptimizer');
+    const path = require('path');
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    const filename = `blog-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
+    const firebaseUrl = await uploadBlogImageToFirebase(req.file.buffer, filename, req.file.mimetype);
+    res.json({ success: true, url: firebaseUrl });
+  } catch (error) {
+    console.error('blogUploadImage error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error uploading image' });
+  }
+});
 router.get('/blog-categories', protect, requireAdmin, listCategoriesAdmin);
 router.get('/blogs', protect, requireAdmin, blogAdmin.listAdminBlogs);
 router.get('/comments', protect, requireAdmin, blogAdmin.listAdminComments);
 router.delete('/comments/:id', protect, requireAdmin, blogAdmin.adminDeleteComment);
+router.patch('/blog/:id/publish', protect, requireAdmin, blogAdmin.togglePublishBlog);
 router.patch('/blog/:id/feature', protect, requireAdmin, blogAdmin.toggleFeatureBlog);
 router.patch('/comments/:id/pin', protect, requireAdmin, blogAdmin.togglePinComment);
 router.get('/blog-reports', protect, requireAdmin, blogAdmin.listReports);

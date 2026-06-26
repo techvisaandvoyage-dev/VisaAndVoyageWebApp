@@ -100,7 +100,8 @@ const uploadToFirebase = async (buffer, filename, mimetype, options = {}) => {
   const { allowLocalFallback = false } = options;
   try {
     const app = await getFirebaseAdminApp();
-    const bucket = app.storage().bucket();
+    const { getStorage } = require('firebase-admin/storage');
+    const bucket = getStorage(app).bucket();
 
     if (!bucket.name) {
       throw new Error('Firebase Storage bucket is not configured. Add it in Admin -> Settings.');
@@ -251,11 +252,43 @@ const saveDocumentsToDisk = async (req, res, next) => {
   }
 };
 
+const blogImagesDir = path.join(__dirname, '..', 'uploads', 'blog-images');
+if (!fs.existsSync(blogImagesDir)) {
+  fs.mkdirSync(blogImagesDir, { recursive: true });
+}
+
+const uploadBlogImageToFirebase = async (buffer, filename, mimetype) => {
+  try {
+    const app = await getFirebaseAdminApp();
+    const { getStorage } = require('firebase-admin/storage');
+    const bucket = getStorage(app).bucket();
+
+    if (!bucket.name) {
+      throw new Error('Firebase Storage bucket is not configured.');
+    }
+
+    const file = bucket.file(`Blogs image/${filename}`);
+    await file.save(buffer, {
+      metadata: { contentType: mimetype },
+    });
+    await file.makePublic();
+
+    return `https://storage.googleapis.com/${bucket.name}/Blogs%20image/${filename}`;
+  } catch (error) {
+    console.error('Blog Image Upload Error:', error);
+    console.warn('Falling back to local storage for blog image');
+    const targetPath = path.join(blogImagesDir, filename);
+    await fs.promises.writeFile(targetPath, buffer);
+    return `/uploads/blog-images/${filename}`;
+  }
+};
+
 module.exports = {
   uploadOptimizer,
   processFiles,
   saveDocumentsToDisk,
   uploadToFirebase,
+  uploadBlogImageToFirebase,
   optimizeUploadedFile,
   createUploadValidationError,
 };
