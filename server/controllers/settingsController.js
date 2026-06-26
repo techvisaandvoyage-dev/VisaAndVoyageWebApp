@@ -849,6 +849,14 @@ const getCustomerChatConfig = async (req, res) => {
 const getFooterConfig = async (req, res) => {
   try {
     const settings = await loadSettingsDocument();
+    const sections = settings?.footerSections?.length
+      ? settings.footerSections
+      : [
+          { key: 'company', label: 'Company' },
+          { key: 'services', label: 'Services' },
+          { key: 'support', label: 'Support' },
+          { key: 'legal', label: 'Legal' },
+        ];
     res.json({
       success: true,
       config: {
@@ -862,6 +870,7 @@ const getFooterConfig = async (req, res) => {
         description:
           String(settings?.footerDescription || '').trim() ||
           FOOTER_CONFIG_FALLBACK.description,
+        sections,
       },
     });
   } catch (error) {
@@ -942,4 +951,43 @@ module.exports = {
   getFooterConfig,
   getSeoConfig,
   uploadSeoAssets,
+  getFooterSections: async (req, res) => {
+    try {
+      const settings = await loadSettingsDocument();
+      const sections = settings?.footerSections?.length
+        ? settings.footerSections
+        : [
+            { key: 'company', label: 'Company' },
+            { key: 'services', label: 'Services' },
+            { key: 'support', label: 'Support' },
+            { key: 'legal', label: 'Legal' },
+          ];
+      res.json({ success: true, data: sections });
+    } catch (error) {
+      console.error('getFooterSections:', error);
+      res.status(500).json({ success: false, message: 'Server error' });
+    }
+  },
+  updateFooterSections: async (req, res) => {
+    try {
+      const sections = req.body.sections;
+      if (!Array.isArray(sections) || !sections.length) {
+        return res.status(400).json({ success: false, message: 'Provide at least one footer section.' });
+      }
+      const normalized = sections.map((s, i) => ({
+        key: String(s.key || `section-${i}`).trim().toLowerCase().replace(/\s+/g, '-'),
+        label: String(s.label || s.key || '').trim(),
+      })).filter((s) => s.key && s.label);
+      if (!normalized.length) {
+        return res.status(400).json({ success: false, message: 'Each section needs a key and label.' });
+      }
+      const settings = await loadSettingsDocument();
+      settings.footerSections = normalized;
+      await settings.save();
+      res.json({ success: true, data: normalized });
+    } catch (error) {
+      console.error('updateFooterSections:', error);
+      res.status(500).json({ success: false, message: 'Server error' });
+    }
+  },
 };

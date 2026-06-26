@@ -1,9 +1,19 @@
 const StaticPage = require('../models/StaticPage');
+const Settings = require('../models/Settings');
 const { normalizeKeywords, slugify, stripUnsafeHtml } = require('../utils/staticPageUtils');
 
 const PAGE_TEMPLATES = new Set(['general', 'blog', 'faq', 'legal', 'visa-info']);
 const PAGE_STATUSES = new Set(['draft', 'published']);
-const FOOTER_SECTIONS = new Set(['company', 'services', 'support', 'legal']);
+
+const getFooterSectionKeys = async () => {
+  try {
+    const settings = await Settings.findOne({ singleton: 'global' }).lean();
+    if (settings?.footerSections && Array.isArray(settings.footerSections) && settings.footerSections.length) {
+      return new Set(settings.footerSections.map((s) => s.key));
+    }
+  } catch {}
+  return new Set(['company', 'services', 'support', 'legal']);
+};
 
 const serializePage = (page) => ({
   _id: page._id,
@@ -27,7 +37,7 @@ const serializePage = (page) => ({
   updatedAt: page.updatedAt,
 });
 
-const buildPayload = (body = {}) => {
+const buildPayload = async (body = {}) => {
   const title = String(body.title || '').trim();
   const explicitSlug = String(body.slug || '').trim();
   const slug = slugify(explicitSlug || title);
@@ -35,7 +45,8 @@ const buildPayload = (body = {}) => {
   const template = PAGE_TEMPLATES.has(String(body.template || '').trim())
     ? String(body.template).trim()
     : 'general';
-  const footerSection = FOOTER_SECTIONS.has(String(body.footerSection || '').trim())
+  const validSections = await getFooterSectionKeys();
+  const footerSection = validSections.has(String(body.footerSection || '').trim())
     ? String(body.footerSection).trim()
     : 'company';
 
@@ -96,7 +107,7 @@ const getAdminPages = async (req, res) => {
     const query = {};
     if (status && PAGE_STATUSES.has(status)) query.status = status;
     if (template && PAGE_TEMPLATES.has(template)) query.template = template;
-    if (footerSection && FOOTER_SECTIONS.has(footerSection)) query.footerSection = footerSection;
+    if (footerSection) query.footerSection = footerSection;
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
@@ -141,14 +152,12 @@ const getAdminPageById = async (req, res) => {
 
 const createStaticPage = async (req, res) => {
   try {
-    const payload = buildPayload(req.body);
+    const payload = await buildPayload(req.body);
     const validationError = validatePayload(payload);
     if (validationError) {
       return res.status(400).json({ success: false, message: validationError });
     }
-
     payload.slug = await ensureUniqueSlug(payload.slug);
-    payload.publishedAt = payload.status === 'published' ? new Date() : null;
 
     const page = await StaticPage.create(payload);
     res.status(201).json({ success: true, page: serializePage(page) });
@@ -165,7 +174,7 @@ const updateStaticPage = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Page not found.' });
     }
 
-    const payload = buildPayload(req.body);
+    const payload = await buildPayload(req.body);
     const validationError = validatePayload(payload);
     if (validationError) {
       return res.status(400).json({ success: false, message: validationError });
@@ -258,12 +267,13 @@ const getPublicPages = async (req, res) => {
   try {
     const template = String(req.query.template || '').trim();
     const footerSection = String(req.query.footerSection || '').trim();
+    const validSections = await getFooterSectionKeys();
     const query = {
       status: 'published',
-      footerSection: { $in: Array.from(FOOTER_SECTIONS) },
+      footerSection: { $in: Array.from(validSections) },
     };
     if (template && PAGE_TEMPLATES.has(template)) query.template = template;
-    if (footerSection && FOOTER_SECTIONS.has(footerSection)) query.footerSection = footerSection;
+    if (footerSection && validSections.has(footerSection)) query.footerSection = footerSection;
 
     const pages = await StaticPage.find(query).sort({ footerSection: 1, publishedAt: -1, updatedAt: -1 }).limit(100);
     res.json({ success: true, items: pages.map(serializePage) });

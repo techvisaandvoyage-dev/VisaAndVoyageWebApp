@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { loginAdmin, changePassword } = require('../controllers/adminController');
 const { getAllApplications, getApplicationById, updateApplicationByAdmin, updateApplicationStatus, uploadApprovedVisaFile, downloadApplicationDocument } = require('../controllers/applicationController');
-const { getSettings, updateSettings, uploadSeoAssets } = require('../controllers/settingsController');
+const { getSettings, updateSettings, uploadSeoAssets, getFooterSections, updateFooterSections } = require('../controllers/settingsController');
 const {
   getAuthSettings,
   updateSmsSettings,
@@ -173,6 +173,8 @@ router.get('/footer-social-icons', protect, requireAdmin, getAdminFooterSocialIc
 router.post('/footer-social-icons', protect, requireAdmin, createFooterSocialIcon);
 router.put('/footer-social-icons/:id', protect, requireAdmin, updateFooterSocialIcon);
 router.delete('/footer-social-icons/:id', protect, requireAdmin, deleteFooterSocialIcon);
+router.get('/footer-sections', protect, requireAdmin, getFooterSections);
+router.put('/footer-sections', protect, requireAdmin, updateFooterSections);
 
 // Country management (admin only)
 router.get('/countries-list', protect, requireAdmin, getCountries);
