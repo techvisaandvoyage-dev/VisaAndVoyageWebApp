@@ -563,6 +563,8 @@ const settingsSchema = new mongoose.Schema({
   showDestinationDocuments: { type: Boolean, default: true },
   showWhatsIncluded: { type: Boolean, default: true },
   showFaqs: { type: Boolean, default: true },
+  showDestinationRequiredDocs: { type: Boolean, default: true },
+  showDestinationOptionalDocs: { type: Boolean, default: true },
   maintenanceModeEnabled: { type: Boolean, default: false },
   showPopularCountries: { type: Boolean, default: true },
 

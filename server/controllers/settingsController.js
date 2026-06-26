@@ -782,6 +782,8 @@ const getDestinationPageContent = async (req, res) => {
     const showWhyBookNow = settings?.showWhyBookNow !== false;
     const showRequiredDocuments = settings?.showRequiredDocuments !== false;
     const showDestinationDocuments = settings?.showDestinationDocuments !== false;
+    const showDestinationRequiredDocs = settings?.showDestinationRequiredDocs !== false;
+    const showDestinationOptionalDocs = settings?.showDestinationOptionalDocs !== false;
     const showWhatsIncluded = settings?.showWhatsIncluded !== false;
     const showFaqs = settings?.showFaqs !== false;
     const popularCountries = Array.isArray(settings?.popularCountries) && settings.popularCountries.length > 0
@@ -802,6 +804,8 @@ const getDestinationPageContent = async (req, res) => {
         showWhyBookNow,
         showRequiredDocuments,
         showDestinationDocuments,
+        showDestinationRequiredDocs,
+        showDestinationOptionalDocs,
         showWhatsIncluded,
         showFaqs,
         landingHeroHighlights,

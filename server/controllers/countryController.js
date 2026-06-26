@@ -772,6 +772,8 @@ const resolveDisplayToggles = (settings) => ({
   showHowItWorks: settings?.showHowItWorks !== false,
   showWhyBookNow: settings?.showWhyBookNow !== false,
   showDestinationDocuments: settings?.showDestinationDocuments !== false,
+  showDestinationRequiredDocs: settings?.showDestinationRequiredDocs !== false,
+  showDestinationOptionalDocs: settings?.showDestinationOptionalDocs !== false,
   showWhatsIncluded: settings?.showWhatsIncluded !== false,
   showFaqs: settings?.showFaqs !== false,
   maintenanceModeEnabled: settings?.maintenanceModeEnabled === true,
@@ -3366,6 +3368,10 @@ const updateCountryDisplayToggles = async (req, res) => {
     changed.showWhyBookNow = incoming.showWhyBookNow;
   if (typeof incoming.showDestinationDocuments === 'boolean')
     changed.showDestinationDocuments = incoming.showDestinationDocuments;
+  if (typeof incoming.showDestinationRequiredDocs === 'boolean')
+    changed.showDestinationRequiredDocs = incoming.showDestinationRequiredDocs;
+  if (typeof incoming.showDestinationOptionalDocs === 'boolean')
+    changed.showDestinationOptionalDocs = incoming.showDestinationOptionalDocs;
   if (typeof incoming.showWhatsIncluded === 'boolean')
     changed.showWhatsIncluded = incoming.showWhatsIncluded;
   if (typeof incoming.showFaqs === 'boolean')
