@@ -486,11 +486,7 @@ const sendLoginOtp = async (req, res) => {
 
     const user = await findUserForLoginOtp(type, key);
     if (!user) {
-      const msg =
-        type === 'phone'
-          ? 'No account found for this phone number. Use the number on your profile, or sign up first.'
-          : 'No account found for this email. Sign up or use your registered email.';
-      return res.status(404).json({ success: false, message: msg });
+      return res.status(404).json({ success: false, message: "Account doesn't exist. Please sign up first." });
     }
 
     if (!user.isVerified) {

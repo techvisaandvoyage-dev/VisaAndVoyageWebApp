@@ -80,17 +80,17 @@ const checkDuplicateUser = async (email, phone) => {
 
   if (emailMatchedUser && phoneMatchedUser) {
     return {
-      message: "User already exists with this email and phone number.",
+      message: "User already exists. Login to continue.",
       field: "both"
     };
   } else if (emailMatchedUser) {
     return {
-      message: "User already exists with this email.",
+      message: "User already exists. Login to continue.",
       field: "email"
     };
   } else if (phoneMatchedUser) {
     return {
-      message: "User already exists with this phone number.",
+      message: "User already exists. Login to continue.",
       field: "phone"
     };
   }
@@ -188,11 +188,13 @@ const verifyOtp = async (req, res) => {
     const rawIdentifier = req.body.identifier || req.body.phone || req.body.email;
     const parsed = normalizeIdentifier(rawIdentifier);
     const consume = Boolean(req.body.profile || req.body.name || req.body.firstName || req.body.completeSignup);
+    
+    // Always verify without consuming first, so we don't delete the OTP if subsequent checks fail
     const verified = await verifyStoredOtp({
       rawIdentifier,
       otp: req.body.otp,
       purpose: req.body.purpose || 'auth',
-      consume,
+      consume: false,
     });
 
     let user = await findUserForIdentifier(parsed);
@@ -201,14 +203,15 @@ const verifyOtp = async (req, res) => {
       if (parsed.type === 'phone') user.phone = parsed.key;
       if (!user.authProvider) user.authProvider = parsed.type === 'phone' ? 'phoneOtp' : 'emailOtp';
       await user.save();
-      if (!consume) {
-        await verifyStoredOtp({
-          rawIdentifier,
-          otp: req.body.otp,
-          purpose: req.body.purpose || 'auth',
-          consume: true,
-        }).catch(() => {});
-      }
+      
+      // Existing user -> we definitely want to consume now
+      await verifyStoredOtp({
+        rawIdentifier,
+        otp: req.body.otp,
+        purpose: req.body.purpose || 'auth',
+        consume: true,
+      }).catch(() => {});
+      
       const safe = await User.findById(user._id).lean();
       return res.json({
         success: true,
@@ -252,6 +255,14 @@ const verifyOtp = async (req, res) => {
         field: dup.field
       });
     }
+
+    // All checks passed and consume is true, delete the OTP
+    await verifyStoredOtp({
+      rawIdentifier,
+      otp: req.body.otp,
+      purpose: req.body.purpose || 'auth',
+      consume: true,
+    }).catch(() => {});
 
     const profileCompleted =
       Boolean(
