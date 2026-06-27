@@ -137,17 +137,34 @@ const getChannelLength = (settings, channel) => {
 };
 
 const getCompatiblePriority = (settings, identifierType, requestedChannel) => {
-  const base = requestedChannel && requestedChannel !== 'auto'
-    ? [normalizeChannel(requestedChannel)]
-    : [
-        normalizeChannel(settings?.otpPrimaryChannel, 'sms'),
-        normalizeChannel(settings?.otpFallbackChannel1, 'email'),
-        normalizeChannel(settings?.otpFallbackChannel2, 'none'),
-      ];
+  const base = [];
+  
+  if (requestedChannel && requestedChannel !== 'auto') {
+    base.push(normalizeChannel(requestedChannel));
+  } else {
+    const p = normalizeChannel(settings?.otpPrimaryChannel, 'none');
+    const f1 = normalizeChannel(settings?.otpFallbackChannel1, 'none');
+    const f2 = normalizeChannel(settings?.otpFallbackChannel2, 'none');
+    
+    if (p !== 'none') base.push(p);
+    if (f1 !== 'none') base.push(f1);
+    if (f2 !== 'none') base.push(f2);
+    
+    if (settings?.whatsappOtpEnabled && !base.includes('whatsapp')) base.push('whatsapp');
+    if (settings?.smsOtpEnabled && !base.includes('sms')) base.push('sms');
+    if (settings?.emailOtpEnabled && !base.includes('email')) base.push('email');
+  }
+
   const compatible = identifierType === 'email' ? ['email'] : ['whatsapp', 'sms'];
   return [...new Set(base)]
     .filter((channel) => channel !== 'none')
-    .filter((channel) => compatible.includes(channel));
+    .filter((channel) => compatible.includes(channel))
+    .filter((channel) => {
+       if (channel === 'whatsapp') return settings?.whatsappOtpEnabled === true;
+       if (channel === 'sms') return settings?.smsOtpEnabled === true;
+       if (channel === 'email') return settings?.emailOtpEnabled === true;
+       return false;
+    });
 };
 
 const generateOtp = (length) => {
@@ -169,38 +186,55 @@ const sendWhatsappOtp = async (phoneKey, otp, settings) => {
   const languageCode = String(process.env.MSG91_WHATSAPP_LANGUAGE || 'en').trim();
 
   try {
-    const response = await fetch('https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/', {
+    const requestBody = {
+      integrated_number: integratedNumber,
+      content_type: 'template',
+      payload: {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: mobile,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: {
+            code: languageCode,
+          },
+          components: [
+            {
+              type: 'body',
+              parameters: [
+                {
+                  type: 'text',
+                  text: String(otp),
+                }
+              ]
+            },
+            {
+              type: 'button',
+              sub_type: 'url',
+              index: '0',
+              parameters: [
+                {
+                  type: 'text',
+                  text: String(otp),
+                }
+              ]
+            }
+          ]
+        }
+      }
+    };
+
+    console.log('[MSG91 WhatsApp] Sending request:', JSON.stringify(requestBody, null, 2));
+
+    const response = await fetch('https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/', {
       method: 'POST',
       headers: {
         accept: 'application/json',
         authkey,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({
-        integrated_number: integratedNumber,
-        content_type: 'template',
-        payload: {
-          type: 'template',
-          template: {
-            name: templateName,
-            language: {
-              code: languageCode,
-              policy: 'deterministic',
-            },
-            to_and_components: [
-              {
-                to: [mobile],
-                components: {
-                  body_1: {
-                    type: 'text',
-                    value: otp,
-                  },
-                },
-              },
-            ],
-          },
-        },
-      }),
+      body: JSON.stringify(requestBody),
     });
     const bodyText = await response.text();
     let json;
@@ -209,13 +243,19 @@ const sendWhatsappOtp = async (phoneKey, otp, settings) => {
     } catch {
       json = { raw: bodyText };
     }
+    
+    console.log('[MSG91 WhatsApp] Response:', response.status, bodyText);
+
     const ok = response.ok && (json.type === 'success' || json.status === 'success' || json.request_id || json.message_id || json.hasError === false);
     if (ok) return { sent: true };
     console.error('[MSG91 WhatsApp] OTP send failed', response.status, bodyText);
-    return { sent: false, skipped: false, message: 'WhatsApp OTP is not enabled' };
+    
+    // Extract the actual error message from MSG91 if possible
+    const errorMessage = json.message || json.error || json.errors || 'Failed to send WhatsApp message (Check server logs)';
+    return { sent: false, skipped: false, message: errorMessage };
   } catch (error) {
     console.error('[MSG91 WhatsApp] OTP send error', error.message || error);
-    return { sent: false, skipped: false, message: 'WhatsApp OTP is not enabled' };
+    return { sent: false, skipped: false, message: 'Internal error while sending WhatsApp OTP' };
   }
 };
 
@@ -421,7 +461,11 @@ const sendConfiguredOtp = async ({ rawIdentifier, requestedChannel = 'auto', pur
   const testingMode = isOtpTestingMode(settings);
   let channels = getCompatiblePriority(settings, identifier.type, requestedChannel);
   if (!channels.length && testingMode) {
-    channels = identifier.type === 'email' ? ['email'] : ['sms'];
+    if (identifier.type === 'email') {
+      channels = ['email'];
+    } else {
+      channels = settings?.whatsappOtpEnabled ? ['whatsapp'] : ['sms'];
+    }
   }
   if (!channels.length) {
     const err = new Error(identifier.type === 'email' ? 'Email OTP is not configured' : 'SMS OTP is not configured');
