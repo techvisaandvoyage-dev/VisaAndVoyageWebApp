@@ -20,6 +20,9 @@ const uploadedDocumentHistoryItemSchema = new mongoose.Schema(
     fileSize: { type: Number, default: 0 },
     mimeType: { type: String, default: '' },
     uploadedAt: { type: Date, default: Date.now },
+    uploadedBy: { type: String, default: '' },
+    userRole: { type: String, default: '' },
+    action: { type: String, default: '' },
   },
   { _id: false }
 );
@@ -28,6 +31,10 @@ const driveLinkHistoryItemSchema = new mongoose.Schema(
   {
     url: { type: String, default: '' },
     updatedAt: { type: Date, default: Date.now },
+    modifiedBy: { type: String, default: '' },
+    userRole: { type: String, default: '' },
+    action: { type: String, default: '' },
+    reason: { type: String, default: '' },
   },
   { _id: false }
 );

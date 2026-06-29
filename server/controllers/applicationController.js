@@ -81,7 +81,7 @@ const appendApplicantNotes = (existingValue, incomingValue) => {
   return combined.slice(0, 8000);
 };
 
-const updateDriveLinkWithHistory = (target, nextValue, field = 'gdriveLink', historyField = 'gdriveLinkHistory') => {
+const updateDriveLinkWithHistory = (target, nextValue, field = 'gdriveLink', historyField = 'gdriveLinkHistory', auditData = {}) => {
   if (!target) return;
   const incoming = String(nextValue ?? '').trim();
   const current = String(target?.[field] ?? '').trim();
@@ -100,6 +100,10 @@ const updateDriveLinkWithHistory = (target, nextValue, field = 'gdriveLink', his
       history.push({
         url: current,
         updatedAt: new Date(),
+        modifiedBy: auditData.modifiedBy || '',
+        userRole: auditData.userRole || '',
+        action: auditData.action || 'Drive Link Updated',
+        reason: auditData.reason || '',
       });
     }
   }
@@ -139,8 +143,24 @@ const removeTravelerDocumentFromApplication = (application, travelerEntry, docTy
       .filter((storedPath) => String(storedPath || '').trim() !== String(previousPath || '').trim());
   }
 
-  const nextDocuments = { ...(documents?.toObject ? documents.toObject() : documents) };
-  const nextDocumentDetails = { ...(documentDetails?.toObject ? documentDetails.toObject() : documentDetails) };
+  const nextDocuments = {};
+  if (documents) {
+    const iter = typeof documents.keys === 'function' ? documents.keys() : Object.keys(documents);
+    for (const k of iter) {
+      const val = typeof documents.get === 'function' ? documents.get(k) : documents[k];
+      if (val !== undefined) nextDocuments[k] = val;
+    }
+  }
+
+  const nextDocumentDetails = {};
+  if (documentDetails) {
+    const iter = typeof documentDetails.keys === 'function' ? documentDetails.keys() : Object.keys(documentDetails);
+    for (const k of iter) {
+      const val = typeof documentDetails.get === 'function' ? documentDetails.get(k) : documentDetails[k];
+      if (val !== undefined) nextDocumentDetails[k] = val;
+    }
+  }
+
   delete nextDocuments[docType];
   delete nextDocumentDetails[docType];
 
@@ -627,7 +647,7 @@ const updateUserApplication = async (req, res) => {
             documents: travelerDocuments || {},
           });
         }
-        updates.travellerDocuments = travellers.sort((a, b) => a.travelerNo - b.travelerNo);
+        updates.travellerDocuments = travellers.map(t => t.toObject ? t.toObject() : t).sort((a, b) => a.travelerNo - b.travelerNo);
         updates.documents = Array.isArray(application.documents) ? application.documents : [];
       }
     }
@@ -689,7 +709,11 @@ const appendApplicationDocuments = async (req, res) => {
       documentsMeta = [];
     }
     if (Object.prototype.hasOwnProperty.call(req.body, 'gdriveLink')) {
-      updateDriveLinkWithHistory(application, req.body.gdriveLink, 'gdriveLink', 'gdriveLinkHistory');
+      updateDriveLinkWithHistory(application, req.body.gdriveLink, 'gdriveLink', 'gdriveLinkHistory', {
+        modifiedBy: req.user?.name || req.user?.id || 'Unknown',
+        userRole: req.user?.role || 'client',
+        action: 'Drive Link Updated'
+      });
     }
 
     if (Number.isFinite(travelerNo) && travelerNo > 0 && documentsMeta.length > 0) {
@@ -734,7 +758,11 @@ const appendApplicationDocuments = async (req, res) => {
         payload = { ...travellers[existingIdx].toObject ? travellers[existingIdx].toObject() : travellers[existingIdx] };
         payload.travelerName = travelerName || payload.travelerName;
         if (Object.prototype.hasOwnProperty.call(req.body, 'gdriveLink')) {
-          updateDriveLinkWithHistory(payload, gdriveLink, 'gdriveLink', 'gdriveLinkHistory');
+          updateDriveLinkWithHistory(payload, gdriveLink, 'gdriveLink', 'gdriveLinkHistory', {
+            modifiedBy: req.user?.name || req.user?.id || 'Unknown',
+            userRole: req.user?.role || 'client',
+            action: 'Drive Link Updated'
+          });
         }
         if (Object.prototype.hasOwnProperty.call(req.body, 'gdriveFurtherInfoLink')) {
           payload.gdriveFurtherInfoLink = gdriveFurtherInfoLink;
@@ -762,6 +790,9 @@ const appendApplicationDocuments = async (req, res) => {
               fileSize: Number(previousDetail?.fileSize || 0),
               mimeType: String(previousDetail?.mimeType || '').trim(),
               uploadedAt: previousDetail?.uploadedAt || new Date(),
+              uploadedBy: req.user?.name || req.user?.id || 'Unknown',
+              userRole: req.user?.role || 'client',
+              action: 'Document Replaced'
             });
             application.documents = (Array.isArray(application.documents) ? application.documents : [])
               .filter((storedPath) => String(storedPath || '').trim() !== String(previousPath || '').trim());
@@ -1052,7 +1083,7 @@ const updateApplicationByAdmin = async (req, res) => {
           });
         }
 
-        updates.travellerDocuments = travellers.sort((a, b) => a.travelerNo - b.travelerNo);
+        updates.travellerDocuments = travellers.map(t => t.toObject ? t.toObject() : t).sort((a, b) => a.travelerNo - b.travelerNo);
       }
     }
 
