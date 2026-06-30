@@ -237,7 +237,9 @@ const uploadStaticPageImage = async (req, res) => {
     const path = require('path');
     const ext = path.extname(req.file.originalname).toLowerCase();
     const filename = `page-media-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
-    const firebaseUrl = await uploadToFirebase(req.file.buffer, filename, req.file.mimetype);
+    const firebaseUrl = await uploadToFirebase(req.file.buffer, filename, req.file.mimetype, {
+      allowLocalFallback: true,
+    });
     res.json({ success: true, url: firebaseUrl });
   } catch (error) {
     console.error('uploadStaticPageImage error:', error);

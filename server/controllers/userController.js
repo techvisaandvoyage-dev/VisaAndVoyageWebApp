@@ -1128,7 +1128,9 @@ const uploadProfileImage = async (req, res) => {
       .toBuffer();
 
     const { uploadToFirebase } = require('../utils/uploadOptimizer');
-    const firebaseUrl = await uploadToFirebase(buffer, filename, 'image/webp');
+    const firebaseUrl = await uploadToFirebase(buffer, filename, 'image/webp', {
+      allowLocalFallback: true,
+    });
 
     // Save new image path relative to server root
     user.profileImage = firebaseUrl;
