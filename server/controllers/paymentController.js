@@ -135,7 +135,9 @@ const verifyPayment = async (req, res) => {
     application.transactionId = razorpay_payment_id;
     application.paymentMethod = 'Razorpay';
     application.paymentStatus = 'completed';
-    application.status = 'pending';
+    if (application.status !== 'review') {
+      application.status = 'pending';
+    }
     const orderLine = `Razorpay order: ${razorpay_order_id}`;
     appendApplicationNote(application, orderLine);
     appendApplicationNote(application, `Payment completed on ${new Date().toISOString()}`);
