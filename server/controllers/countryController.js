@@ -947,7 +947,11 @@ const getCountries = async (req, res) => {
  */
 const getCountryBySlug = async (req, res) => {
   try {
-    const countryRaw = await Country.findOne({ slug: req.params.slug });
+    const mongoose = require('mongoose');
+    const query = mongoose.Types.ObjectId.isValid(req.params.slug)
+      ? { _id: req.params.slug }
+      : { slug: req.params.slug };
+    const countryRaw = await Country.findOne(query);
     if (!countryRaw) return res.status(404).json({ success: false, message: 'Country not found' });
 
     const [settings, defaultVisa, overrideVisa] = await Promise.all([

@@ -858,7 +858,10 @@ const updateUserProfile = async (req, res) => {
     if (firstName !== undefined || lastName !== undefined) {
       user.name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name;
     }
-    if (age !== undefined) user.age = age;
+    if (age !== undefined) {
+      if (age === null) user.age = undefined;
+      else user.age = age;
+    }
     if (gender) user.gender = gender;
     if (passportNumber !== undefined) user.passportNumber = passportNumber;
 
