@@ -490,6 +490,9 @@ const updateSettings = async (req, res) => {
       footerBrandPrimaryText,
       footerBrandAccentText,
       footerDescription,
+      footerShowSupportedBy,
+      footerSupportedByText,
+      footerSupportedByLink,
       seoWebsiteTitle,
       seoMetaDescription,
       seoMetaKeywords,
@@ -578,6 +581,9 @@ const updateSettings = async (req, res) => {
     if (footerBrandPrimaryText !== undefined) settings.footerBrandPrimaryText = String(footerBrandPrimaryText || '').trim();
     if (footerBrandAccentText !== undefined) settings.footerBrandAccentText = String(footerBrandAccentText || '').trim();
     if (footerDescription !== undefined) settings.footerDescription = String(footerDescription || '').trim();
+    if (footerShowSupportedBy !== undefined) settings.footerShowSupportedBy = Boolean(footerShowSupportedBy);
+    if (footerSupportedByText !== undefined) settings.footerSupportedByText = String(footerSupportedByText || '').trim();
+    if (footerSupportedByLink !== undefined) settings.footerSupportedByLink = String(footerSupportedByLink || '').trim();
     if (seoWebsiteTitle !== undefined) settings.seoWebsiteTitle = String(seoWebsiteTitle || '').trim();
     if (seoMetaDescription !== undefined) settings.seoMetaDescription = String(seoMetaDescription || '').trim();
     if (seoMetaKeywords !== undefined) settings.seoMetaKeywords = String(seoMetaKeywords || '').trim();
@@ -865,6 +871,9 @@ const getFooterConfig = async (req, res) => {
         description:
           String(settings?.footerDescription || '').trim() ||
           FOOTER_CONFIG_FALLBACK.description,
+        supportedByShow: settings?.footerShowSupportedBy !== undefined ? settings.footerShowSupportedBy : false,
+        supportedByText: settings?.footerSupportedByText !== undefined ? settings.footerSupportedByText : '',
+        supportedByLink: settings?.footerSupportedByLink !== undefined ? settings.footerSupportedByLink : '',
         sections,
       },
     });

@@ -183,6 +183,18 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  footerShowSupportedBy: {
+    type: Boolean,
+    default: true
+  },
+  footerSupportedByText: {
+    type: String,
+    default: 'Supported by Krishna Agarwal & Associates'
+  },
+  footerSupportedByLink: {
+    type: String,
+    default: 'https://krishnaagarwalassociates.co.in/'
+  },
   footerSections: {
     type: [
       {
