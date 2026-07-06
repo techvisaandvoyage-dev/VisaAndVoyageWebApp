@@ -138,6 +138,34 @@ const applicationSchema = new mongoose.Schema({
   notes: { type: String },
   /** Free-text message from the applicant (special requests, extra context). */
   applicantNotes: { type: String, default: '', maxlength: 8000 },
+  
+  /** Admin remark/note specifically for google sheets sync or manual review */
+  adminRemark: { type: String, default: '' },
+  
+  /** Fields for approval/rejection */
+  approvedDate: { type: Date },
+  approvedBy: { type: String },
+  rejectReason: { type: String, default: '' },
+  
+  /** Timeline for the user dashboard */
+  timeline: [{
+    timestamp: { type: Date, default: Date.now },
+    status: { type: String },
+    action: { type: String },
+    adminName: { type: String },
+    remark: { type: String }
+  }],
+  
+  /** Internal Audit Log */
+  auditLog: [{
+    timestamp: { type: Date, default: Date.now },
+    action: { type: String },
+    adminName: { type: String },
+    previousStatus: { type: String },
+    newStatus: { type: String },
+    source: { type: String },
+    remark: { type: String }
+  }],
 }, {
   timestamps: true
 });

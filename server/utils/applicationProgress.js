@@ -1,4 +1,4 @@
-export const DOCUMENT_LABELS = {
+const DOCUMENT_LABELS = {
   passport: "Passport",
   oldPassport: "Old / Previous Passport",
   photo: "Passport Photo",
@@ -58,7 +58,7 @@ const resolveVisibleRequiredDocuments = (rawRequiredDocuments = [], settings = {
   return ["passport", ...optionalKeys];
 };
 
-export const getApplicationProgress = (application, settings = { enableFileUpload: true, enableGDriveUpload: true }) => {
+const getApplicationProgress = (application, settings = { enableFileUpload: true, enableGDriveUpload: true }) => {
   const travellerCount = Math.max(1, Number(application?.travellerCount || 1));
   const requiredDocuments = resolveVisibleRequiredDocuments(
     Array.isArray(settings?.customRequiredDocs) && settings.customRequiredDocs.length
@@ -125,7 +125,7 @@ export const getApplicationProgress = (application, settings = { enableFileUploa
   };
 };
 
-export const resolveApplicationStatus = (application, progress) => {
+const resolveApplicationStatus = (application, progress) => {
   if (!application || typeof application !== "object") return "pending";
   
   if (
@@ -170,3 +170,5 @@ export const resolveApplicationStatus = (application, progress) => {
 
   return progress?.allDocumentsUploaded ? "pending_payment" : "pending";
 };
+
+module.exports = { DOCUMENT_LABELS, getApplicationProgress, resolveApplicationStatus };
