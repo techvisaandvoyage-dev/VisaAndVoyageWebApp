@@ -17,10 +17,10 @@
  */
 
 // UPDATE THIS TO YOUR PRODUCTION OR NGROK URL:
-const WEBHOOK_URL = ' https://89d56c14492fea.lhr.life';
+const WEBHOOK_URL = 'https://api.visavo.in/api/google/webhook';
 
 // This must match exactly what is in your server/.env file
-const WEBHOOK_SECRET = 'visa_webhook_secret_998877';
+const WEBHOOK_SECRET = 'MySuperSecretVisaAndVoyage8765!';
 
 function processEdit(e) {
   if (!e || !e.range) return;
