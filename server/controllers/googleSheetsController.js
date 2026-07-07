@@ -59,25 +59,7 @@ exports.exportToGoogleSheet = async (req, res) => {
       return res.status(404).json({ message: 'No applications found matching the filters.' });
     }
 
-    const data = applications.map(app => {
-      const progress = getApplicationProgress(app); // Default settings
-      const resolvedRawStatus = resolveApplicationStatus(app, progress);
-      const displayStatus = formatStatus(resolvedRawStatus);
-
-      return {
-        applicationId: app.applicationId,
-        applicantName: `${app.firstName} ${app.lastName}`,
-        email: app.email,
-        phone: app.user?.phone || '',
-        country: app.countryName,
-        visaType: app.visaType,
-        passportNo: app.passportNo,
-        travelDate: app.travelDate ? new Date(app.travelDate).toISOString().split('T')[0] : '',
-        paymentStatus: app.paymentStatus,
-        currentStatus: displayStatus,
-        adminRemark: app.adminRemark || ''
-      };
-    });
+    const data = applications; // Pass raw Mongoose docs to the service
 
     const spreadsheetId = await getOrCreateSpreadsheet();
     await initializeSheet(spreadsheetId);

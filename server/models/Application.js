@@ -142,6 +142,13 @@ const applicationSchema = new mongoose.Schema({
   /** Admin remark/note specifically for google sheets sync or manual review */
   adminRemark: { type: String, default: '' },
   
+  /** New fields for CRM */
+  interviewDate: { type: Date },
+  assignedAgent: { type: String, default: '' },
+  priority: { type: String, enum: ['Low', 'Medium', 'High', ''], default: '' },
+  hotel: { type: String, default: '' },
+  insurance: { type: String, default: '' },
+  
   /** Fields for approval/rejection */
   approvedDate: { type: Date },
   approvedBy: { type: String },
@@ -164,10 +171,55 @@ const applicationSchema = new mongoose.Schema({
     previousStatus: { type: String },
     newStatus: { type: String },
     source: { type: String },
-    remark: { type: String }
+    remark: { type: String },
+    fieldName: { type: String },
+    previousValue: { type: String },
+    newValue: { type: String }
   }],
 }, {
   timestamps: true
+});
+
+// Helper function to safely trigger Google Sheet updates
+const triggerSheetSync = async (doc, options = {}) => {
+  try {
+    // If this update came from the Google Sheet itself, do not re-sync
+    if (options && options.source === 'GOOGLE_SHEET') {
+      return;
+    }
+    
+    // Require here to prevent circular dependencies
+    const googleSheetsService = require('../services/googleSheetsService');
+    const spreadsheetId = process.env.SPREADSHEET_ID;
+    
+    if (spreadsheetId) {
+      // Async update without blocking
+      googleSheetsService.upsertRow(doc, spreadsheetId).catch(err => {
+        console.error(`[Google Sheets] Async update failed for ${doc.applicationId}:`, err);
+      });
+    }
+  } catch (err) {
+    console.error(`[Google Sheets] Failed to trigger sync for ${doc.applicationId}:`, err);
+  }
+};
+
+// Post-save hook (triggers on new doc creation and doc.save())
+applicationSchema.post('save', function (doc, next) {
+  next(); // Don't block the response
+  triggerSheetSync(doc, this.$__saveOptions);
+});
+
+// Post-findOneAndUpdate hook
+applicationSchema.post('findOneAndUpdate', async function (doc, next) {
+  if (!doc) return next();
+  next(); // Don't block the response
+  
+  try {
+    // getOptions() gives us the options passed to findOneAndUpdate
+    triggerSheetSync(doc, this.getOptions());
+  } catch (err) {
+    console.error('Error in findOneAndUpdate hook:', err);
+  }
 });
 
 module.exports = mongoose.model('Application', applicationSchema);

@@ -102,8 +102,7 @@ const COLUMNS = [
   'Travel Date',
   'Payment Status',
   'Current Status',
-  'Action',
-  'Admin Remark'
+  'Action'
 ];
 
 /**
@@ -126,21 +125,21 @@ const initializeSheet = async (spreadsheetId) => {
   // 2. Set headers
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `'${sheetTitle}'!A1:L1`,
+    range: `'${sheetTitle}'!A1:K1`,
     valueInputOption: 'USER_ENTERED',
     resource: {
       values: [COLUMNS],
     },
   });
 
-  // 3. Set Data Validation (Dropdown) for the Action column (Column K)
+  // 3. Set Data Validation (Dropdown) for the Action column (Column K, index 10)
   const requests = [
     {
       setDataValidation: {
         range: {
           sheetId: sheetId,
           startRowIndex: 1, // Skip header
-          startColumnIndex: 10, // Column K (0-indexed)
+          startColumnIndex: 10, // Column K (Action)
           endColumnIndex: 11,
         },
         rule: {
@@ -173,6 +172,22 @@ const initializeSheet = async (spreadsheetId) => {
         },
         fields: 'userEnteredFormat(textFormat,backgroundColor)'
       }
+    },
+    // Ensure all data rows are unbolded with white background
+    {
+      repeatCell: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1,
+        },
+        cell: {
+          userEnteredFormat: {
+            textFormat: { bold: false },
+            backgroundColor: { red: 1.0, green: 1.0, blue: 1.0 }
+          }
+        },
+        fields: 'userEnteredFormat(textFormat,backgroundColor)'
+      }
     }
   ];
 
@@ -180,6 +195,22 @@ const initializeSheet = async (spreadsheetId) => {
     spreadsheetId,
     resource: { requests },
   });
+};
+
+const mapAppToRow = (app) => {
+  return [
+    app.applicationId || '',
+    `${app.firstName || ''} ${app.lastName || ''}`.trim(),
+    app.email || '',
+    (app.user && app.user.phone) ? app.user.phone : (app.phone || ''),
+    app.countryName || app.countryId || '',
+    app.visaType || '',
+    app.passportNo || '',
+    app.travelDate ? new Date(app.travelDate).toISOString().split('T')[0] : '',
+    app.paymentStatus || '',
+    app.status || '',
+    '' // Action starts empty
+  ];
 };
 
 /**
@@ -193,30 +224,71 @@ const writeDataToSheet = async (spreadsheetId, data) => {
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const sheetTitle = spreadsheet.data.sheets[0].properties.title;
 
-  const rows = data.map(app => [
-    app.applicationId || '',
-    app.applicantName || '',
-    app.email || '',
-    app.phone || '',
-    app.country || '',
-    app.visaType || '',
-    app.passportNo || '',
-    app.travelDate || '',
-    app.paymentStatus || '',
-    app.currentStatus || '',
-    '', // Action starts empty
-    app.adminRemark || ''
-  ]);
+  const rows = data.map(mapAppToRow);
 
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `'${sheetTitle}'!A2:L${rows.length + 1}`,
+    range: `'${sheetTitle}'!A2:K${rows.length + 1}`,
     valueInputOption: 'USER_ENTERED',
     resource: {
       values: rows,
     },
   });
 };
+
+/**
+ * Upserts a single application row in the Google Sheet.
+ * Real-Time sync.
+ */
+const upsertRow = async (application, spreadsheetId) => {
+  const sheets = await getSheetsClient();
+  
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheetTitle = spreadsheet.data.sheets[0].properties.title;
+
+  // 1. Fetch Column A to find the row index
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${sheetTitle}'!A:A`,
+  });
+
+  const columnA = response.data.values || [];
+  let rowIndex = -1;
+  
+  // Find the row with matching Application ID
+  for (let i = 0; i < columnA.length; i++) {
+    if (columnA[i][0] === application.applicationId) {
+      rowIndex = i + 1; // 1-indexed
+      break;
+    }
+  }
+
+  const newRow = mapAppToRow(application);
+
+  if (rowIndex !== -1) {
+    // 2a. Update existing row
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${sheetTitle}'!A${rowIndex}:V${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [newRow],
+      },
+    });
+  } else {
+    // 2b. Append new row
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `'${sheetTitle}'!A:V`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      resource: {
+        values: [newRow],
+      },
+    });
+  }
+};
+
 
 /**
  * Reads all data from the sheet.
@@ -229,7 +301,7 @@ const readDataFromSheet = async (spreadsheetId) => {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${sheetTitle}'!A2:L`, // Skip headers
+    range: `'${sheetTitle}'!A2:K`, // Skip headers
   });
 
   const rows = response.data.values || [];
@@ -246,13 +318,12 @@ const readDataFromSheet = async (spreadsheetId) => {
     travelDate: row[7] || '',
     paymentStatus: row[8] || '',
     currentStatus: row[9] || '',
-    action: row[10] || '',
-    adminRemark: row[11] || '',
+    action: row[10] || ''
   }));
 };
 
 /**
- * Clears the Action cell for a specific row.
+ * Clears the Action cell (Column K) for a specific row.
  */
 const clearActionCell = async (spreadsheetId, rowIndex) => {
   const sheets = await getSheetsClient();
@@ -272,4 +343,5 @@ module.exports = {
   writeDataToSheet,
   readDataFromSheet,
   clearActionCell,
+  upsertRow,
 };

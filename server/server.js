@@ -185,6 +185,7 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/travelers', require('./routes/travelerRoutes'));
 app.use('/api/visa-types', require('./routes/visaTypeRoutes'));
 app.use('/api/google-sheets', require('./routes/googleSheetsRoutes'));
+app.use('/api/google', require('./routes/googleWebhookRoutes'));
 
 // Public Config Routes
 const {
