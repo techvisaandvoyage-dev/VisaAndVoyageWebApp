@@ -194,9 +194,16 @@ const triggerSheetSync = async (doc, options = {}) => {
     
     if (spreadsheetId) {
       // Async update without blocking
-      googleSheetsService.upsertRow(doc, spreadsheetId).catch(err => {
-        console.error(`[Google Sheets] Async update failed for ${doc.applicationId}:`, err);
-      });
+      (async () => {
+        try {
+          if (!doc.populated('user')) {
+            await doc.populate('user');
+          }
+          await googleSheetsService.upsertRow(doc, spreadsheetId);
+        } catch (err) {
+          console.error(`[Google Sheets] Async update failed for ${doc.applicationId}:`, err);
+        }
+      })();
     }
   } catch (err) {
     console.error(`[Google Sheets] Failed to trigger sync for ${doc.applicationId}:`, err);

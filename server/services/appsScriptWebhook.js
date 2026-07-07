@@ -52,6 +52,7 @@ function processEdit(e) {
     'Phone',
     'Country',
     'Visa Type',
+    'Fee',
     'Passport Number',
     'Travel Date',
     'Payment Status',

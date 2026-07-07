@@ -98,6 +98,7 @@ const COLUMNS = [
   'Phone',
   'Country',
   'Visa Type',
+  'Fee',
   'Passport Number',
   'Travel Date',
   'Payment Status',
@@ -125,7 +126,7 @@ const initializeSheet = async (spreadsheetId) => {
   // 2. Set headers
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `'${sheetTitle}'!A1:K1`,
+    range: `'${sheetTitle}'!A1:L1`,
     valueInputOption: 'USER_ENTERED',
     resource: {
       values: [COLUMNS],
@@ -139,8 +140,19 @@ const initializeSheet = async (spreadsheetId) => {
         range: {
           sheetId: sheetId,
           startRowIndex: 1, // Skip header
-          startColumnIndex: 10, // Column K (Action)
+          startColumnIndex: 0, 
           endColumnIndex: 11,
+        },
+        rule: null
+      }
+    },
+    {
+      setDataValidation: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1, // Skip header
+          startColumnIndex: 11, // Column L (Action)
+          endColumnIndex: 12,
         },
         rule: {
           condition: {
@@ -172,22 +184,6 @@ const initializeSheet = async (spreadsheetId) => {
         },
         fields: 'userEnteredFormat(textFormat,backgroundColor)'
       }
-    },
-    // Ensure all data rows are unbolded with white background
-    {
-      repeatCell: {
-        range: {
-          sheetId: sheetId,
-          startRowIndex: 1,
-        },
-        cell: {
-          userEnteredFormat: {
-            textFormat: { bold: false },
-            backgroundColor: { red: 1.0, green: 1.0, blue: 1.0 }
-          }
-        },
-        fields: 'userEnteredFormat(textFormat,backgroundColor)'
-      }
     }
   ];
 
@@ -205,6 +201,7 @@ const mapAppToRow = (app) => {
     (app.user && app.user.phone) ? app.user.phone : (app.phone || ''),
     app.countryName || app.countryId || '',
     app.visaType || '',
+    app.fee || 0,
     app.passportNo || '',
     app.travelDate ? new Date(app.travelDate).toISOString().split('T')[0] : '',
     app.paymentStatus || '',
@@ -228,7 +225,7 @@ const writeDataToSheet = async (spreadsheetId, data) => {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `'${sheetTitle}'!A2:K${rows.length + 1}`,
+    range: `'${sheetTitle}'!A2:L${rows.length + 1}`,
     valueInputOption: 'USER_ENTERED',
     resource: {
       values: rows,
@@ -323,7 +320,7 @@ const readDataFromSheet = async (spreadsheetId) => {
 };
 
 /**
- * Clears the Action cell (Column K) for a specific row.
+ * Clears the Action cell (Column L) for a specific row.
  */
 const clearActionCell = async (spreadsheetId, rowIndex) => {
   const sheets = await getSheetsClient();
@@ -333,7 +330,7 @@ const clearActionCell = async (spreadsheetId, rowIndex) => {
 
   await sheets.spreadsheets.values.clear({
     spreadsheetId,
-    range: `'${sheetTitle}'!K${rowIndex}`,
+    range: `'${sheetTitle}'!L${rowIndex}`,
   });
 };
 
