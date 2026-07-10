@@ -273,12 +273,12 @@ const upsertRow = async (application, spreadsheetId) => {
       },
     });
   } else {
-    // 2b. Append new row
-    await sheets.spreadsheets.values.append({
+    // 2b. Append new row at the exact next empty row
+    const appendRowIndex = columnA.length + 1;
+    await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `'${sheetTitle}'!A:V`,
+      range: `'${sheetTitle}'!A${appendRowIndex}:V${appendRowIndex}`,
       valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
       resource: {
         values: [newRow],
       },

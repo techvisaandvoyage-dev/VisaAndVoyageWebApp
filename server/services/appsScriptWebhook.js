@@ -41,7 +41,10 @@ function processEdit(e) {
   if (rowNumber === 1) return;
 
   // Get headers to determine which column was edited
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const lastColumn = sheet.getLastColumn();
+  if (lastColumn === 0) return; // Sheet is completely empty
+
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
   const editedColumnName = headers[colNumber - 1];
 
   // List of read-only columns that we should ignore (or revert, but for now we just ignore webhook sync)
