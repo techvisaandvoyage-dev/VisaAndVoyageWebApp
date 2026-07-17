@@ -1,6 +1,9 @@
 const User = require('../models/User');
 const Otp = require('../models/Otp');
 const Settings = require('../models/Settings');
+const TravelerProfile = require('../models/TravelerProfile');
+const Application = require('../models/Application');
+const Conversation = require('../models/Conversation');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const sendEmail = require('../utils/sendEmail');
@@ -629,7 +632,7 @@ const verifyLoginOtp = async (req, res) => {
 /**
  * Create or update app user from a verified Firebase Auth ID token (Google, Email/Password, etc.).
  */
-const syncUserFromFirebaseToken = async (decodedToken) => {
+const syncUserFromFirebaseToken = async (decodedToken, createIfMissing = true) => {
   const uid = String(decodedToken.uid || '').trim();
   const email = String(decodedToken.email || '').trim().toLowerCase();
   const signInProvider = String(decodedToken.firebase?.sign_in_provider || '');
@@ -656,6 +659,9 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
   let user = await User.findOne({ $or: lookup });
 
   if (!user) {
+    if (!createIfMissing) {
+      return { user: null, isNewUser: true, decodedToken };
+    }
     user = await User.create({
       name: displayName,
       firstName: nameParts.firstName || undefined,
@@ -707,7 +713,7 @@ const syncUserFromFirebaseToken = async (decodedToken) => {
 const firebaseAuthLogin = async (req, res) => {
   console.log('[API] /firebase-auth hit');
   try {
-    const { idToken } = req.body;
+    const { idToken, createIfMissing = true } = req.body;
     if (!idToken) {
       console.log('[API] /firebase-auth missing idToken');
       return res.status(400).json({ success: false, message: 'Firebase ID token is required' });
@@ -715,7 +721,15 @@ const firebaseAuthLogin = async (req, res) => {
 
     const firebaseApp = await getFirebaseAdminApp();
     const decodedToken = await getAuth(firebaseApp).verifyIdToken(idToken);
-    const { user, isNewUser } = await syncUserFromFirebaseToken(decodedToken);
+    const { user, isNewUser } = await syncUserFromFirebaseToken(decodedToken, createIfMissing);
+
+    if (!user && !createIfMissing) {
+      return res.json({
+        success: true,
+        isNewUser: true,
+        user: null,
+      });
+    }
 
     const refreshed = await User.findById(user._id).select('-password').lean();
 
@@ -1455,6 +1469,51 @@ const popupCompleteSignup = async (req, res) => {
   }
 };
 
+/**
+ * @route   DELETE /api/users/profile
+ * @desc    Delete user account and profile data
+ * @access  Private
+ */
+const deleteUserAccount = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    
+    // 1. Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // 2. Delete associated OTPs (by email and phone)
+    const identifiers = [];
+    if (user.email) identifiers.push(user.email);
+    if (user.phone) identifiers.push(user.phone);
+    if (identifiers.length > 0) {
+      await Otp.deleteMany({ identifier: { $in: identifiers } });
+    }
+
+    // 3. Delete associated TravelerProfile documents
+    await TravelerProfile.deleteMany({ userId: userId });
+
+    // 4. Disassociate Application documents
+    await Application.updateMany({ user: userId }, { $unset: { user: 1 } });
+
+    // 5. Hide associated Support Chats from the user
+    await Conversation.updateMany(
+      { $or: [{ userId: userId }, { userEmail: user.email }] },
+      { $set: { hiddenFromUser: true } }
+    );
+
+    // 6. Delete the User document
+    await User.findByIdAndDelete(userId);
+
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('[deleteUserAccount]', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 module.exports = {
   popupRequestOtp,
   popupVerifyOtp,
@@ -1475,5 +1534,6 @@ module.exports = {
   resetPasswordRequest,
   requestForgotPasswordOtp,
   resetForgotPassword,
-  changePassword
+  changePassword,
+  deleteUserAccount
 };

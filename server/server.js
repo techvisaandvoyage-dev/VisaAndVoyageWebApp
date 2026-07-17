@@ -277,6 +277,7 @@ app.get('/api/chat/my-conversation', optionalAuth, async (req, res) => {
     const emailAddress = req.query.email || (req.user ? req.user.email : null);
     if (req.user) {
       convo = await Conversation.findOne({
+        hiddenFromUser: { $ne: true },
         $or: [
           { userId: req.user.id },
           ...(emailAddress ? [{ userEmail: emailAddress }] : [])
@@ -287,7 +288,7 @@ app.get('/api/chat/my-conversation', optionalAuth, async (req, res) => {
         await convo.save();
       }
     } else if (emailAddress) {
-      convo = await Conversation.findOne({ userEmail: emailAddress });
+      convo = await Conversation.findOne({ hiddenFromUser: { $ne: true }, userEmail: emailAddress });
     }
 
     if (convo) {
@@ -318,6 +319,7 @@ app.post('/api/chat/message', optionalAuth, async (req, res) => {
     let convo = null;
     if (req.user) {
       convo = await Conversation.findOne({
+        hiddenFromUser: { $ne: true },
         $or: [
           { userId: req.user.id },
           { userEmail: emailAddress }
@@ -340,7 +342,7 @@ app.post('/api/chat/message', optionalAuth, async (req, res) => {
         if (phone) convo.userPhone = phone;
       }
     } else {
-      convo = await Conversation.findOne({ userEmail: emailAddress });
+      convo = await Conversation.findOne({ hiddenFromUser: { $ne: true }, userEmail: emailAddress });
       if (!convo) {
         convo = new Conversation({
           userId: null,
@@ -521,13 +523,14 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
     if (!convo) {
       if (req.user) {
         convo = await Conversation.findOne({
+          hiddenFromUser: { $ne: true },
           $or: [
             { userId: req.user.id },
             { userEmail: emailAddress }
           ]
         });
       } else {
-        convo = await Conversation.findOne({ userEmail: emailAddress });
+        convo = await Conversation.findOne({ hiddenFromUser: { $ne: true }, userEmail: emailAddress });
       }
     }
 
@@ -593,13 +596,14 @@ app.get('/api/support/conversations/client/chat', optionalAuth, async (req, res)
     let convo = null;
     if (req.user) {
       convo = await Conversation.findOne({
+        hiddenFromUser: { $ne: true },
         $or: [
           { userId: req.user.id },
           { userEmail: emailAddress }
         ]
       });
     } else {
-      convo = await Conversation.findOne({ userEmail: emailAddress });
+      convo = await Conversation.findOne({ hiddenFromUser: { $ne: true }, userEmail: emailAddress });
     }
 
     if (convo) {

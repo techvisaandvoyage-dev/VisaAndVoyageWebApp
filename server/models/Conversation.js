@@ -37,6 +37,10 @@ const conversationSchema = new mongoose.Schema({
   adminTypingAt: {
     type: Date,
     default: null
+  },
+  hiddenFromUser: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

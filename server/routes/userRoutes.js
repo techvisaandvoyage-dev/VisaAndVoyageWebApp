@@ -21,7 +21,8 @@ const {
   changePassword,
   popupRequestOtp,
   popupVerifyOtp,
-  popupCompleteSignup
+  popupCompleteSignup,
+  deleteUserAccount
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../utils/uploadConfig');
@@ -75,6 +76,7 @@ router.post('/profile/phone/verify-otp', protect, verifyProfilePhoneOtp);
 router.post('/profile/upload-image', protect, upload.single('profileImage'), uploadProfileImage);
 router.post('/profile/reset-request', protect, resetPasswordRequest);
 router.put('/change-password', protect, changePassword);
+router.delete('/profile', protect, deleteUserAccount);
 
 // Application routes
 router.post('/application', protect, uploadOptimizer.array('documents', 5), processFiles, submitApplication);
