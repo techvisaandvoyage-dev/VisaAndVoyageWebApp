@@ -441,7 +441,7 @@ const checkOtpRateLimit = (key) => {
   return { allowed: true };
 };
 
-const sendConfiguredOtp = async ({ rawIdentifier, requestedChannel = 'auto', purpose = 'auth' }) => {
+const sendConfiguredOtp = async ({ rawIdentifier, requestedChannel = 'auto', purpose = 'auth', overrideLength }) => {
   const identifier = normalizeIdentifier(rawIdentifier);
   if (identifier.type === 'invalid') {
     const err = new Error('Please enter a valid email address or mobile number');
@@ -477,7 +477,7 @@ const sendConfiguredOtp = async ({ rawIdentifier, requestedChannel = 'auto', pur
   for (const channel of channels) {
     if (!channelConfigured(settings, channel)) {
       if (testingMode) {
-        const length = getChannelLength(settings, channel);
+        const length = overrideLength || getChannelLength(settings, channel);
         const otp = generateOtp(length);
         const otpHash = await bcrypt.hash(otp, 10);
         await Otp.deleteMany({ identifier: identifier.key, purpose });
@@ -501,7 +501,7 @@ const sendConfiguredOtp = async ({ rawIdentifier, requestedChannel = 'auto', pur
       failures.push(channel === 'whatsapp' ? 'WhatsApp OTP is not enabled' : channel === 'sms' ? 'SMS OTP is not configured' : 'Email OTP is not configured');
       continue;
     }
-    const length = getChannelLength(settings, channel);
+    const length = overrideLength || getChannelLength(settings, channel);
     const otp = generateOtp(length);
     const result = await deliverOtp({ identifier, otp, channel, settings });
     if (!result.sent && !result.skipped) {

@@ -22,6 +22,17 @@ const messageSchema = new mongoose.Schema({
   read: {
     type: Boolean,
     default: false
+  },
+  messageType: {
+    type: String,
+    default: 'text' // can be 'text', 'chips', 'human_escalation', 'application_cards'
+  },
+  options: [{
+    type: String
+  }],
+  applicationsData: {
+    type: mongoose.Schema.Types.Mixed, // To store array of simple objects with app info
+    default: []
   }
 }, {
   timestamps: true

@@ -41,6 +41,39 @@ const conversationSchema = new mongoose.Schema({
   hiddenFromUser: {
     type: Boolean,
     default: false
+  },
+  status: {
+    type: String,
+    enum: ['AI_PENDING', 'HUMAN_PENDING', 'HUMAN_CONNECTED', 'RESOLVED'],
+    default: 'AI_PENDING'
+  },
+  messageCount: {
+    type: Number,
+    default: 0
+  },
+  consecutiveFailures: {
+    type: Number,
+    default: 0
+  },
+  escalationReason: {
+    type: String,
+    default: ""
+  },
+  userSelectedCategory: {
+    type: String,
+    default: ""
+  },
+  humanRequested: {
+    type: Boolean,
+    default: false
+  },
+  selectedApplicationId: {
+    type: String,
+    default: null
+  },
+  pendingQuestion: {
+    type: String,
+    default: ""
   }
 }, {
   timestamps: true

@@ -22,7 +22,11 @@ const {
   popupRequestOtp,
   popupVerifyOtp,
   popupCompleteSignup,
-  deleteUserAccount
+  deleteUserAccount,
+  deleteAccountSendOtp,
+  deleteAccountVerifyOtp,
+  deleteAccountGenerateCaptcha,
+  deleteAccountVerifyCaptcha
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../utils/uploadConfig');
@@ -76,7 +80,20 @@ router.post('/profile/phone/verify-otp', protect, verifyProfilePhoneOtp);
 router.post('/profile/upload-image', protect, upload.single('profileImage'), uploadProfileImage);
 router.post('/profile/reset-request', protect, resetPasswordRequest);
 router.put('/change-password', protect, changePassword);
-router.delete('/profile', protect, deleteUserAccount);
+
+// Delete Account routes
+const rateLimit = require('express-rate-limit');
+const deleteAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // limit each IP to 30 requests per windowMs
+  message: { success: false, message: 'Too many requests, please try again later.' }
+});
+
+router.post('/profile/delete/send-otp', protect, deleteAccountLimiter, deleteAccountSendOtp);
+router.post('/profile/delete/verify-otp', protect, deleteAccountLimiter, deleteAccountVerifyOtp);
+router.get('/profile/delete/security-check', protect, deleteAccountGenerateCaptcha);
+router.post('/profile/delete/verify-security-check', protect, deleteAccountVerifyCaptcha);
+router.delete('/profile', protect, deleteAccountLimiter, deleteUserAccount);
 
 // Application routes
 router.post('/application', protect, uploadOptimizer.array('documents', 5), processFiles, submitApplication);

@@ -6,6 +6,9 @@ const Application = require('../models/Application');
 const Conversation = require('../models/Conversation');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const svgCaptcha = require('svg-captcha');
+const Captcha = require('../models/Captcha');
 const sendEmail = require('../utils/sendEmail');
 const { sendLoginOtpSms } = require('../services/smsService');
 const { sendConfiguredOtp, verifyStoredOtp } = require('../services/otpAuthService');
@@ -1470,6 +1473,129 @@ const popupCompleteSignup = async (req, res) => {
 };
 
 /**
+ * @route   POST /api/users/profile/delete/send-otp
+ * @desc    Send OTP to verify phone number for account deletion
+ * @access  Private
+ */
+const deleteAccountSendOtp = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { phone } = req.body;
+    
+    const user = await User.findById(userId);
+    if (!user || user.phone !== phone) {
+      return res.status(400).json({ success: false, message: 'This phone number is not linked to your account.', field: 'phone' });
+    }
+
+    // Use the global configured OTP service, specifically forcing whatsapp and 4 digits
+    await sendConfiguredOtp({
+      rawIdentifier: phone,
+      requestedChannel: 'whatsapp',
+      purpose: 'delete_account',
+      overrideLength: 4
+    });
+
+    res.json({ success: true, message: 'OTP sent successfully via WhatsApp.' });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+    console.error('[deleteAccountSendOtp]', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * @route   POST /api/users/profile/delete/verify-otp
+ * @desc    Verify OTP for account deletion
+ * @access  Private
+ */
+const deleteAccountVerifyOtp = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { phone, otp } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user || user.phone !== phone) {
+      return res.status(400).json({ success: false, message: 'Invalid request' });
+    }
+
+    await verifyStoredOtp({
+      rawIdentifier: phone,
+      otp,
+      purpose: 'delete_account',
+      consume: true
+    });
+
+    const deleteToken = jwt.sign(
+      { userId: String(userId), action: 'delete_account' },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    res.json({ success: true, deleteToken });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+    console.error('[deleteAccountVerifyOtp]', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * @route   GET /api/users/profile/delete/captcha
+ * @desc    Generate CAPTCHA for account deletion
+ * @access  Private
+ */
+const deleteAccountGenerateCaptcha = async (req, res) => {
+  try {
+    const captcha = svgCaptcha.create({
+      size: 6,
+      ignoreChars: '0o1i',
+      noise: 2,
+      color: true,
+      background: '#f8fafc'
+    });
+    
+    const captchaId = crypto.randomBytes(16).toString('hex');
+    
+    await Captcha.create({
+      captchaId,
+      text: captcha.text
+    });
+
+    res.json({ success: true, captchaId, image: captcha.data });
+  } catch (error) {
+    console.error('[deleteAccountGenerateCaptcha]', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * @route   POST /api/users/profile/delete/verify-captcha
+ * @desc    Verify CAPTCHA without consuming it (for intermediate validation)
+ * @access  Private
+ */
+const deleteAccountVerifyCaptcha = async (req, res) => {
+  try {
+    const { captchaId, captchaText } = req.body;
+    if (!captchaId || !captchaText) {
+      return res.status(400).json({ success: false, message: 'CAPTCHA is required', field: 'captcha' });
+    }
+    const captchaRecord = await Captcha.findOne({ captchaId });
+    if (!captchaRecord || captchaRecord.text.toLowerCase() !== captchaText.toLowerCase()) {
+      if (captchaRecord) await Captcha.deleteOne({ _id: captchaRecord._id });
+      return res.status(400).json({ success: false, message: 'Invalid CAPTCHA. Please try again.', field: 'captcha' });
+    }
+    res.json({ success: true, message: 'CAPTCHA verified' });
+  } catch (error) {
+    console.error('[deleteAccountVerifyCaptcha]', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
  * @route   DELETE /api/users/profile
  * @desc    Delete user account and profile data
  * @access  Private
@@ -1477,12 +1603,39 @@ const popupCompleteSignup = async (req, res) => {
 const deleteUserAccount = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
+    const { deleteToken, captchaId, captchaText } = req.body;
     
+    // Validate CAPTCHA
+    if (!captchaId || !captchaText) {
+      return res.status(400).json({ success: false, message: 'CAPTCHA is required', field: 'captcha' });
+    }
+    const captchaRecord = await Captcha.findOne({ captchaId });
+    if (!captchaRecord || captchaRecord.text.toLowerCase() !== captchaText.toLowerCase()) {
+      return res.status(400).json({ success: false, message: 'Invalid CAPTCHA. Please try again.', field: 'captcha' });
+    }
+
+    // Validate deleteToken
+    if (!deleteToken) {
+      return res.status(400).json({ success: false, message: 'Verification required' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(deleteToken, process.env.JWT_SECRET);
+      if (decoded.action !== 'delete_account' || decoded.userId !== String(userId)) {
+        throw new Error('Invalid token');
+      }
+    } catch (err) {
+      return res.status(400).json({ success: false, message: 'Verification expired or invalid' });
+    }
+
     // 1. Find the user
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
+    // After validation, delete the captcha
+    await Captcha.deleteOne({ captchaId });
 
     // 2. Delete associated OTPs (by email and phone)
     const identifiers = [];
@@ -1535,5 +1688,9 @@ module.exports = {
   requestForgotPasswordOtp,
   resetForgotPassword,
   changePassword,
-  deleteUserAccount
+  deleteUserAccount,
+  deleteAccountSendOtp,
+  deleteAccountVerifyOtp,
+  deleteAccountGenerateCaptcha,
+  deleteAccountVerifyCaptcha
 };
