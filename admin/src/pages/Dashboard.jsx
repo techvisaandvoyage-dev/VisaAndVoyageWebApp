@@ -1336,6 +1336,7 @@ const mapApiSettingsToFormState = (s, activeCountryIds = []) => ({
   seoFavicon192Url: s.seoFavicon192Url || "",
   seoAppleTouchIconUrl: s.seoAppleTouchIconUrl || "",
   whatsappTemplate: s.whatsappTemplate || "",
+  hideWhatsAppSection: s.hideWhatsAppSection === true,
 });
 
 const integrationFlagsFromSettings = (s) => {
@@ -2234,6 +2235,7 @@ const Dashboard = () => {
     seoFavicon192Url: "",
     seoAppleTouchIconUrl: "",
     whatsappTemplate: "",
+    hideWhatsAppSection: false,
   });
   const [otpSettingsForm, setOtpSettingsForm] = useState(DEFAULT_OTP_SETTINGS);
   const [savingSettingsKey, setSavingSettingsKey] = useState(null);
@@ -2396,6 +2398,7 @@ const Dashboard = () => {
           icon: LayoutTemplate,
           children: [
             { key: "searchbar", label: "Searchbar" },
+            { key: "filter", label: "Filter" },
             { key: "landing-highlights", label: "Landing Highlights" },
           ],
         },
@@ -3265,6 +3268,7 @@ const Dashboard = () => {
               footerLogo: s.footerLogo || "",
               footerDescription: s.footerDescription || "",
               whatsappTemplate: s.whatsappTemplate || "",
+              hideWhatsAppSection: s.hideWhatsAppSection === true,
             }));
           }
           await fetchFooterSocialIcons();
@@ -6789,7 +6793,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Breadcrumb */}
-                <div className={`${activeControlSection === "chat-support" ? "hidden" : "mb-6 flex flex-wrap items-center gap-1.5 pl-1 text-[11px] font-medium uppercase tracking-wider text-text-muted"}`}>
+                <div className="mb-6 flex flex-wrap items-center gap-1.5 pl-1 text-[11px] font-medium uppercase tracking-wider text-text-muted">
                   {["Controls", ...activeControlBreadcrumb].map((item, index, arr) => (
                     <span key={`${item}-${index}`} className="flex items-center gap-1.5">
                       <span className={index === arr.length - 1 ? "font-bold text-cyan" : ""}>
@@ -6801,7 +6805,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Groups rendering */}
-                <div className={`${activeControlSection === "chat-support" ? "hidden" : "mb-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-3"}`}>
+                <div className="mb-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-3">
                   {activeControlGroup.sections.map((section) => {
                     const SectionIcon = section.icon || FileText;
                     
@@ -8115,7 +8119,15 @@ const Dashboard = () => {
                     Searchbar settings coming soon!
                   </div>
                 </Card>
+              </div>
 
+              <div
+                className={
+                  isControlSectionVisible("filter")
+                    ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch flex flex-col gap-6"
+                    : "hidden"
+                }
+              >
                 <Card>
                   <div className="flex items-center justify-between mb-6">
                     <div>
@@ -8123,8 +8135,35 @@ const Dashboard = () => {
                       <p className="text-xs text-text-muted">Manage search filter options.</p>
                     </div>
                   </div>
-                  <div className="bg-surface-2 border border-border rounded-xl p-8 text-center text-text-muted">
-                    Filter settings coming soon!
+                  <div className="bg-surface-2 border border-border rounded-xl p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">Show Filter Bar</p>
+                        <p className="text-xs text-text-muted mt-1">Display the visa filter options on the landing page</p>
+                      </div>
+                      <DisplayToggle
+                        active={!settingsForm?.landingPage?.hideFilter}
+                        onClick={() => {
+                          const v = !settingsForm?.landingPage?.hideFilter;
+                          setSettingsForm(p => ({
+                            ...p,
+                            landingPage: { ...(p.landingPage || {}), hideFilter: v }
+                          }));
+                        }}
+                        labelOn="Visible"
+                        labelOff="Hidden"
+                      />
+                    </div>
+                    
+                    <div className="mt-6 flex justify-end">
+                      <Button
+                        variant="primary"
+                        onClick={() => saveSettingsPartial("landingPage", { hideFilter: settingsForm?.landingPage?.hideFilter })}
+                        leftIcon={<Save size={16} />}
+                      >
+                        Save Settings
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               </div>
@@ -9926,6 +9965,7 @@ const Dashboard = () => {
                       customerChatHeaderTitle: settingsForm.customerChatHeaderTitle,
                       customerChatHeaderSubtitle: settingsForm.customerChatHeaderSubtitle,
                       whatsappTemplate: settingsForm.whatsappTemplate,
+                      hideWhatsAppSection: settingsForm.hideWhatsAppSection,
                     },
                     "Customer chat settings saved.",
                   )
@@ -9945,80 +9985,114 @@ const Dashboard = () => {
                   />
                 )}
               >
-                <div className="space-y-6">
-                  {/* Premium Link Input section */}
-                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 shadow-sm">
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md">
-                        <MessageSquare className="h-5 w-5" />
-                      </span>
-                      <div>
-                        <h4 className="text-sm font-bold text-text-primary">WhatsApp & Support Connection</h4>
-                        <p className="text-xs text-text-muted">Users clicking the WhatsApp support button will be redirected to this link.</p>
-                      </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Live Chat Column */}
+                  <div className="space-y-6 rounded-2xl border border-border p-5 bg-surface shadow-sm flex flex-col">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageCircle className="h-5 w-5 text-cyan" />
+                      <h3 className="font-bold text-text-primary text-base">Live Chat Controls</h3>
                     </div>
-                    <Input
-                      id="customer-chat-link"
-                      label="Paste WhatsApp Link Here"
-                      placeholder="Paste your WhatsApp link (e.g. https://wa.me/91XXXXXXXXXX) or Support URL here..."
-                      value={settingsForm.customerChatLink}
-                      onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatLink: e.target.value }))}
-                      className="w-full focus:border-emerald-500 focus:ring-emerald-500/20"
-                    />
+                    
+                    <div className="grid grid-cols-1 gap-5">
+                      <Input
+                        id="customer-chat-header-title"
+                        label="Widget Header Title"
+                        placeholder="Chat with us"
+                        value={settingsForm.customerChatHeaderTitle}
+                        onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatHeaderTitle: e.target.value }))}
+                      />
+                      <Input
+                        id="customer-chat-header-subtitle"
+                        label="Widget Header Subtitle"
+                        placeholder="We typically reply in a few minutes"
+                        value={settingsForm.customerChatHeaderSubtitle}
+                        onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatHeaderSubtitle: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div className="flex-1 mt-4 rounded-xl border border-dashed border-border bg-surface-2/50 p-6 flex items-center justify-center text-center">
+                      <p className="text-sm text-text-muted leading-relaxed">
+                        More Live Chat controls will be added here in the future.
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Input
-                      id="customer-chat-header-title"
-                      label="Widget Header Title"
-                      placeholder="Chat with us"
-                      value={settingsForm.customerChatHeaderTitle}
-                      onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatHeaderTitle: e.target.value }))}
-                    />
-                    <Input
-                      id="customer-chat-header-subtitle"
-                      label="Widget Header Subtitle"
-                      placeholder="We typically reply in a few minutes"
-                      value={settingsForm.customerChatHeaderSubtitle}
-                      onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatHeaderSubtitle: e.target.value }))}
-                    />
-                  </div>
+                  {/* WhatsApp Controls Column */}
+                  <div className="space-y-6 rounded-2xl border border-border p-5 bg-surface shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageSquare className="h-5 w-5 text-emerald-500" />
+                      <h3 className="font-bold text-text-primary text-base">WhatsApp Controls</h3>
+                    </div>
 
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Input
-                      id="customer-chat-title"
-                      label="Default Button Title"
-                      placeholder="Continue with Chat"
-                      value={settingsForm.customerChatTitle}
-                      onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatTitle: e.target.value }))}
-                    />
-                    <Input
-                      id="customer-chat-description"
-                      label="CTA Description"
-                      placeholder="Get instant support from our visa team"
-                      value={settingsForm.customerChatDescription}
-                      onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatDescription: e.target.value }))}
-                    />
-                  </div>
+                    <div className="w-full pb-4 border-b border-border">
+                      <DisplayToggle
+                        active={!settingsForm.hideWhatsAppSection}
+                        onClick={() => {
+                          const newValue = !settingsForm.hideWhatsAppSection;
+                          setSettingsForm((prev) => ({
+                            ...prev,
+                            hideWhatsAppSection: newValue,
+                          }));
+                          saveSettingsPartial("customer-chat", { hideWhatsAppSection: newValue }, "WhatsApp visibility updated successfully", "Failed to update WhatsApp visibility");
+                        }}
+                        labelOn="Show WhatsApp Section"
+                        labelOff="Hide WhatsApp Section"
+                      />
+                    </div>
 
-                  <div className="w-full">
-                    <Textarea
-                      id="customer-chat-whatsapp-template"
-                      label="WhatsApp Pre-filled Message Template"
-                      placeholder="Hello Visa & Voyage..."
-                      value={settingsForm.whatsappTemplate}
-                      onChange={(e) => setSettingsForm((prev) => ({ ...prev, whatsappTemplate: e.target.value }))}
-                      rows={6}
-                      className="w-full font-mono text-sm leading-relaxed"
-                    />
-                    <div className="text-xs text-text-muted mt-2 space-y-1">
-                      <p>You can use the following dynamic variables which will be replaced automatically based on the user's active context:</p>
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-400 font-mono text-[10px] font-semibold">{"{{userName}}"}</code>
-                        <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-400 font-mono text-[10px] font-semibold">{"{{country}}"}</code>
-                        <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-400 font-mono text-[10px] font-semibold">{"{{visaType}}"}</code>
-                        <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-400 font-mono text-[10px] font-semibold">{"{{travelDate}}"}</code>
-                        <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-400 font-mono text-[10px] font-semibold">{"{{applicationId}}"}</code>
+                    <div className="space-y-6">
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                        <div className="mb-3">
+                          <h4 className="text-sm font-bold text-text-primary">WhatsApp Connection</h4>
+                          <p className="text-xs text-text-muted">Users clicking the WhatsApp support button will be redirected to this link.</p>
+                        </div>
+                        <Input
+                          id="customer-chat-link"
+                          label="Paste WhatsApp Link Here"
+                          placeholder="e.g. https://wa.me/91XXXXXXXXXX"
+                          value={settingsForm.customerChatLink}
+                          onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatLink: e.target.value }))}
+                          className="w-full focus:border-emerald-500 focus:ring-emerald-500/20"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-5">
+                        <Input
+                          id="customer-chat-title"
+                          label="Default Button Title"
+                          placeholder="Continue with WhatsApp"
+                          value={settingsForm.customerChatTitle}
+                          onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatTitle: e.target.value }))}
+                        />
+                        <Input
+                          id="customer-chat-description"
+                          label="CTA Description"
+                          placeholder="Get instant support from our visa team"
+                          value={settingsForm.customerChatDescription}
+                          onChange={(e) => setSettingsForm((prev) => ({ ...prev, customerChatDescription: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="w-full">
+                        <Textarea
+                          id="customer-chat-whatsapp-template"
+                          label="Pre-filled Message Template"
+                          placeholder="Hello Visa & Voyage..."
+                          value={settingsForm.whatsappTemplate}
+                          onChange={(e) => setSettingsForm((prev) => ({ ...prev, whatsappTemplate: e.target.value }))}
+                          rows={6}
+                          className="w-full font-mono text-sm leading-relaxed"
+                        />
+                        <div className="text-[11px] text-text-muted mt-2 space-y-1">
+                          <p>Dynamic variables:</p>
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-500 font-mono text-[10px] font-semibold">{"{{userName}}"}</code>
+                            <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-500 font-mono text-[10px] font-semibold">{"{{country}}"}</code>
+                            <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-500 font-mono text-[10px] font-semibold">{"{{visaType}}"}</code>
+                            <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-500 font-mono text-[10px] font-semibold">{"{{travelDate}}"}</code>
+                            <code className="px-1.5 py-0.5 rounded bg-surface-3 border border-border text-emerald-500 font-mono text-[10px] font-semibold">{"{{applicationId}}"}</code>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

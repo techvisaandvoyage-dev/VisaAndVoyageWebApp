@@ -281,6 +281,10 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     default: 'Hello Visa & Voyage Team,\nI need help with my visa application.\n\nName: {{userName}}\nCountry: {{country}}\nVisa Type: {{visaType}}\nTravel Date: {{travelDate}}\nApplication ID: {{applicationId}}\n\nPlease guide me.'
   },
+  hideWhatsAppSection: {
+    type: Boolean,
+    default: false
+  },
   /** Unsplash — used by `node fetchCountryImages.js` (Access Key required; secret/app id optional / reference). */
   unsplashAccessKey: {
     type: String,

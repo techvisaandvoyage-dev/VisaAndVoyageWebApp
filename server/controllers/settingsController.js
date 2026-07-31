@@ -506,6 +506,7 @@ const updateSettings = async (req, res) => {
       seoRobotsIndex,
       seoSitemapUrl,
       whatsappTemplate,
+      hideWhatsAppSection,
       unsplashAccessKey,
       unsplashSecretKey,
       unsplashApplicationId,
@@ -597,6 +598,7 @@ const updateSettings = async (req, res) => {
     if (seoRobotsIndex !== undefined) settings.seoRobotsIndex = Boolean(seoRobotsIndex);
     if (seoSitemapUrl !== undefined) settings.seoSitemapUrl = normalizeUrl(seoSitemapUrl, `${DEFAULT_SITE_URL}/sitemap.xml`) || `${DEFAULT_SITE_URL}/sitemap.xml`;
     if (whatsappTemplate !== undefined) settings.whatsappTemplate = String(whatsappTemplate || '').trim();
+    if (hideWhatsAppSection !== undefined) settings.hideWhatsAppSection = Boolean(hideWhatsAppSection);
     if (showRequiredDocuments !== undefined) settings.showRequiredDocuments = Boolean(showRequiredDocuments);
     if (showVisaRequirements !== undefined) settings.showVisaRequirements = Boolean(showVisaRequirements);
     assignSecretUnlessEmpty(settings, 'unsplashAccessKey', unsplashAccessKey);
@@ -844,6 +846,7 @@ const getCustomerChatConfig = async (req, res) => {
           'We typically reply in a few minutes',
         whatsappTemplate: String(settings?.whatsappTemplate || '').trim() ||
           'Hello Visa & Voyage Team,\nI need help with my visa application.\n\nName: {{userName}}\nCountry: {{country}}\nVisa Type: {{visaType}}\nTravel Date: {{travelDate}}\nApplication ID: {{applicationId}}\n\nPlease guide me.',
+        hideWhatsAppSection: settings?.hideWhatsAppSection === true,
       },
     });
   } catch (error) {

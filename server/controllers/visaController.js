@@ -8,6 +8,7 @@ const COUNTRY_VISA_FLAG_BY_FIELD = {
   lengthOfStay: 'useGlobalLengthOfStay',
   entryType: 'useGlobalEntryType',
   requiredDocuments: 'useGlobalRequiredDocuments',
+  optionalDocuments: 'useGlobalOptionalDocuments',
 };
 
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
@@ -103,6 +104,41 @@ const syncCountryToVisaOverride = async (countryId, data) => {
 const createOrUpdateDefault = async (req, res) => {
   try {
     const { selectedCountries, ...data } = req.body;
+
+    if (Array.isArray(selectedCountries) && selectedCountries.length > 0) {
+      const overrideData = { ...data };
+      
+      for (const [field, flag] of Object.entries(COUNTRY_VISA_FLAG_BY_FIELD)) {
+        if (Object.prototype.hasOwnProperty.call(data, field)) {
+          overrideData[flag] = false;
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(data, 'customVisaTypes')) {
+        overrideData.useCustomVisaTypes = true;
+        overrideData.useGlobalCustomVisaTypes = false;
+      }
+
+      for (const countryId of selectedCountries) {
+        let overrideVisa = await VisaConfiguration.findOne({ countryId, sourceType: 'OVERRIDE' });
+        if (overrideVisa) {
+          Object.assign(overrideVisa, overrideData);
+          await overrideVisa.save();
+        } else {
+          await VisaConfiguration.create({
+            ...overrideData,
+            sourceType: 'OVERRIDE',
+            countryId
+          });
+        }
+        await syncCountryToVisaOverride(countryId, overrideData);
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'Overrides updated for selected countries',
+        data: null
+      });
+    }
+
     let defaultVisa = await VisaConfiguration.findOne({ sourceType: 'DEFAULT' });
 
     if (defaultVisa) {
@@ -116,16 +152,7 @@ const createOrUpdateDefault = async (req, res) => {
       });
     }
 
-    // If specific countries were selected to apply this default, clear their overrides
-    if (Array.isArray(selectedCountries) && selectedCountries.length > 0) {
-      await VisaConfiguration.deleteMany({
-        countryId: { $in: selectedCountries },
-        sourceType: 'OVERRIDE'
-      });
-      await syncSelectedCountriesToDefaultVisa(selectedCountries, data);
-    } else {
-      await syncGlobalVisaDefaultsToCountries(data);
-    }
+    await syncGlobalVisaDefaultsToCountries(data);
 
     res.status(200).json({
       success: true,

@@ -12,8 +12,8 @@ import {
   PencilLine,
   Plus,
   RefreshCw,
-  Star,
   Trash2,
+  UploadCloud,
 } from "lucide-react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
@@ -83,7 +83,7 @@ const formatDateLabel = (iso) => {
  * Visual preview card. Mirrors the public `BlogListingPage` card so admins
  * see the same layout users will get, with status overlay + quick actions.
  */
-const AdminBlogCard = ({ post, onEdit, onDelete, onToggleFeature, onTogglePublish }) => {
+const AdminBlogCard = ({ post, onEdit, onDelete, onTogglePublish }) => {
   const dateBits = formatDayBadge(post.publishedAt || post.createdAt);
   const thumb = resolveAssetUrl(post.thumbnail) || FALLBACK_THUMB;
   const isPublished = post.status === "published";
@@ -111,11 +111,6 @@ const AdminBlogCard = ({ post, onEdit, onDelete, onToggleFeature, onTogglePublis
         >
           {post.status}
         </span>
-        {post.featured ? (
-          <span className="absolute bottom-3 left-3 text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gold/90 text-white inline-flex items-center gap-1">
-            <Star size={12} className="fill-white" /> Featured
-          </span>
-        ) : null}
         {post.category?.name ? (
           <span className="absolute bottom-3 right-3 text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-cyan/90 text-white">
             {post.category.name}
@@ -181,19 +176,6 @@ const AdminBlogCard = ({ post, onEdit, onDelete, onToggleFeature, onTogglePublis
             </button>
             <button
               type="button"
-              onClick={onToggleFeature}
-              className={`p-1.5 rounded-lg ${
-                post.featured
-                  ? "text-gold bg-gold/10"
-                  : "text-text-muted hover:text-gold hover:bg-gold/10"
-              }`}
-              title={post.featured ? "Unfeature" : "Feature"}
-              id={`blog-card-feature-${post._id}`}
-            >
-              <Star size={14} className={post.featured ? "fill-gold" : ""} />
-            </button>
-            <button
-              type="button"
               onClick={onDelete}
               className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10"
               title="Delete"
@@ -222,7 +204,6 @@ const emptyForm = () => ({
   category: "",
   tags: "",
   status: "draft",
-  featured: false,
   seoTitle: "",
   seoDescription: "",
   mainContent: "",
@@ -357,7 +338,6 @@ const BlogAdminPanel = () => {
       category: String(post.category?._id || post.category || ""),
       tags,
       status: post.status === "published" ? "published" : "draft",
-      featured: !!post.featured,
       seoTitle: post.seoTitle || "",
       seoDescription: post.seoDescription || "",
       mainContent,
@@ -421,7 +401,6 @@ const BlogAdminPanel = () => {
       tags,
       sections: buildSections(),
       status: form.status,
-      featured: form.featured,
       seoTitle: form.seoTitle.trim() || form.title.trim(),
       seoDescription: form.seoDescription.trim() || form.shortDescription.trim(),
     };
@@ -477,18 +456,6 @@ const BlogAdminPanel = () => {
       } else showToast(data.message || "Failed.", "error");
     } catch (err) {
       showToast(err?.response?.data?.message || "Failed to toggle publish status.", "error");
-    }
-  };
-
-  const handleToggleFeature = async (id, current) => {
-    try {
-      const { data } = await api.patch(`/admin/blog/${id}/feature`, { featured: !current });
-      if (data.success) {
-        showToast(!current ? "Marked featured." : "Unfeatured.", "success");
-        await loadPosts();
-      } else showToast(data.message || "Failed.", "error");
-    } catch (err) {
-      showToast(err?.response?.data?.message || "Failed.", "error");
     }
   };
 
@@ -623,20 +590,73 @@ const BlogAdminPanel = () => {
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Thumbnail URL"
-              value={form.thumbnail}
-              onChange={(e) => setField("thumbnail", e.target.value)}
-              placeholder="https://… or /uploads/…"
-              id="blog-thumb"
-            />
-            <Input
-              label="Banner image URL"
-              value={form.bannerImage}
-              onChange={(e) => setField("bannerImage", e.target.value)}
-              placeholder="https://…"
-              id="blog-banner"
-            />
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  label="Thumbnail URL"
+                  value={form.thumbnail}
+                  onChange={(e) => setField("thumbnail", e.target.value)}
+                  placeholder="https://… or /uploads/…"
+                  id="blog-thumb"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="mb-[2px] h-[46px] px-3 flex-shrink-0"
+                onClick={() => document.getElementById('blog-thumb-upload').click()}
+                title="Upload Local Image"
+              >
+                <UploadCloud size={18} />
+              </Button>
+              <input
+                type="file"
+                id="blog-thumb-upload"
+                className="hidden"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const u = await handleBlogImageUpload(file);
+                  if (u) setField("thumbnail", u);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  label="Banner image URL"
+                  value={form.bannerImage}
+                  onChange={(e) => setField("bannerImage", e.target.value)}
+                  placeholder="https://…"
+                  id="blog-banner"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="mb-[2px] h-[46px] px-3 flex-shrink-0"
+                onClick={() => document.getElementById('blog-banner-upload').click()}
+                title="Upload Local Image"
+              >
+                <UploadCloud size={18} />
+              </Button>
+              <input
+                type="file"
+                id="blog-banner-upload"
+                className="hidden"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const u = await handleBlogImageUpload(file);
+                  if (u) setField("bannerImage", u);
+                  e.target.value = "";
+                }}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -658,17 +678,6 @@ const BlogAdminPanel = () => {
               id="blog-status"
             />
           </div>
-
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-text-secondary">
-            <input
-              type="checkbox"
-              checked={form.featured}
-              onChange={(e) => setField("featured", e.target.checked)}
-              className="rounded border-border bg-surface-2 text-cyan focus:ring-cyan/30"
-              id="blog-featured"
-            />
-            Featured on listings
-          </label>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
@@ -765,7 +774,6 @@ const BlogAdminPanel = () => {
                 post={p}
                 onEdit={() => startEdit(p)}
                 onDelete={() => handleDelete(p._id)}
-                onToggleFeature={() => handleToggleFeature(p._id, p.featured)}
                 onTogglePublish={() => handleTogglePublish(p._id, p.status)}
               />
             ))}
