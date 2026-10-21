@@ -7843,7 +7843,7 @@ const Dashboard = () => {
 
                   {/* Google Sheets Link */}
                   <button
-                    onClick={() => window.open("https://docs.google.com/spreadsheets/d/1llCFju33TnXTFwVQB8D5XDAcUQEeINXKyKgyoUCGh5o/edit", "_blank")}
+                    onClick={() => window.open("https://docs.google.com/spreadsheets/d/1eRt8oI0iH6TuA1ywqrVXuCs0Jv9fyCA8gFp-LWiSd84/edit", "_blank")}
                     className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-colors rounded-xl px-3 py-2 text-sm font-medium ml-auto sm:ml-0"
                     title="Open Google Sheets"
                   >
