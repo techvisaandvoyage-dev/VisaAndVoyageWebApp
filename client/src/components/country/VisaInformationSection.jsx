@@ -62,7 +62,7 @@ const LEGACY_DISPLAY_BY_ITEM_ID = {
   entry: "showEntryType",
 };
 
-const VisaInformationSection = ({ visaInformation, display }) => {
+const VisaInformationSection = ({ visaInformation, display, globalVisaInfo }) => {
   const section = visaInformation && typeof visaInformation === "object" ? visaInformation : null;
   const items = Array.isArray(section?.items)
     ? section.items.filter((item) => {
@@ -75,15 +75,43 @@ const VisaInformationSection = ({ visaInformation, display }) => {
 
   if (!section?.enabled || items.length === 0) return null;
 
-  const titleParts = splitTitle(section.title);
+  const badgeText =
+    globalVisaInfo?.badgeText?.trim() ||
+    section?.badgeText ||
+    "100% Online Process";
+
+  const rawTitle =
+    globalVisaInfo?.title?.trim() ||
+    section?.title ||
+    "Visa Information";
+
+  const subtitle =
+    globalVisaInfo?.subtitle?.trim() ||
+    section?.subtitle ||
+    "A 100% online visa application process that is simple, secure and hassle-free.";
+
+  const titleParts = splitTitle(rawTitle);
+
+  const cardOrder =
+    Array.isArray(globalVisaInfo?.cardOrder) && globalVisaInfo.cardOrder.length > 0
+      ? globalVisaInfo.cardOrder
+      : ["lengthOfStay", "validity", "entry"];
+
+  const sortedItems = [...items].sort((a, b) => {
+    const idxA = cardOrder.indexOf(a.id);
+    const idxB = cardOrder.indexOf(b.id);
+    const posA = idxA === -1 ? 999 : idxA;
+    const posB = idxB === -1 ? 999 : idxB;
+    return posA - posB;
+  });
 
   return (
-    <section className="relative mr-auto max-w-[47.5rem] overflow-hidden rounded-[1.7rem] bg-white px-4 py-7 sm:px-6 sm:py-8 lg:max-w-[49.5rem] lg:px-7 lg:py-10 xl:max-w-[51rem]">
+    <section id="info" className="relative mr-auto max-w-[47.5rem] overflow-hidden rounded-[1.7rem] bg-white px-4 py-7 sm:px-6 sm:py-8 lg:max-w-[49.5rem] lg:px-7 lg:py-10 xl:max-w-[51rem]">
 
       <div className="relative">
         <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1.5 text-xs font-semibold text-blue-600 ring-1 ring-blue-100">
           <BadgeCheck size={16} />
-          <span>{section.badgeText || "100% Online Process"}</span>
+          <span>{badgeText}</span>
         </div>
 
         <div className="mt-4 max-w-3xl">
@@ -99,12 +127,12 @@ const VisaInformationSection = ({ visaInformation, display }) => {
             ) : null}
           </h2>
           <p className="mt-2.5 max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px]">
-            {section.subtitle}
+            {subtitle}
           </p>
         </div>
 
         <div className="mt-7 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {items.map((item, index) => {
+          {sortedItems.map((item, index) => {
             const Icon = ITEM_ICON_MAP[item.icon] || CalendarDays;
             const styles = getItemStyles(item.color);
             return (
@@ -132,10 +160,6 @@ const VisaInformationSection = ({ visaInformation, display }) => {
             );
           })}
         </div>
-
-        
-
-        
       </div>
     </section>
   );

@@ -129,6 +129,91 @@ const FOOTER_CONFIG_FALLBACK = {
     'Your trusted partner for seamless visa applications worldwide. Fast, secure, and professionally managed.',
 };
 
+const START_APPLICATION_PAGE_COPY_FALLBACK = {
+  // Calendar Manager
+  calendarHeading: 'Select Travel Date',
+  departureLabel: 'DEPARTURE',
+  departurePlaceholder: 'Select start date',
+  returnLabel: 'RETURN',
+  returnPlaceholder: 'Select end date',
+  dateWarningText: 'Select both travel dates to continue.',
+
+  // Traveler Form Manager
+  badgeText: 'TRAVEL DETAILS',
+  title: 'Start your application',
+  subtitle: 'Fill travel details below to continue with your {country} visa process.',
+  visaTypeLabel: 'Type of Visa',
+  travelerPrefix: 'Traveler',
+  nameOnlyTag: 'Name only',
+  fullNameLabel: 'Full name (as on passport)',
+  fullNamePlaceholder: 'Enter name',
+  nameRequiredError: 'Traveler name is required.',
+  addTravelerButtonText: 'Add traveler',
+  proceedButtonText: 'Proceed to Summary',
+  applyForTitle: 'Apply for {country}',
+  travelSummaryBadge: 'Travel Summary',
+  travellerDetailsSubtitle: 'TRAVELLER DETAILS',
+  travellersCountLabel: 'TRAVELLERS',
+  amountToPayLabel: 'AMOUNT TO BE PAID NOW',
+  summaryVisaTypeLabel: 'VISA TYPE',
+  summaryTravelDatesLabel: 'TRAVEL DATES',
+  summaryTravelerNamesLabel: 'TRAVELER NAMES',
+  summaryAddedInFormBadge: 'Added in form',
+  summaryGovFeeLabel: 'Government Fee',
+  summaryServiceFeeLabel: 'Our Service Fee',
+  summaryDocNoticeTitle: 'No worries — you can upload your documents anytime later.',
+  summaryDocNoticeDescription: 'After payment, your application will remain available in My Dashboard → Open Your Application → Upload Documents, where you can upload documents for each traveler whenever it’s convenient for you.',
+
+  // Document Uploads
+  driveCardTitle: 'Document Drive Link (for all travelers)',
+  driveCardBadge: 'Optional',
+  driveCardTooltip: 'You can continue to payment now and share the Google Drive link later from your application dashboard.',
+  driveCardDescription: 'Upload all required and optional documents to Google Drive and share the folder link here. This link will be applicable for all travelers.',
+  driveInputLabel: 'Google Drive Link',
+  driveInputPlaceholder: 'https://drive.google.com/your-folder-link',
+  driveGuideTitle: 'How to Share Folder Link',
+  driveGuideStep1: 'Upload all required documents to your Google Drive folder.',
+  driveGuideStep2: 'Right-click the folder and select Share > Share.',
+  driveGuideStep3: 'Under General access, change Restricted to Anyone with the link.',
+  driveGuideStep4: 'Make sure the role is set to Viewer.',
+  driveGuideStep5: 'Click Copy link and paste it in the field below.',
+
+  // Documents
+  showRequiredDocs: true,
+  requiredDocsHeading: 'Documents Required',
+  requiredDocsDescription: 'These are the country documents required for this application.',
+  showPassportUpload: true,
+  passportUploadLabel: 'Passport Upload',
+  uploadButtonText: 'Upload',
+  replaceButtonText: 'Replace File',
+  removeButtonText: 'Remove',
+  passportUploadedText: 'Passport uploaded',
+  showOptionalDocs: true,
+  optionalDocsHeading: 'Optional Documents',
+  optionalDocsDescription: 'You can also attach other documents in the same Drive link.',
+  showGDriveUpload: true,
+};
+
+const sanitizeStartApplicationPageCopy = (input = {}) => {
+  const sanitized = {};
+  for (const [key, defaultVal] of Object.entries(START_APPLICATION_PAGE_COPY_FALLBACK)) {
+    if (typeof defaultVal === 'boolean') {
+      if (typeof input[key] === 'boolean') {
+        sanitized[key] = input[key];
+      } else if (input[key] !== undefined) {
+        sanitized[key] = input[key] === 'true' || input[key] === true || input[key] === 1;
+      }
+    } else {
+      if (typeof input[key] === 'string') {
+        sanitized[key] = input[key].trim();
+      } else if (input[key] !== undefined) {
+        sanitized[key] = String(input[key] || '').trim();
+      }
+    }
+  }
+  return sanitized;
+};
+
 const SEO_UPLOADS_DIR = path.join(__dirname, '..', 'uploads', 'seo');
 if (!fs.existsSync(SEO_UPLOADS_DIR)) {
   fs.mkdirSync(SEO_UPLOADS_DIR, { recursive: true });
@@ -358,6 +443,29 @@ const normalizeSettingsUpdatePayload = (body = {}) => ({
       : Array.isArray(body.popularCountries)
         ? body.popularCountries.map(s => String(s || '').trim()).filter(Boolean)
         : ["USA", "UK", "EU Schengen", "Dubai", "Japan"],
+  destinationVisaInfo: body.destinationVisaInfo,
+  destinationSectionHeadings:
+    body.destinationSectionHeadings === undefined
+      ? undefined
+      : {
+          howItWorksHeading: typeof body.destinationSectionHeadings?.howItWorksHeading === 'string' ? body.destinationSectionHeadings.howItWorksHeading.trim() : undefined,
+          whyBookNowHeading: typeof body.destinationSectionHeadings?.whyBookNowHeading === 'string' ? body.destinationSectionHeadings.whyBookNowHeading.trim() : undefined,
+          whyBookNowColWeProvides: typeof body.destinationSectionHeadings?.whyBookNowColWeProvides === 'string' ? body.destinationSectionHeadings.whyBookNowColWeProvides.trim() : undefined,
+          whyBookNowColOthers: typeof body.destinationSectionHeadings?.whyBookNowColOthers === 'string' ? body.destinationSectionHeadings.whyBookNowColOthers.trim() : undefined,
+          visaRequirementsHeading: typeof body.destinationSectionHeadings?.visaRequirementsHeading === 'string' ? body.destinationSectionHeadings.visaRequirementsHeading.trim() : undefined,
+          visaRequirementsSubtitle: typeof body.destinationSectionHeadings?.visaRequirementsSubtitle === 'string' ? body.destinationSectionHeadings.visaRequirementsSubtitle.trim() : undefined,
+          visaRequirementsNote: typeof body.destinationSectionHeadings?.visaRequirementsNote === 'string' ? body.destinationSectionHeadings.visaRequirementsNote.trim() : undefined,
+          documentsBadge: typeof body.destinationSectionHeadings?.documentsBadge === 'string' ? body.destinationSectionHeadings.documentsBadge.trim() : undefined,
+          documentsHeading: typeof body.destinationSectionHeadings?.documentsHeading === 'string' ? body.destinationSectionHeadings.documentsHeading.trim() : undefined,
+          documentsSubtitle: typeof body.destinationSectionHeadings?.documentsSubtitle === 'string' ? body.destinationSectionHeadings.documentsSubtitle.trim() : undefined,
+          whatsIncludedHeading: typeof body.destinationSectionHeadings?.whatsIncludedHeading === 'string' ? body.destinationSectionHeadings.whatsIncludedHeading.trim() : undefined,
+          whatsIncludedSubtitle: typeof body.destinationSectionHeadings?.whatsIncludedSubtitle === 'string' ? body.destinationSectionHeadings.whatsIncludedSubtitle.trim() : undefined,
+          faqsHeading: typeof body.destinationSectionHeadings?.faqsHeading === 'string' ? body.destinationSectionHeadings.faqsHeading.trim() : undefined,
+        },
+  startApplicationPageCopy:
+    body.startApplicationPageCopy === undefined
+      ? undefined
+      : sanitizeStartApplicationPageCopy(body.startApplicationPageCopy),
   showPopularCountries:
     body.showPopularCountries === undefined
       ? undefined
@@ -522,6 +630,9 @@ const updateSettings = async (req, res) => {
       landingHeroHighlights,
       popularCountries,
       showPopularCountries,
+      destinationVisaInfo,
+      destinationSectionHeadings,
+      startApplicationPageCopy,
     } = safePayload;
     console.log('Admin updating settings:', {
       razorpayKeyId,
@@ -563,7 +674,12 @@ const updateSettings = async (req, res) => {
     if (smtpEmailService !== undefined) {
       settings.smtpEmailService = String(smtpEmailService || '').trim();
     }
-    if (enableGDriveUpload !== undefined) settings.enableGDriveUpload = Boolean(enableGDriveUpload);
+    if (enableGDriveUpload !== undefined) {
+      settings.enableGDriveUpload = Boolean(enableGDriveUpload);
+      if (settings.startApplicationPageCopy) {
+        settings.startApplicationPageCopy.showGDriveUpload = Boolean(enableGDriveUpload);
+      }
+    }
     if (enableFileUpload !== undefined) settings.enableFileUpload = Boolean(enableFileUpload);
     if (showTravelerDetails !== undefined) settings.showTravelerDetails = Boolean(showTravelerDetails);
     if (allowedFileFormats !== undefined) {
@@ -633,6 +749,57 @@ const updateSettings = async (req, res) => {
     }
     if (showPopularCountries !== undefined) {
       settings.showPopularCountries = Boolean(showPopularCountries);
+    }
+    if (destinationVisaInfo !== undefined) {
+      const current = settings.destinationVisaInfo || {};
+      settings.destinationVisaInfo = {
+        badgeText: typeof destinationVisaInfo?.badgeText === 'string' ? destinationVisaInfo.badgeText.trim() : (current.badgeText || '100% Online Process'),
+        title: typeof destinationVisaInfo?.title === 'string' ? destinationVisaInfo.title.trim() : (current.title || 'Visa Information'),
+        subtitle: typeof destinationVisaInfo?.subtitle === 'string' ? destinationVisaInfo.subtitle.trim() : (current.subtitle || 'A 100% online visa application process that is simple, secure and hassle-free.'),
+        cardOrder: Array.isArray(destinationVisaInfo?.cardOrder) && destinationVisaInfo.cardOrder.length
+          ? destinationVisaInfo.cardOrder.map(s => String(s).trim()).filter(Boolean)
+          : (current.cardOrder || ['lengthOfStay', 'validity', 'entry']),
+      };
+    }
+    if (destinationSectionHeadings !== undefined) {
+      const current = settings.destinationSectionHeadings || {};
+      settings.destinationSectionHeadings = {
+        howItWorksHeading: destinationSectionHeadings?.howItWorksHeading !== undefined && destinationSectionHeadings?.howItWorksHeading !== '' ? destinationSectionHeadings.howItWorksHeading.trim() : (current.howItWorksHeading || 'How it works'),
+        whyBookNowHeading: destinationSectionHeadings?.whyBookNowHeading !== undefined && destinationSectionHeadings?.whyBookNowHeading !== '' ? destinationSectionHeadings.whyBookNowHeading.trim() : (current.whyBookNowHeading || 'Why book now'),
+        whyBookNowColWeProvides: destinationSectionHeadings?.whyBookNowColWeProvides !== undefined && destinationSectionHeadings?.whyBookNowColWeProvides !== '' ? destinationSectionHeadings.whyBookNowColWeProvides.trim() : (current.whyBookNowColWeProvides || 'We Provides'),
+        whyBookNowColOthers: destinationSectionHeadings?.whyBookNowColOthers !== undefined && destinationSectionHeadings?.whyBookNowColOthers !== '' ? destinationSectionHeadings.whyBookNowColOthers.trim() : (current.whyBookNowColOthers || 'Others'),
+        visaRequirementsHeading: destinationSectionHeadings?.visaRequirementsHeading !== undefined && destinationSectionHeadings?.visaRequirementsHeading !== '' ? destinationSectionHeadings.visaRequirementsHeading.trim() : (current.visaRequirementsHeading || 'Visa Requirements'),
+        visaRequirementsSubtitle: destinationSectionHeadings?.visaRequirementsSubtitle !== undefined && destinationSectionHeadings?.visaRequirementsSubtitle !== '' ? destinationSectionHeadings.visaRequirementsSubtitle.trim() : (current.visaRequirementsSubtitle || 'Please ensure you have the following documents ready for a smooth visa application process.'),
+        visaRequirementsNote: destinationSectionHeadings?.visaRequirementsNote !== undefined && destinationSectionHeadings?.visaRequirementsNote !== '' ? destinationSectionHeadings.visaRequirementsNote.trim() : (current.visaRequirementsNote || 'Visa rules and conditions may change. Please check the latest requirements before applying.'),
+        documentsBadge: destinationSectionHeadings?.documentsBadge !== undefined && destinationSectionHeadings?.documentsBadge !== '' ? destinationSectionHeadings.documentsBadge.trim() : (current.documentsBadge || 'Verified & Secure'),
+        documentsHeading: destinationSectionHeadings?.documentsHeading !== undefined && destinationSectionHeadings?.documentsHeading !== '' ? destinationSectionHeadings.documentsHeading.trim() : (current.documentsHeading || 'Documents Required'),
+        documentsSubtitle: destinationSectionHeadings?.documentsSubtitle !== undefined && destinationSectionHeadings?.documentsSubtitle !== '' ? destinationSectionHeadings.documentsSubtitle.trim() : (current.documentsSubtitle || 'To proceed with the application immediately'),
+        whatsIncludedHeading: destinationSectionHeadings?.whatsIncludedHeading !== undefined && destinationSectionHeadings?.whatsIncludedHeading !== '' ? destinationSectionHeadings.whatsIncludedHeading.trim() : (current.whatsIncludedHeading || "What's Included"),
+        whatsIncludedSubtitle: destinationSectionHeadings?.whatsIncludedSubtitle !== undefined && destinationSectionHeadings?.whatsIncludedSubtitle !== '' ? destinationSectionHeadings.whatsIncludedSubtitle.trim() : (current.whatsIncludedSubtitle || 'Everything you need for a smooth and hassle-free visa process.'),
+        faqsHeading: destinationSectionHeadings?.faqsHeading !== undefined && destinationSectionHeadings?.faqsHeading !== '' ? destinationSectionHeadings.faqsHeading.trim() : (current.faqsHeading || 'Frequently Asked Questions'),
+      };
+    }
+    if (startApplicationPageCopy !== undefined) {
+      const current = settings.startApplicationPageCopy ? (settings.startApplicationPageCopy.toObject ? settings.startApplicationPageCopy.toObject() : settings.startApplicationPageCopy) : {};
+      const merged = { ...START_APPLICATION_PAGE_COPY_FALLBACK, ...current };
+      for (const [k, v] of Object.entries(startApplicationPageCopy)) {
+        if (v !== undefined) {
+          merged[k] = v;
+        }
+      }
+      settings.startApplicationPageCopy = merged;
+      if (startApplicationPageCopy.showRequiredDocs !== undefined) {
+        settings.showDestinationRequiredDocs = Boolean(startApplicationPageCopy.showRequiredDocs);
+      }
+      if (startApplicationPageCopy.showOptionalDocs !== undefined) {
+        settings.showDestinationOptionalDocs = Boolean(startApplicationPageCopy.showOptionalDocs);
+      }
+      if (startApplicationPageCopy.showPassportUpload !== undefined) {
+        settings.enableFileUpload = Boolean(startApplicationPageCopy.showPassportUpload);
+      }
+      if (startApplicationPageCopy.showGDriveUpload !== undefined) {
+        settings.enableGDriveUpload = Boolean(startApplicationPageCopy.showGDriveUpload);
+      }
     }
 
     await settings.save();
@@ -819,6 +986,31 @@ const getDestinationPageContent = async (req, res) => {
         landingHeroHighlights,
         popularCountries,
         showPopularCountries,
+        destinationVisaInfo: settings?.destinationVisaInfo || {
+          badgeText: '100% Online Process',
+          title: 'Visa Information',
+          subtitle: 'A 100% online visa application process that is simple, secure and hassle-free.',
+          cardOrder: ['lengthOfStay', 'validity', 'entry'],
+        },
+        destinationSectionHeadings: {
+          howItWorksHeading: settings?.destinationSectionHeadings?.howItWorksHeading || 'How it works',
+          whyBookNowHeading: settings?.destinationSectionHeadings?.whyBookNowHeading || 'Why book now',
+          whyBookNowColWeProvides: settings?.destinationSectionHeadings?.whyBookNowColWeProvides || 'We Provides',
+          whyBookNowColOthers: settings?.destinationSectionHeadings?.whyBookNowColOthers || 'Others',
+          visaRequirementsHeading: settings?.destinationSectionHeadings?.visaRequirementsHeading || 'Visa Requirements',
+          visaRequirementsSubtitle: settings?.destinationSectionHeadings?.visaRequirementsSubtitle || 'Please ensure you have the following documents ready for a smooth visa application process.',
+          visaRequirementsNote: settings?.destinationSectionHeadings?.visaRequirementsNote || 'Visa rules and conditions may change. Please check the latest requirements before applying.',
+          documentsBadge: settings?.destinationSectionHeadings?.documentsBadge || 'Verified & Secure',
+          documentsHeading: settings?.destinationSectionHeadings?.documentsHeading || 'Documents Required',
+          documentsSubtitle: settings?.destinationSectionHeadings?.documentsSubtitle || 'To proceed with the application immediately',
+          whatsIncludedHeading: settings?.destinationSectionHeadings?.whatsIncludedHeading || "What's Included",
+          whatsIncludedSubtitle: settings?.destinationSectionHeadings?.whatsIncludedSubtitle || 'Everything you need for a smooth and hassle-free visa process.',
+          faqsHeading: settings?.destinationSectionHeadings?.faqsHeading || 'Frequently Asked Questions',
+        },
+        startApplicationPageCopy: {
+          ...START_APPLICATION_PAGE_COPY_FALLBACK,
+          ...(settings?.startApplicationPageCopy ? (settings.startApplicationPageCopy.toObject ? settings.startApplicationPageCopy.toObject() : settings.startApplicationPageCopy) : {}),
+        },
       },
     });
   } catch (error) {

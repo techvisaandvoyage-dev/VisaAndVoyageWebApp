@@ -3,7 +3,15 @@ import { api, SERVER_URL } from "../store/authStore";
 
 const DEFAULT_SITE_LOGO = "/images/visa-voyage-logo.webp";
 
-let cachedSiteLogo = "";
+const getStoredLogo = () => {
+  try {
+    return localStorage.getItem("vv_cached_logo") || "";
+  } catch {
+    return "";
+  }
+};
+
+let cachedSiteLogo = getStoredLogo();
 
 const resolveLogoUrl = (value) => {
   const url = String(value || "").trim();
@@ -25,6 +33,9 @@ export const useSiteLogo = () => {
         if (!active) return;
         const nextLogo = resolveLogoUrl(data?.config?.logo) || DEFAULT_SITE_LOGO;
         cachedSiteLogo = nextLogo;
+        try {
+          localStorage.setItem("vv_cached_logo", nextLogo);
+        } catch {}
         setSiteLogo(nextLogo);
       } catch {
         if (!active) return;

@@ -5,22 +5,23 @@
 //  2. Applications management table (search, filter, status update)
 //  3. Country Manager (add/edit countries via modal)
 // ============================================================
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   BarChart2, TrendingUp, DollarSign, Clock, CheckCircle, CheckCheck, Smile, Send, MoreVertical,
-  Search, Filter, ChevronDown, Plus, Edit3,
+  Search, Filter, ChevronDown, ChevronLeft, Plus, Edit3,
   MapPin, Globe, Users, FileText, X, Save, AlertCircle, UploadCloud, Image as ImageIcon, Settings, CreditCard, IndianRupee, Sliders, HelpCircle, BookOpen,
   ExternalLink, GalleryVertical, BadgeCheck, ShieldCheck, ListChecks, ScrollText, CalendarDays, MessageSquare, RotateCcw,
   Briefcase, Banknote, GraduationCap, Stethoscope, Stamp, Receipt, Home, Car, HeartHandshake, Plane, Building2, Zap, Lock,
   Mail, Youtube, Linkedin, Link as LinkIcon, MessageCircle, Trash2, Loader2, ChevronRight, PanelBottom, LayoutTemplate,
+  Info, ArrowUp, ArrowDown, Type, Eye,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, BarChart, Bar, Legend,
 } from "recharts";
 import { AnimatePresence, motion } from "framer-motion";
-import { StatusBadge } from "../components/ui/Badge";
+import { StatusBadge, StatusDropdown } from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
@@ -28,9 +29,13 @@ import Input, { Select, Textarea } from "../components/ui/Input";
 import StaticPagesManager from "../components/cms/StaticPagesManager";
 import BlogAdminPanel from "../components/blog/BlogAdminPanel";
 import SeoManagerPanel from "../components/admin/SeoManagerPanel";
+import ApplicationsTable from "../components/application/ApplicationsTable";
+import ApplicationDetailsDrawer from "../components/application/ApplicationDetailsDrawer";
 import AnalyticsPage from "./admin/AnalyticsPage";
+import VisitorAnalyticsPage from "./admin/VisitorAnalyticsPage";
 import PaymentsPage from "./admin/PaymentsPage";
 import VisaTypesManager from "../components/controls/VisaTypesManager";
+import TestimonialsManager from '../components/TestimonialsManager';
 import CountryVisibilitySelector from "../components/controls/CountryVisibilitySelector";
 import FeeUpdateManager from "../components/controls/FeeUpdateManager";
 import VisaDetailsTable from "../components/controls/VisaDetailsTable";
@@ -1278,6 +1283,70 @@ const mapLandingHeroHighlightsFromApi = (s) => {
 /** Lowercase trim key for matching global destination bullets / FAQ questions. */
 const normDestKey = (s) => String(s ?? "").trim().toLowerCase();
 
+const DEFAULT_START_APPLICATION_PAGE_COPY = {
+  // Calendar Manager
+  calendarHeading: "Select Travel Date",
+  departureLabel: "DEPARTURE",
+  departurePlaceholder: "Select start date",
+  returnLabel: "RETURN",
+  returnPlaceholder: "Select end date",
+  dateWarningText: "Select both travel dates to continue.",
+
+  // Traveler Form Manager
+  badgeText: "TRAVEL DETAILS",
+  title: "Start your application",
+  subtitle: "Fill travel details below to continue with your {country} visa process.",
+  visaTypeLabel: "Type of Visa",
+  travelerPrefix: "Traveler",
+  nameOnlyTag: "Name only",
+  fullNameLabel: "Full name (as on passport)",
+  fullNamePlaceholder: "Enter name",
+  nameRequiredError: "Traveler name is required.",
+  addTravelerButtonText: "Add traveler",
+  proceedButtonText: "Proceed to Summary",
+  applyForTitle: "Apply for {country}",
+  travelSummaryBadge: "Travel Summary",
+  travellerDetailsSubtitle: "TRAVELLER DETAILS",
+  travellersCountLabel: "TRAVELLERS",
+  amountToPayLabel: "AMOUNT TO BE PAID NOW",
+  summaryVisaTypeLabel: "VISA TYPE",
+  summaryTravelDatesLabel: "TRAVEL DATES",
+  summaryTravelerNamesLabel: "TRAVELER NAMES",
+  summaryAddedInFormBadge: "Added in form",
+  summaryGovFeeLabel: "Government Fee",
+  summaryServiceFeeLabel: "Our Service Fee",
+  summaryDocNoticeTitle: "No worries — you can upload your documents anytime later.",
+  summaryDocNoticeDescription: "After payment, your application will remain available in My Dashboard → Open Your Application → Upload Documents, where you can upload documents for each traveler whenever it’s convenient for you.",
+
+  // Document Uploads
+  driveCardTitle: "Document Drive Link (for all travelers)",
+  driveCardBadge: "Optional",
+  driveCardTooltip: "You can continue to payment now and share the Google Drive link later from your application dashboard.",
+  driveCardDescription: "Upload all required and optional documents to Google Drive and share the folder link here. This link will be applicable for all travelers.",
+  driveInputLabel: "Google Drive Link",
+  driveInputPlaceholder: "https://drive.google.com/your-folder-link",
+  driveGuideTitle: "How to Share Folder Link",
+  driveGuideStep1: "Upload all required documents to your Google Drive folder.",
+  driveGuideStep2: "Right-click the folder and select Share > Share.",
+  driveGuideStep3: "Under General access, change Restricted to Anyone with the link.",
+  driveGuideStep4: "Make sure the role is set to Viewer.",
+  driveGuideStep5: "Click Copy link and paste it in the field below.",
+
+  // Documents
+  showRequiredDocs: true,
+  requiredDocsHeading: "Documents Required",
+  requiredDocsDescription: "These are the country documents required for this application.",
+  showPassportUpload: true,
+  passportUploadLabel: "Passport Upload",
+  uploadButtonText: "Upload",
+  replaceButtonText: "Replace File",
+  removeButtonText: "Remove",
+  showOptionalDocs: true,
+  optionalDocsHeading: "Optional Documents",
+  optionalDocsDescription: "You can also attach other documents in the same Drive link.",
+  showGDriveUpload: true,
+};
+
 /** Map `/admin/settings` API document to the dashboard settings form (GET + PUT). */
 const mapApiSettingsToFormState = (s, activeCountryIds = []) => ({
   razorpayKeyId: s.razorpayKeyId || "",
@@ -1309,6 +1378,36 @@ const mapApiSettingsToFormState = (s, activeCountryIds = []) => ({
   unsplashApplicationId: s.unsplashApplicationId || "",
   unsplashAccessKey: s.unsplashAccessKey || "",
   unsplashSecretKey: s.unsplashSecretKey || "",
+  destinationVisaInfo: {
+    badgeText: s?.destinationVisaInfo?.badgeText ?? "100% Online Process",
+    title: s?.destinationVisaInfo?.title ?? "Visa Information",
+    subtitle: s?.destinationVisaInfo?.subtitle ?? "A 100% online visa application process that is simple, secure and hassle-free.",
+    cardOrder: Array.isArray(s?.destinationVisaInfo?.cardOrder) && s.destinationVisaInfo.cardOrder.length > 0
+      ? s.destinationVisaInfo.cardOrder
+      : ["lengthOfStay", "validity", "entry"],
+  },
+  destinationSectionHeadings: {
+    howItWorksHeading: s?.destinationSectionHeadings?.howItWorksHeading ?? "How it works",
+    whyBookNowHeading: s?.destinationSectionHeadings?.whyBookNowHeading ?? "Why book now",
+    whyBookNowColWeProvides: s?.destinationSectionHeadings?.whyBookNowColWeProvides ?? "We Provides",
+    whyBookNowColOthers: s?.destinationSectionHeadings?.whyBookNowColOthers ?? "Others",
+    visaRequirementsHeading: s?.destinationSectionHeadings?.visaRequirementsHeading ?? "Visa Requirements",
+    visaRequirementsSubtitle: s?.destinationSectionHeadings?.visaRequirementsSubtitle ?? "Please ensure you have the following documents ready for a smooth visa application process.",
+    visaRequirementsNote: s?.destinationSectionHeadings?.visaRequirementsNote ?? "Visa rules and conditions may change. Please check the latest requirements before applying.",
+    documentsBadge: s?.destinationSectionHeadings?.documentsBadge ?? "Verified & Secure",
+    documentsHeading: s?.destinationSectionHeadings?.documentsHeading ?? "Documents Required",
+    documentsSubtitle: s?.destinationSectionHeadings?.documentsSubtitle ?? "To proceed with the application immediately",
+    whatsIncludedHeading: s?.destinationSectionHeadings?.whatsIncludedHeading ?? "What's Included",
+    whatsIncludedSubtitle: s?.destinationSectionHeadings?.whatsIncludedSubtitle ?? "Everything you need for a smooth and hassle-free visa process.",
+    faqsHeading: s?.destinationSectionHeadings?.faqsHeading ?? "Frequently Asked Questions",
+  },
+  startApplicationPageCopy: {
+    ...DEFAULT_START_APPLICATION_PAGE_COPY,
+    ...(s?.startApplicationPageCopy || {}),
+    showGDriveUpload: s?.startApplicationPageCopy?.showGDriveUpload !== undefined
+      ? s.startApplicationPageCopy.showGDriveUpload
+      : (s.enableGDriveUpload !== false),
+  },
   destinationWhyBookNow: mapDestinationWhyBookNowItemsFromApi(s, activeCountryIds),
   destinationIncludedItems: mapDestinationIncludedItemsFromApi(s, activeCountryIds),
   destinationFaqs: mapDestinationFaqItemsFromApi(s, activeCountryIds),
@@ -2125,7 +2224,36 @@ const Dashboard = () => {
   const { activeTab: tabParam } = useParams();
   const activeTab      = tabParam || "activity";
   const [searchParams] = useSearchParams();
-  const isControlsTab = ["controls", "landing-page", "cards", "footer", "settings", "activity", "chat"].includes(activeTab);
+  const isControlsTab = ["controls", "header", "body", "footer", "settings", "activity", "chat"].includes(activeTab);
+  const [selectedAppId, setSelectedAppId] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
+
+  const toggleRow = (id, e) => {
+    // If the click is on a button or select, don't toggle
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT' || e.target.closest('button') || e.target.closest('select')) {
+      return;
+    }
+    setExpandedRows((prev) => ({
+      [id]: !prev[id],
+    }));
+  };
+
+  const handleUpdateTravelerStatus = async (appId, travelerNo, newStatus) => {
+    try {
+      const { data } = await api.put(`/admin/applications/${appId}/travelers/${travelerNo}/status`, { status: newStatus });
+      if (data.success) {
+        if (typeof fetchAllApplications === 'function') {
+           fetchAllApplications();
+        } else {
+           useDataStore.getState().fetchAllApplications();
+        }
+        showToast("Traveler status updated", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update traveler status", "error");
+    }
+  };
   const validAdminTabIds = useMemo(() => new Set(ADMIN_DASHBOARD_TABS.map((tab) => tab.id)), []);
 
   useEffect(() => {
@@ -2162,6 +2290,24 @@ const Dashboard = () => {
 
   // -- Local state ------------------------------------------
   const [searchQuery, setSearchQuery]        = useState("");
+  const [visitorOverview, setVisitorOverview] = useState({ visitors: 0, registrations: 0 });
+
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        const { data } = await api.get('/analytics/admin/overview?period=30 Days');
+        if (data?.success) {
+          setVisitorOverview({
+            visitors: data.data.totalVisitors || 0,
+            registrations: data.data.totalRegistrations || 0,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch analytics overview:", err);
+      }
+    };
+    fetchOverview();
+  }, []);
 
   
   const [selectedApplicationIds, setSelectedApplicationIds] = useState([]);
@@ -2177,6 +2323,8 @@ const Dashboard = () => {
   });
 
   const [countrySearchQuery, setCountrySearchQuery] = useState("");
+  const [travelerFormPreviewTab, setTravelerFormPreviewTab] = useState("both");
+  const [calendarPreviewMode, setCalendarPreviewMode] = useState("default");
   const [statusFilter, setStatusFilter]      = useState("all");
   const [activeChart, setActiveChart]        = useState("revenue"); // "revenue"|"bookings"
   const [transactions, setTransactions]      = useState([]);
@@ -2208,6 +2356,28 @@ const Dashboard = () => {
     unsplashApplicationId: "",
     unsplashAccessKey: "",
     unsplashSecretKey: "",
+    destinationVisaInfo: {
+      badgeText: "100% Online Process",
+      title: "Visa Information",
+      subtitle: "A 100% online visa application process that is simple, secure and hassle-free.",
+      cardOrder: ["lengthOfStay", "validity", "entry"],
+    },
+    destinationSectionHeadings: {
+      howItWorksHeading: "How it works",
+      whyBookNowHeading: "Why book now",
+      whyBookNowColWeProvides: "We Provides",
+      whyBookNowColOthers: "Others",
+      visaRequirementsHeading: "Visa Requirements",
+      visaRequirementsSubtitle: "Please ensure you have the following documents ready for a smooth visa application process.",
+      visaRequirementsNote: "Visa rules and conditions may change. Please check the latest requirements before applying.",
+      documentsBadge: "Verified & Secure",
+      documentsHeading: "Documents Required",
+      documentsSubtitle: "To proceed with the application immediately",
+      whatsIncludedHeading: "What's Included",
+      whatsIncludedSubtitle: "Everything you need for a smooth and hassle-free visa process.",
+      faqsHeading: "Frequently Asked Questions",
+    },
+    startApplicationPageCopy: { ...DEFAULT_START_APPLICATION_PAGE_COPY },
     destinationWhyBookNow: normalizeVisibleTextItems([], DESTINATION_PAGE_DEFAULT_WHY_BOOK_NOW, []),
     destinationIncludedItems: normalizeVisibleIncludedItems([], DESTINATION_PAGE_DEFAULT_INCLUDED, []),
     destinationFaqs: normalizeVisibleFaqItems([], DESTINATION_PAGE_DEFAULT_FAQS, []),
@@ -2239,6 +2409,7 @@ const Dashboard = () => {
   });
   const [otpSettingsForm, setOtpSettingsForm] = useState(DEFAULT_OTP_SETTINGS);
   const [savingSettingsKey, setSavingSettingsKey] = useState(null);
+  const [instantToggleBusyKey, setInstantToggleBusyKey] = useState(null);
 
   /*
    * Universal control system - admin sets a single global Visa Type / Validity that
@@ -2363,13 +2534,14 @@ const Dashboard = () => {
       description: "Analytics, applications, and transactions",
       sections: [
         { key: "analytics", label: "Analytics" },
+        { key: "visitor-analytics", label: "Visitor Analytics" },
         { key: "applications", label: "Applications" },
         { key: "transactions", label: "Transactions" },
       ],
     },
 
     {
-      key: "landing-page",
+      key: "header",
       label: "Header",
       icon: Home,
       description: "Branding, blog and authentication controls",
@@ -2387,7 +2559,7 @@ const Dashboard = () => {
       ],
     },
     {
-      key: "cards",
+      key: "body",
       label: "Body",
       icon: CreditCard,
       description: "Visa details, fees and documents",
@@ -2427,12 +2599,13 @@ const Dashboard = () => {
               key: "card-content-details",
               label: "Visa Information Page",
               children: [
+                { key: "info-section", label: "Info" },
                 { key: "how-it-works", label: "How it works" },
                 { key: "why-book-now", label: "Why book now?" },
+                { key: "visa-requirements", label: "Visa Requirements" },
                 { key: "documents", label: "Documents Required" },
                 { key: "whats-included", label: "What's included" },
                 { key: "faqs", label: "FAQs" },
-                { key: "visa-requirements", label: "Visa Requirements" },
               ],
             },
             {
@@ -2506,11 +2679,27 @@ const Dashboard = () => {
   const controlSections = controlGroups.flatMap((group) =>
     flattenControlSections(group.sections).map((section) => ({ ...section, groupKey: group.key, groupLabel: group.label }))
   );
-  const [activeControlSection, setActiveControlSection] = useState(controlSections[0].key);
-  const [activeControlNavKey, setActiveControlNavKey] = useState(null);
+  
+  const [activeControlSection, setActiveControlSection] = useState(() => {
+    return localStorage.getItem("admin_active_section") || controlSections[0].key;
+  });
+  const [activeControlNavKey, setActiveControlNavKey] = useState(() => {
+    return localStorage.getItem("admin_active_nav_key") || null;
+  });
   const [expandedControlTabKeys, setExpandedControlTabKeys] = useState({});
-  // State-based group key — clicking a parent menu item updates this, NOT the URL
-  const [activeControlGroupKey, setActiveControlGroupKey] = useState(controlGroups[0].key);
+  const [activeControlGroupKey, setActiveControlGroupKey] = useState(() => {
+    return localStorage.getItem("admin_active_group_key") || controlGroups[0].key;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("admin_active_section", activeControlSection);
+    localStorage.setItem("admin_active_group_key", activeControlGroupKey);
+    if (activeControlNavKey) {
+      localStorage.setItem("admin_active_nav_key", activeControlNavKey);
+    } else {
+      localStorage.removeItem("admin_active_nav_key");
+    }
+  }, [activeControlSection, activeControlGroupKey, activeControlNavKey]);
 
   // Derive active group purely from state — no URL dependency
   const activeControlGroup = controlGroups.find((group) => group.key === activeControlGroupKey) || controlGroups[0];
@@ -2555,9 +2744,19 @@ const Dashboard = () => {
     const matchedGroup = controlGroups.find((g) => g.key === activeTab);
     if (matchedGroup) {
       setActiveControlGroupKey(matchedGroup.key);
-      setActiveControlNavKey(null);
-      const firstSectionKey = getFirstControlLeaf(matchedGroup.sections)?.key;
-      if (firstSectionKey) selectControlSection(firstSectionKey);
+      
+      const currentStoredSection = localStorage.getItem("admin_active_section");
+      const currentStoredNavKey = localStorage.getItem("admin_active_nav_key");
+      const isCurrentInGroup = currentStoredSection && hasControlNodeInPath(matchedGroup.sections, currentStoredSection);
+
+      if (isCurrentInGroup) {
+        setActiveControlNavKey(currentStoredNavKey || null);
+        selectControlSection(currentStoredSection);
+      } else {
+        setActiveControlNavKey(null);
+        const firstSectionKey = getFirstControlLeaf(matchedGroup.sections)?.key;
+        if (firstSectionKey) selectControlSection(firstSectionKey);
+      }
     }
   }, [activeTab, searchParams]);
   const selectControlNavNode = (section) => {
@@ -3076,14 +3275,22 @@ const Dashboard = () => {
       }))
       .filter((s) => s.text);
 
-  const saveDestinationContentSection = ({ sectionKey, validationLabel, payloadBuilder, payloadKey, successMessage }) => {
-    const payloadItems = payloadBuilder();
-    if (!validateCountryVisibilitySelection(payloadItems, validationLabel, (item) => item?.selectedCountries)) {
-      return;
+  const saveDestinationContentSection = ({ sectionKey, validationLabel, payloadBuilder, payloadKey, successMessage, extraPayload }) => {
+    let payloadItems;
+    if (payloadBuilder) {
+      payloadItems = payloadBuilder();
+      if (!validateCountryVisibilitySelection(payloadItems, validationLabel, (item) => item?.selectedCountries)) {
+        return;
+      }
     }
+    const update = {
+      destinationSectionHeadings: settingsForm.destinationSectionHeadings,
+      ...(payloadKey && payloadItems !== undefined ? { [payloadKey]: payloadItems } : {}),
+      ...(extraPayload || {}),
+    };
     saveSettingsPartial(
       "destination-content",
-      { [payloadKey]: payloadItems },
+      update,
       successMessage || "Destination content saved."
     );
   };
@@ -3416,6 +3623,7 @@ const Dashboard = () => {
       resolvedStatus === statusFilter ||
       (statusFilter === "pending_payment" && (resolvedStatus === "pending" || resolvedStatus === "drive_link_pending"));
     
+    const accountIdVal = String(b.user?.accountId || b.user?._id || b.user?.id || b.userId || b.user || "-").toLowerCase();
     const idVal = String(b.applicationId || b._id || b.id || "").toLowerCase();
     const applicantVal = `${b.firstName || ""} ${b.lastName || ""} ${b.email || b.userEmail || ""} ${b.user?.phone || ""}`.toLowerCase();
     const destinationVal = String(b.countryName || "").toLowerCase();
@@ -3425,13 +3633,14 @@ const Dashboard = () => {
     const statusVal = String(resolvedStatus || "").toLowerCase();
 
     const matchCols = 
-      (columnFilters.id === "" || idVal.includes(columnFilters.id.toLowerCase())) &&
-      (columnFilters.applicant === "" || applicantVal.includes(columnFilters.applicant.toLowerCase())) &&
-      (columnFilters.destination === "" || destinationVal.includes(columnFilters.destination.toLowerCase())) &&
-      (columnFilters.travelDate === "" || dateVal.includes(columnFilters.travelDate.toLowerCase())) &&
-      (columnFilters.fee === "" || feeVal.includes(columnFilters.fee.toLowerCase())) &&
-      (columnFilters.payment === "" || paymentVal.includes(columnFilters.payment.toLowerCase())) &&
-      (columnFilters.status === "" || statusVal.includes(columnFilters.status.toLowerCase()));
+      (columnFilters.accountId === "" || columnFilters.accountId === undefined || accountIdVal.includes(columnFilters.accountId.toLowerCase())) &&
+      (columnFilters.id === "" || columnFilters.id === undefined || idVal.includes(columnFilters.id.toLowerCase())) &&
+      (columnFilters.applicant === "" || columnFilters.applicant === undefined || applicantVal.includes(columnFilters.applicant.toLowerCase())) &&
+      (columnFilters.destination === "" || columnFilters.destination === undefined || destinationVal.includes(columnFilters.destination.toLowerCase())) &&
+      (columnFilters.travelDate === "" || columnFilters.travelDate === undefined || dateVal.includes(columnFilters.travelDate.toLowerCase())) &&
+      (columnFilters.fee === "" || columnFilters.fee === undefined || feeVal.includes(columnFilters.fee.toLowerCase())) &&
+      (columnFilters.payment === "" || columnFilters.payment === undefined || paymentVal.includes(columnFilters.payment.toLowerCase())) &&
+      (columnFilters.status === "" || columnFilters.status === undefined || statusVal.includes(columnFilters.status.toLowerCase()));
 
     return matchSearch && matchStatus && matchCols;
   });
@@ -4101,6 +4310,92 @@ const Dashboard = () => {
       showToast(error.response?.data?.message || "Failed to save settings", "error");
     } finally {
       setSavingSettingsKey(null);
+    }
+  };
+
+  /**
+   * Instantly toggle a setting without having to click the Save button.
+   * Optimistically updates UI, calls API, and reverts with an error toast on failure.
+   */
+  const handleInstantSettingToggle = async ({
+    key,
+    nextValue,
+    fieldKey = null,
+    copyKey = null,
+    syncWithField = null,
+    syncWithCopy = null,
+    label = "Setting",
+  }) => {
+    const prevFieldValue = fieldKey ? settingsForm[fieldKey] : undefined;
+    const prevCopyValue = copyKey ? settingsForm.startApplicationPageCopy?.[copyKey] : undefined;
+    const prevSyncFieldValue = syncWithField ? settingsForm[syncWithField] : undefined;
+    const prevSyncCopyValue = syncWithCopy ? settingsForm.startApplicationPageCopy?.[syncWithCopy] : undefined;
+
+    setSettingsForm((prev) => {
+      const nextCopy = {
+        ...(prev.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+      };
+      if (copyKey) nextCopy[copyKey] = nextValue;
+      if (syncWithCopy) nextCopy[syncWithCopy] = nextValue;
+
+      const next = {
+        ...prev,
+        startApplicationPageCopy: nextCopy,
+      };
+      if (fieldKey) next[fieldKey] = nextValue;
+      if (syncWithField) next[syncWithField] = nextValue;
+      return next;
+    });
+
+    setInstantToggleBusyKey(key);
+
+    try {
+      const payload = {};
+      if (fieldKey) payload[fieldKey] = nextValue;
+      if (syncWithField) payload[syncWithField] = nextValue;
+
+      const copyUpdates = {};
+      if (copyKey) copyUpdates[copyKey] = nextValue;
+      if (syncWithCopy) copyUpdates[syncWithCopy] = nextValue;
+
+      if (Object.keys(copyUpdates).length > 0) {
+        payload.startApplicationPageCopy = {
+          ...(settingsForm.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+          ...copyUpdates,
+        };
+      }
+
+      const { data } = await api.put("/admin/settings", payload);
+      if (!data?.success) {
+        throw new Error(data?.message || "Failed to update toggle");
+      }
+
+      showToast(`${label} ${nextValue ? "enabled" : "hidden"} successfully`, "success");
+    } catch (err) {
+      console.error("Instant toggle failed:", err);
+      setSettingsForm((prev) => {
+        const revertedCopy = {
+          ...(prev.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+        };
+        if (copyKey && prevCopyValue !== undefined) revertedCopy[copyKey] = prevCopyValue;
+        if (syncWithCopy && prevSyncCopyValue !== undefined) revertedCopy[syncWithCopy] = prevSyncCopyValue;
+
+        const reverted = {
+          ...prev,
+          startApplicationPageCopy: revertedCopy,
+        };
+        if (fieldKey && prevFieldValue !== undefined) reverted[fieldKey] = prevFieldValue;
+        if (syncWithField && prevSyncFieldValue !== undefined) reverted[syncWithField] = prevSyncFieldValue;
+        return reverted;
+      });
+
+      if (err?.response?.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      showToast(err?.response?.data?.message || err?.message || "Failed to save toggle change", "error");
+    } finally {
+      setInstantToggleBusyKey(null);
     }
   };
 
@@ -6404,27 +6699,6 @@ const Dashboard = () => {
 
   // -- Recalculate live analytics from current applications --
   const liveAnalytics = useMemo(() => {
-    const statusCounts = {
-      pending: 0,
-      doc_pending: 0,
-      review: 0,
-      approved: 0,
-      rejected: 0,
-      cancelled: 0,
-      dash: 0,
-    };
-
-    for (const booking of bookings) {
-      const progress = getApplicationProgress(booking, settingsForm);
-      const resolvedStatus = resolveApplicationStatus(booking, progress);
-      if (Object.prototype.hasOwnProperty.call(statusCounts, resolvedStatus)) {
-        statusCounts[resolvedStatus] += 1;
-      }
-    }
-
-    const total = bookings.length;
-    const approved = statusCounts.approved;
-
     const isPaymentCompleted = (app) => {
       return (
         app.paymentStatus === "paid" ||
@@ -6435,6 +6709,54 @@ const Dashboard = () => {
         app.payment?.status === "success"
       );
     };
+
+    const statusCounts = {
+      pending: 0,
+      doc_pending: 0,
+      review: 0,
+      submitted: 0,
+      approved: 0,
+      rejected: 0,
+      cancelled: 0,
+      dash: 0,
+      documents_uploaded: 0,
+    };
+
+    let totalTravelers = 0;
+
+    for (const booking of bookings) {
+      if (!isPaymentCompleted(booking)) continue;
+
+      const progress = getApplicationProgress(booking, settingsForm);
+      const resolvedStatus = resolveApplicationStatus(booking, progress);
+      
+      const travelerDocs = booking.travellerDocuments || [];
+      const numTravelers = Math.max(1, parseInt(booking.travellerCount) || travelerDocs.length);
+      totalTravelers += numTravelers;
+      
+      for (let i = 0; i < numTravelers; i++) {
+        const travelerNo = i + 1;
+        const traveler = travelerDocs.find(d => d.travelerNo === travelerNo) || travelerDocs[i] || {};
+        let tStatus = traveler.status ? String(traveler.status).toLowerCase().replace(' ', '_') : resolvedStatus;
+        if (tStatus === 'under_review') tStatus = 'review';
+        
+        if (!Object.prototype.hasOwnProperty.call(statusCounts, tStatus)) {
+          tStatus = resolvedStatus; // fallback to application status if traveler status is invalid
+        }
+        
+        if (Object.prototype.hasOwnProperty.call(statusCounts, tStatus)) {
+          statusCounts[tStatus] += 1;
+        }
+        
+        const hasDocs = traveler.passportFile || traveler.passportUrl || (traveler.documents && Object.keys(traveler.documents).length > 0) || tStatus === 'review' || tStatus === 'approved' || tStatus === 'submitted';
+        if (hasDocs) {
+          statusCounts.documents_uploaded += 1;
+        }
+      }
+    }
+
+    const total = totalTravelers;
+    const approved = statusCounts.approved;
 
     const hasRequiredDocuments = (app) => {
       return (
@@ -6449,17 +6771,23 @@ const Dashboard = () => {
           traveler.passportUrl ||
           traveler.documents?.length > 0 ||
           traveler.uploadedDocuments?.length > 0
+        ) ||
+        app.travellerDocuments?.some(traveler =>
+          traveler.passportFile ||
+          traveler.passportUrl ||
+          (traveler.documents && Object.keys(traveler.documents).length > 0) ||
+          traveler.uploadedDocuments?.length > 0
         )
       );
     };
 
-    const pendingReviewApplications = bookings.filter(app =>
-      isPaymentCompleted(app) && !hasRequiredDocuments(app)
-    );
+    const pendingReviewCount = bookings
+      .filter(app => isPaymentCompleted(app) && !hasRequiredDocuments(app))
+      .reduce((sum, app) => sum + Math.max(1, parseInt(app.travellerCount) || (app.travelers || []).length || (app.travellerDocuments || []).length), 0);
 
-    const pendingPaymentApplications = bookings.filter(app =>
-      !isPaymentCompleted(app)
-    );
+    const pendingPaymentCount = bookings
+      .filter(app => !isPaymentCompleted(app))
+      .reduce((sum, app) => sum + Math.max(1, parseInt(app.travellerCount) || (app.travelers || []).length || (app.travellerDocuments || []).length), 0);
 
     return {
       total,
@@ -6467,13 +6795,17 @@ const Dashboard = () => {
         const isPaid = booking?.paymentStatus === "completed" || booking?.isPaid === true;
         return isPaid ? sum + Number(booking?.fee || 0) : sum;
       }, 0),
-      pending: pendingPaymentApplications.length, // Keep existing 'pending' for backwards compat
-      pendingReview: pendingReviewApplications.length,
-      pendingPayment: pendingPaymentApplications.length,
+      pending: pendingPaymentCount, // Keep existing 'pending' for backwards compat
+      pendingReview: pendingReviewCount,
+      pendingPayment: pendingPaymentCount,
       statusCounts,
-      approvalRate: total > 0 ? Math.round((approved / total) * 100) : 0,
+      lifetimeUnderReview: statusCounts.review + statusCounts.submitted + statusCounts.approved + statusCounts.rejected,
+      lifetimeSubmitted: statusCounts.submitted + statusCounts.approved + statusCounts.rejected,
+      approvalRate: (statusCounts.submitted + statusCounts.approved + statusCounts.rejected) > 0 ? Math.round((approved / (statusCounts.submitted + statusCounts.approved + statusCounts.rejected)) * 100) : 0,
+      visitors: visitorOverview.visitors,
+      registrations: visitorOverview.registrations,
     };
-  }, [bookings, settingsForm]);
+  }, [bookings, settingsForm, visitorOverview]);
 
   return (
     <AdminLayout
@@ -7331,6 +7663,7 @@ const Dashboard = () => {
               TAB 1: ANALYTICS
               ====================================== */}
           <div className={isControlSectionVisible("analytics") ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>{true && <AnalyticsPage bookings={bookings} activeChart={activeChart} setActiveChart={setActiveChart} liveAnalytics={liveAnalytics} />}</div>
+          <div className={isControlSectionVisible("visitor-analytics") ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>{true && <VisitorAnalyticsPage />}</div>
           {false && activeTab === "analytics" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               {/* Stat cards */}
@@ -7475,8 +7808,6 @@ const Dashboard = () => {
                 <div className="flex flex-wrap items-center gap-3 mb-6">
                   <h2 className="font-semibold text-text-primary flex-1">All Applications</h2>
 
-                  {/* Google Sheets Actions Removed - fully automated */}
-
                   {/* Search */}
                   <div className="flex items-center gap-2 bg-surface-2 border border-border rounded-xl px-3 py-2">
                     <Search size={14} className="text-text-muted" />
@@ -7501,51 +7832,47 @@ const Dashboard = () => {
                       id="admin-status-filter"
                     >
                       <option value="all">All Status</option>
+                      <option value="pending">Pending</option>
                       <option value="submitted">Submitted</option>
-                      <option value="pending_payment">Not Paid</option>
-                      <option value="drive_link_pending">Upload Drive Link</option>
-                      <option value="doc_pending">Pending Review</option>
                       <option value="review">Under Review</option>
                       <option value="approved">Approved</option>
                       <option value="rejected">Rejected</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
                   </div>
+
+                  {/* Google Sheets Link */}
+                  <button
+                    onClick={() => window.open("https://docs.google.com/spreadsheets/d/1llCFju33TnXTFwVQB8D5XDAcUQEeINXKyKgyoUCGh5o/edit", "_blank")}
+                    className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-colors rounded-xl px-3 py-2 text-sm font-medium ml-auto sm:ml-0"
+                    title="Open Google Sheets"
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                      <path d="M19.1 2.9H4.9c-1.1 0-2 .9-2 2v14.2c0 1.1.9 2 2 2h14.2c1.1 0 2-.9 2-2V4.9c0-1.1-.9-2-2-2zm-6.2 13h-4v-2h4v2zm0-3h-4v-2h4v2zm0-3h-4V7.9h4v2zm4 6h-3v-2h3v2zm0-3h-3v-2h3v2zm0-3h-3V7.9h3v2z" />
+                    </svg>
+                    Google Sheets
+                  </button>
                 </div>
 
                 {/* Table - horizontally scrollable on mobile */}
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto pb-32">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left text-xs font-semibold text-text-muted pb-3 pl-4 pr-2">
-                          <input 
-                            type="checkbox" 
-                            checked={filteredBookings.length > 0 && selectedApplicationIds.length === filteredBookings.length}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedApplicationIds(filteredBookings.map(b => b.applicationId || b._id || b.id));
-                              } else {
-                                setSelectedApplicationIds([]);
-                              }
-                            }}
-                          />
-                        </th>
-                        {["Application ID","Applicant","Destination","Travel Date","Fee","Payment","Documents","Status","Details"].map((h) => (
+                        {["Account ID","Application ID","Applicant","Destination","Travel Dates","Fee","Payment","Documents","Details"].map((h) => (
                           <th key={h} className="text-left text-xs font-semibold text-text-muted pb-3 pr-6 whitespace-nowrap">
                             {h}
                           </th>
                         ))}
                       </tr>
                       <tr className="border-b border-border bg-surface-2/50">
-                        <th className="p-2"></th>
-                        {["id","applicant","destination","travelDate","fee","payment","documents","status"].map((col) => (
+                        {["accountId","id","applicant","destination","travelDate","fee","payment","documents"].map((col) => (
                           <th key={col} className="p-2 pr-6">
                             <input
                               type="text"
                               placeholder="Filter..."
                               className="w-full bg-surface-3 border border-border rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-cyan"
-                              value={columnFilters[col]}
+                              value={columnFilters[col] || ""}
                               onChange={(e) => setColumnFilters({...columnFilters, [col]: e.target.value})}
                               disabled={col === "documents"}
                             />
@@ -7560,20 +7887,13 @@ const Dashboard = () => {
                         const transactionId =
                           b.transactionId && b.transactionId !== "pending" ? b.transactionId : "";
                         return (
-                          <tr key={b._id || b.id} className="hover:bg-surface-3/50 transition-colors group">
-                          <td className="py-3 pl-4 pr-2">
-                            <input 
-                              type="checkbox"
-                              checked={selectedApplicationIds.includes(b.applicationId || b._id || b.id)}
-                              onChange={(e) => {
-                                const id = b.applicationId || b._id || b.id;
-                                if (e.target.checked) {
-                                  setSelectedApplicationIds([...selectedApplicationIds, id]);
-                                } else {
-                                  setSelectedApplicationIds(selectedApplicationIds.filter(i => i !== id));
-                                }
-                              }}
-                            />
+                          <Fragment key={b._id || b.id}>
+                            <tr
+                              onClick={(e) => toggleRow(b._id || b.id, e)}
+                              className="hover:bg-surface-3/50 transition-colors group cursor-pointer"
+                            >
+                          <td className="py-3 pr-6 font-mono text-xs text-text-muted whitespace-nowrap">
+                            {b.user?.accountId || (b.user?._id || b.user?.id || b.userId || b.user || "-").toString().substring(0, 10)}
                           </td>
                           <td className="py-3 pr-6 font-mono text-xs text-text-muted whitespace-nowrap">
                             {b.applicationId || b._id || b.id}
@@ -7600,7 +7920,12 @@ const Dashboard = () => {
                             </div>
                           </td>
                           <td className="py-3 pr-6 text-text-secondary whitespace-nowrap">
-                            {fmtDate(b.travelDate)}
+                            <div className="space-y-0.5">
+                              <p className="text-text-primary">{fmtDate(b.travelDate)}</p>
+                              {b.returnDate && (
+                                <p className="text-[11px] text-text-muted">Ret: {fmtDate(b.returnDate)}</p>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 pr-6 font-medium text-text-primary whitespace-nowrap">
                             ₹{b.fee}
@@ -7646,21 +7971,69 @@ const Dashboard = () => {
                               );
                             })()}
                           </td>
-                          <td className="py-3 pr-6">
-                            <StatusBadge status={resolveApplicationStatus(b, progress)} />
-                          </td>
                           <td className="py-3 pr-2">
                             <button
                               type="button"
-                              onClick={() => navigate(`/application/${b.id || b._id}`)}
+                              onClick={() => setSelectedAppId(b.id || b._id)}
                               className="px-3 py-1.5 bg-cyan/10 text-cyan hover:bg-cyan/20 text-xs font-medium rounded-lg transition-colors whitespace-nowrap"
                               title="View Application Details"
                             >
                               View Details
                             </button>
                           </td>
-                        </tr>
-                      );
+                          </tr>
+                          <AnimatePresence>
+                          {expandedRows[b._id || b.id] && (
+                            <motion.tr
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="bg-surface-2/30 border-b border-border relative z-50"
+                            >
+                              <td colSpan="9" className="p-0">
+                                <motion.div
+                                  initial={{ height: 0, overflow: "hidden" }}
+                                  animate={{ height: "auto", overflow: "visible" }}
+                                  exit={{ height: 0, overflow: "hidden" }}
+                                  transition={{ duration: 0.2, ease: "easeInOut" }}
+                                >
+                                  <div className="px-6 py-4">
+                                    <div className="flex flex-wrap justify-center gap-4">
+                                      {Array.from({ length: Math.max(1, b.travellerCount || 1) }).map((_, i) => {
+                                        const travelerNo = i + 1;
+                                        const doc = Array.isArray(b.travellerDocuments) ? b.travellerDocuments.find(d => d.travelerNo === travelerNo) : null;
+                                        const status = doc?.status || 'pending';
+                                        let nameObj = "";
+                                        if (Array.isArray(b.travelerNames) && b.travelerNames[i]) nameObj = b.travelerNames[i];
+                                        else if (Array.isArray(b.travelerSelections) && b.travelerSelections[i]?.travelerSnapshot) {
+                                          nameObj = `${b.travelerSelections[i].travelerSnapshot.firstName || ""} ${b.travelerSelections[i].travelerSnapshot.lastName || ""}`.trim();
+                                        } else if (Array.isArray(b.travelers) && b.travelers[i]) {
+                                          nameObj = `${b.travelers[i].firstName || ""} ${b.travelers[i].lastName || ""}`.trim();
+                                        }
+                                        const finalName = doc?.travelerName || nameObj || `Traveler ${travelerNo}`;
+                                        return (
+                                          <div key={travelerNo} className="bg-background border border-border p-3 rounded-lg min-w-[200px]">
+                                            <div className="flex justify-between items-start mb-2">
+                                              <div>
+                                                <p className="text-sm font-medium text-text-primary">{finalName}</p>
+                                              </div>
+                                              <StatusDropdown
+                                                currentStatus={status}
+                                                onChange={(newStatus) => handleUpdateTravelerStatus(b.applicationId || b._id, travelerNo, newStatus)}
+                                              />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              </td>
+                            </motion.tr>
+                          )}
+                          </AnimatePresence>
+                          </Fragment>
+                        );
                     })}
                     </tbody>
                   </table>
@@ -7685,6 +8058,12 @@ const Dashboard = () => {
                   </div>
                 </div>
               </Card>
+
+              {/* Drawer for Application Details */}
+              <ApplicationDetailsDrawer
+                appId={selectedAppId}
+                onClose={() => setSelectedAppId(null)}
+              />
             </motion.div>
           )}</div>
 
@@ -7783,6 +8162,10 @@ const Dashboard = () => {
                               enableFileUpload: settingsForm.enableFileUpload,
                               showTravelerDetails: settingsForm.showTravelerDetails,
                               allowedFileFormats: settingsForm.allowedFileFormats,
+                              startApplicationPageCopy: {
+                                ...(settingsForm.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                showGDriveUpload: settingsForm.enableGDriveUpload,
+                              },
                             },
                             "Document upload and traveler visibility options saved."
                           )
@@ -7803,7 +8186,7 @@ const Dashboard = () => {
                     </p>
                     
                     <div className="space-y-4 max-w-lg">
-                      <label className="flex items-center justify-between bg-background p-4 rounded-xl border border-border cursor-pointer hover:border-cyan/30 transition-colors">
+                      <label className={`flex items-center justify-between bg-background p-4 rounded-xl border border-border cursor-pointer hover:border-cyan/30 transition-colors ${instantToggleBusyKey === "file-uploads-method" ? "opacity-60 cursor-wait" : ""}`}>
                         <div>
                           <p className="text-sm font-medium text-text-primary">File Uploads</p>
                           <p className="text-xs text-text-muted mt-0.5">Allow users to upload files (PDF, JPG, PNG)</p>
@@ -7813,13 +8196,22 @@ const Dashboard = () => {
                             type="checkbox" 
                             className="sr-only" 
                             checked={settingsForm.enableFileUpload}
-                            onChange={(e) => setSettingsForm((p) => ({ ...p, enableFileUpload: e.target.checked }))}
+                            disabled={instantToggleBusyKey === "file-uploads-method"}
+                            onChange={(e) =>
+                              handleInstantSettingToggle({
+                                key: "file-uploads-method",
+                                nextValue: e.target.checked,
+                                fieldKey: "enableFileUpload",
+                                copyKey: "showPassportUpload",
+                                label: "File Uploads",
+                              })
+                            }
                           />
                           <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${settingsForm.enableFileUpload ? 'translate-x-5' : 'translate-x-0'}`} />
                         </div>
                       </label>
                       
-                      <label className="flex items-center justify-between bg-background p-4 rounded-xl border border-border cursor-pointer hover:border-cyan/30 transition-colors">
+                      <label className={`flex items-center justify-between bg-background p-4 rounded-xl border border-border cursor-pointer hover:border-cyan/30 transition-colors ${instantToggleBusyKey === "gdrive-method" ? "opacity-60 cursor-wait" : ""}`}>
                         <div>
                           <p className="text-sm font-medium text-text-primary">Google Drive Links</p>
                           <p className="text-xs text-text-muted mt-0.5">Allow users to paste a link to a Google Drive folder</p>
@@ -7829,13 +8221,22 @@ const Dashboard = () => {
                             type="checkbox" 
                             className="sr-only" 
                             checked={settingsForm.enableGDriveUpload}
-                            onChange={(e) => setSettingsForm((p) => ({ ...p, enableGDriveUpload: e.target.checked }))}
+                            disabled={instantToggleBusyKey === "gdrive-method"}
+                            onChange={(e) =>
+                              handleInstantSettingToggle({
+                                key: "gdrive-method",
+                                nextValue: e.target.checked,
+                                fieldKey: "enableGDriveUpload",
+                                copyKey: "showGDriveUpload",
+                                label: "Google Drive Links",
+                              })
+                            }
                           />
                           <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${settingsForm.enableGDriveUpload ? 'translate-x-5' : 'translate-x-0'}`} />
                         </div>
                       </label>
 
-                      <label className="hidden items-center justify-between bg-background p-4 rounded-xl border border-border cursor-pointer hover:border-cyan/30 transition-colors">
+                      <label className={`hidden items-center justify-between bg-background p-4 rounded-xl border border-border cursor-pointer hover:border-cyan/30 transition-colors ${instantToggleBusyKey === "traveler-details-method" ? "opacity-60 cursor-wait" : ""}`}>
                         <div>
                           <p className="text-sm font-medium text-text-primary">Traveler Details Section</p>
                           <p className="text-xs text-text-muted mt-0.5">Show or hide the My Travelers section in the user dashboard</p>
@@ -7845,7 +8246,15 @@ const Dashboard = () => {
                             type="checkbox" 
                             className="sr-only" 
                             checked={settingsForm.showTravelerDetails}
-                            onChange={(e) => setSettingsForm((p) => ({ ...p, showTravelerDetails: e.target.checked }))}
+                            disabled={instantToggleBusyKey === "traveler-details-method"}
+                            onChange={(e) =>
+                              handleInstantSettingToggle({
+                                key: "traveler-details-method",
+                                nextValue: e.target.checked,
+                                fieldKey: "showTravelerDetails",
+                                label: "Traveler Details section",
+                              })
+                            }
                           />
                           <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${settingsForm.showTravelerDetails ? 'translate-x-5' : 'translate-x-0'}`} />
                         </div>
@@ -8168,97 +8577,1527 @@ const Dashboard = () => {
                 </Card>
               </div>
 
+              {/* =========================================================
+                  START APPLICATION PAGE TABS
+                  ========================================================= */}
+
+              {/* 1. CALENDAR MANAGER */}
               <div className={isControlSectionVisible("calendar-manager") ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
                 <Card>
                   <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="font-semibold text-text-primary">Calendar Manager</h2>
-                      <p className="text-xs text-text-muted">Manage available dates and slots.</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan/10 text-cyan">
+                        <CalendarDays size={20} />
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-text-primary">Calendar Manager</h2>
+                        <p className="text-xs text-text-muted">Configure calendar section title, departure/return labels, placeholders, and validation notice on the Start Application page.</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="bg-surface-2 border border-border rounded-xl p-8 text-center text-text-muted">
-                    Calendar Manager coming soon!
+
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                    {/* Left Column: Form Settings (7 cols) */}
+                    <div className="xl:col-span-7 space-y-6">
+                      <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">Calendar Header & Notice</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            label="Section Heading"
+                            placeholder="Select Travel Date"
+                            value={settingsForm.startApplicationPageCopy?.calendarHeading ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  calendarHeading: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Missing Date Warning Notice"
+                            placeholder="Select both travel dates to continue."
+                            value={settingsForm.startApplicationPageCopy?.dateWarningText ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  dateWarningText: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">Date Trigger Pills</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            label="Departure Pill Label"
+                            placeholder="DEPARTURE"
+                            value={settingsForm.startApplicationPageCopy?.departureLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  departureLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Departure Placeholder"
+                            placeholder="Select start date"
+                            value={settingsForm.startApplicationPageCopy?.departurePlaceholder ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  departurePlaceholder: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Return Pill Label"
+                            placeholder="RETURN"
+                            value={settingsForm.startApplicationPageCopy?.returnLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  returnLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Return Placeholder"
+                            placeholder="Select end date"
+                            value={settingsForm.startApplicationPageCopy?.returnPlaceholder ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  returnPlaceholder: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <Button
+                          variant="primary"
+                          leftIcon={<Save size={16} />}
+                          loading={savingSettingsKey === "calendar-manager"}
+                          onClick={() =>
+                            saveSettingsPartial(
+                              "calendar-manager",
+                              { startApplicationPageCopy: settingsForm.startApplicationPageCopy },
+                              "Calendar settings saved successfully"
+                            )
+                          }
+                        >
+                          Save Calendar Settings
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Real-Time Live Preview (5 cols, sticky) */}
+                    <div className="xl:col-span-5 space-y-4 xl:sticky xl:top-24">
+                      <div className="bg-surface-2 border border-border rounded-2xl p-4 shadow-sm space-y-4">
+                        {/* Live Preview Header with Mode Switcher */}
+                        <div className="flex items-center justify-between pb-3 border-b border-border">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan/10 text-cyan">
+                              <Eye size={14} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold uppercase tracking-wider text-text-primary">Live Preview</span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  Live
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-text-muted">Updates as you type</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center bg-surface-3 p-0.5 rounded-lg border border-border text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => setCalendarPreviewMode("default")}
+                              className={`px-2 py-1 rounded-md font-medium transition-all ${
+                                calendarPreviewMode === "default" ? "bg-white text-slate-900 shadow-xs" : "text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              Default
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCalendarPreviewMode("selected")}
+                              className={`px-2 py-1 rounded-md font-medium transition-all ${
+                                calendarPreviewMode === "selected" ? "bg-white text-slate-900 shadow-xs" : "text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              Selected
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCalendarPreviewMode("warning")}
+                              className={`px-2 py-1 rounded-md font-medium transition-all ${
+                                calendarPreviewMode === "warning" ? "bg-white text-slate-900 shadow-xs" : "text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              Warning
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCalendarPreviewMode("popup")}
+                              className={`px-2 py-1 rounded-md font-medium transition-all ${
+                                calendarPreviewMode === "popup" ? "bg-white text-slate-900 shadow-xs" : "text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              Popup
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Calendar Component Live Mock */}
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
+                          <div className="flex items-center justify-between pb-1">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                              <CalendarDays size={16} className="text-cyan shrink-0" />
+                              <span>{settingsForm.startApplicationPageCopy?.calendarHeading || "Select Travel Date"}</span>
+                            </div>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] text-slate-500 font-medium">
+                              Step 1
+                            </span>
+                          </div>
+
+                          {/* Trigger Pills */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Departure Pill */}
+                            <div
+                              onClick={() => setCalendarPreviewMode(calendarPreviewMode === "popup" ? "default" : "popup")}
+                              className={`text-left border rounded-xl px-3 py-2.5 transition-all flex items-center gap-3 cursor-pointer ${
+                                calendarPreviewMode === "warning"
+                                  ? "border-red-400 bg-red-50/20"
+                                  : calendarPreviewMode === "popup"
+                                  ? "border-cyan bg-cyan/5 ring-2 ring-cyan/15"
+                                  : "border-slate-200 bg-white hover:border-cyan/40"
+                              }`}
+                            >
+                              <CalendarDays size={16} className="text-cyan shrink-0" />
+                              <span className="flex flex-col min-w-0">
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                                  {settingsForm.startApplicationPageCopy?.departureLabel || "DEPARTURE"}
+                                </span>
+                                <span
+                                  className={`text-xs font-semibold truncate ${
+                                    calendarPreviewMode === "selected" ? "text-slate-900" : "text-slate-400"
+                                  }`}
+                                >
+                                  {calendarPreviewMode === "selected"
+                                    ? "15 Nov 2026"
+                                    : settingsForm.startApplicationPageCopy?.departurePlaceholder || "Select start date"}
+                                </span>
+                              </span>
+                            </div>
+
+                            {/* Return Pill */}
+                            <div
+                              onClick={() => setCalendarPreviewMode(calendarPreviewMode === "popup" ? "default" : "popup")}
+                              className={`text-left border rounded-xl px-3 py-2.5 transition-all flex items-center gap-3 cursor-pointer ${
+                                calendarPreviewMode === "warning"
+                                  ? "border-red-400 bg-red-50/20"
+                                  : "border-slate-200 bg-white hover:border-cyan/40"
+                              }`}
+                            >
+                              <CalendarDays size={16} className="text-cyan shrink-0" />
+                              <span className="flex flex-col min-w-0">
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                                  {settingsForm.startApplicationPageCopy?.returnLabel || "RETURN"}
+                                </span>
+                                <span
+                                  className={`text-xs font-semibold truncate ${
+                                    calendarPreviewMode === "selected" ? "text-slate-900" : "text-slate-400"
+                                  }`}
+                                >
+                                  {calendarPreviewMode === "selected"
+                                    ? "25 Nov 2026"
+                                    : settingsForm.startApplicationPageCopy?.returnPlaceholder || "Select end date"}
+                                </span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Warning State Notice */}
+                          {calendarPreviewMode === "warning" && (
+                            <p className="text-xs text-red-500 mt-2 font-medium flex items-center gap-1.5 animate-in fade-in duration-200">
+                              <AlertCircle size={13} className="shrink-0 text-red-500" />
+                              <span>{settingsForm.startApplicationPageCopy?.dateWarningText || "Select both travel dates to continue."}</span>
+                            </p>
+                          )}
+
+                          {/* Calendar Dropdown Popup Mock */}
+                          {calendarPreviewMode === "popup" && (
+                            <div className="mt-3 rounded-2xl border border-slate-200 bg-white shadow-lg p-3.5 space-y-3 animate-in fade-in duration-200">
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                <button
+                                  type="button"
+                                  className="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:text-cyan transition-colors"
+                                >
+                                  <ChevronLeft size={14} />
+                                </button>
+                                <span className="text-xs font-bold text-slate-900">November 2026</span>
+                                <button
+                                  type="button"
+                                  className="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:text-cyan transition-colors"
+                                >
+                                  <ChevronRight size={14} />
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-7 gap-1 text-center">
+                                {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                                  <span key={i} className="text-[10px] font-semibold text-slate-400">{d}</span>
+                                ))}
+                              </div>
+
+                              <div className="grid grid-cols-7 gap-1 text-center">
+                                {Array.from({ length: 30 }, (_, i) => {
+                                  const day = i + 1;
+                                  const isStart = day === 15;
+                                  const isEnd = day === 25;
+                                  const inRange = day > 15 && day < 25;
+
+                                  let cls = "h-7 w-7 mx-auto inline-flex items-center justify-center text-xs rounded-lg select-none font-medium transition-colors ";
+                                  if (isStart || isEnd) {
+                                    cls += "bg-cyan text-white font-bold shadow-xs";
+                                  } else if (inRange) {
+                                    cls += "bg-cyan/15 text-slate-800 rounded-none";
+                                  } else if (day < 5) {
+                                    cls += "text-slate-300";
+                                  } else {
+                                    cls += "text-slate-700 hover:bg-slate-100";
+                                  }
+
+                                  return (
+                                    <span key={day} className={cls}>
+                                      {day}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                                <span className="font-semibold text-cyan">11 days selected</span>
+                                <span className="text-[10px] text-slate-400">15 Nov – 25 Nov 2026</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Informational tip */}
+                        <div className="flex items-center gap-2 rounded-xl bg-cyan/5 border border-cyan/20 p-2.5 text-[11px] text-text-secondary">
+                          <Info size={14} className="text-cyan shrink-0" />
+                          <span>Interactive live preview reflects real-time changes to headers, labels, and placeholders on the frontend date picker.</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </Card>
               </div>
 
+              {/* 2. TRAVELER FORM MANAGER */}
               <div className={isControlSectionVisible("traveler-form-manager") ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
                 <Card>
                   <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="font-semibold text-text-primary">Traveler Form Manager</h2>
-                      <p className="text-xs text-text-muted">Manage traveler form fields and requirements.</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan/10 text-cyan">
+                        <Users size={20} />
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-text-primary">Traveler Form & Summary Manager</h2>
+                        <p className="text-xs text-text-muted">Configure applicant form headings, traveler rows, and the sticky summary card texts on the Start Application page.</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="bg-surface-2 border border-border rounded-xl p-8 text-center text-text-muted">
-                    Traveler Form Manager coming soon!
+
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                    {/* Left Column: Form & Summary Input Fields (7 cols) */}
+                    <div className="xl:col-span-7 space-y-6">
+                      {/* Part A: Left Form Headings & Traveler Fields */}
+                      <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">Page Header & Traveler Form Fields</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            label="Top Badge Text"
+                            placeholder="TRAVEL DETAILS"
+                            value={settingsForm.startApplicationPageCopy?.badgeText ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  badgeText: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Main Page Heading"
+                            placeholder="Start your application"
+                            value={settingsForm.startApplicationPageCopy?.title ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  title: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <div className="md:col-span-2">
+                            <Input
+                              label="Page Subtitle (Use {country} as dynamic destination placeholder)"
+                              placeholder="Fill travel details below to continue with your {country} visa process."
+                              value={settingsForm.startApplicationPageCopy?.subtitle ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    subtitle: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                          <Input
+                            label="Visa Type Dropdown Label"
+                            placeholder="Type of Visa"
+                            value={settingsForm.startApplicationPageCopy?.visaTypeLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  visaTypeLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Traveler Row Prefix"
+                            placeholder="Traveler"
+                            value={settingsForm.startApplicationPageCopy?.travelerPrefix ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  travelerPrefix: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Name Only Badge"
+                            placeholder="Name only"
+                            value={settingsForm.startApplicationPageCopy?.nameOnlyTag ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  nameOnlyTag: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Full Name Input Label"
+                            placeholder="Full name (as on passport)"
+                            value={settingsForm.startApplicationPageCopy?.fullNameLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  fullNameLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Full Name Placeholder"
+                            placeholder="Enter name"
+                            value={settingsForm.startApplicationPageCopy?.fullNamePlaceholder ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  fullNamePlaceholder: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Name Validation Error Message"
+                            placeholder="Traveler name is required."
+                            value={settingsForm.startApplicationPageCopy?.nameRequiredError ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  nameRequiredError: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Add Traveler Button Text"
+                            placeholder="Add traveler"
+                            value={settingsForm.startApplicationPageCopy?.addTravelerButtonText ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  addTravelerButtonText: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Proceed Button Text"
+                            placeholder="Proceed to Summary"
+                            value={settingsForm.startApplicationPageCopy?.proceedButtonText ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  proceedButtonText: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      {/* Part B: Right Sticky Summary Card */}
+                      <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">Right Sticky Summary Card Copy</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            label="Apply For Title (Use {country} placeholder)"
+                            placeholder="Apply for {country}"
+                            value={settingsForm.startApplicationPageCopy?.applyForTitle ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  applyForTitle: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Travel Summary Badge"
+                            placeholder="Travel Summary"
+                            value={settingsForm.startApplicationPageCopy?.travelSummaryBadge ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  travelSummaryBadge: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Traveller Details Subtitle"
+                            placeholder="TRAVELLER DETAILS"
+                            value={settingsForm.startApplicationPageCopy?.travellerDetailsSubtitle ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  travellerDetailsSubtitle: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Travelers Counter Label"
+                            placeholder="TRAVELLERS"
+                            value={settingsForm.startApplicationPageCopy?.travellersCountLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  travellersCountLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Amount To Be Paid Label"
+                            placeholder="AMOUNT TO BE PAID NOW"
+                            value={settingsForm.startApplicationPageCopy?.amountToPayLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  amountToPayLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Visa Type Summary Label"
+                            placeholder="VISA TYPE"
+                            value={settingsForm.startApplicationPageCopy?.summaryVisaTypeLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  summaryVisaTypeLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Travel Dates Summary Label"
+                            placeholder="TRAVEL DATES"
+                            value={settingsForm.startApplicationPageCopy?.summaryTravelDatesLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  summaryTravelDatesLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Traveler Names Summary Label"
+                            placeholder="TRAVELER NAMES"
+                            value={settingsForm.startApplicationPageCopy?.summaryTravelerNamesLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  summaryTravelerNamesLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Added In Form Badge"
+                            placeholder="Added in form"
+                            value={settingsForm.startApplicationPageCopy?.summaryAddedInFormBadge ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  summaryAddedInFormBadge: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Government Fee Label"
+                            placeholder="Government Fee"
+                            value={settingsForm.startApplicationPageCopy?.summaryGovFeeLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  summaryGovFeeLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <Input
+                            label="Our Service Fee Label"
+                            placeholder="Our Service Fee"
+                            value={settingsForm.startApplicationPageCopy?.summaryServiceFeeLabel ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                  ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                  summaryServiceFeeLabel: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      {/* Part C: Payment Summary — Upload Documents Later Notice */}
+                      <div className="bg-surface-2 border border-border rounded-xl p-4 space-y-4">
+                        <div className="flex items-center gap-2 pb-2 border-b border-border">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">
+                            Payment Summary — "Upload Documents Later" Notice
+                          </h3>
+                        </div>
+                        <p className="text-xs text-text-muted">
+                          Configure the blue notice box that appears on the Payment Summary page above Billing when documents can be uploaded later.
+                        </p>
+                        <Input
+                          label="Notice Title"
+                          placeholder="No worries — you can upload your documents anytime later."
+                          value={settingsForm.startApplicationPageCopy?.summaryDocNoticeTitle ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              startApplicationPageCopy: {
+                                ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                summaryDocNoticeTitle: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Textarea
+                          label="Notice Description"
+                          rows={3}
+                          placeholder="After payment, your application will remain available in My Dashboard → Open Your Application → Upload Documents, where you can upload documents for each traveler whenever it’s convenient for you."
+                          value={settingsForm.startApplicationPageCopy?.summaryDocNoticeDescription ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              startApplicationPageCopy: {
+                                ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                summaryDocNoticeDescription: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <Button
+                          variant="primary"
+                          leftIcon={<Save size={16} />}
+                          loading={savingSettingsKey === "traveler-form-manager"}
+                          onClick={() =>
+                            saveSettingsPartial(
+                              "traveler-form-manager",
+                              { startApplicationPageCopy: settingsForm.startApplicationPageCopy },
+                              "Traveler form settings saved successfully"
+                            )
+                          }
+                        >
+                          Save Traveler Form Settings
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Real-Time Live Preview (5 cols, sticky) */}
+                    <div className="xl:col-span-5 space-y-4 xl:sticky xl:top-24">
+                      <div className="bg-surface-2 border border-border rounded-2xl p-4 shadow-sm space-y-4">
+                        {/* Live Preview Header with Tab Switcher */}
+                        <div className="flex items-center justify-between pb-3 border-b border-border">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan/10 text-cyan">
+                              <Eye size={14} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold uppercase tracking-wider text-text-primary">Live Preview</span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  Live
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-text-muted">Updates as you type</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center bg-surface-3 p-0.5 rounded-lg border border-border text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => setTravelerFormPreviewTab("form")}
+                              className={`px-2 py-1 rounded-md font-medium transition-all ${
+                                travelerFormPreviewTab === "form" ? "bg-white text-slate-900 shadow-xs" : "text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              Form
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTravelerFormPreviewTab("summary")}
+                              className={`px-2 py-1 rounded-md font-medium transition-all ${
+                                travelerFormPreviewTab === "summary" ? "bg-white text-slate-900 shadow-xs" : "text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              Summary
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTravelerFormPreviewTab("both")}
+                              className={`px-2 py-1 rounded-md font-medium transition-all ${
+                                travelerFormPreviewTab === "both" ? "bg-white text-slate-900 shadow-xs" : "text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              Both
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Form Preview Card */}
+                        {(travelerFormPreviewTab === "form" || travelerFormPreviewTab === "both") && (
+                          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase font-bold text-cyan tracking-wider">
+                                {settingsForm.startApplicationPageCopy?.badgeText || "TRAVEL DETAILS"}
+                              </span>
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] text-slate-500 font-medium">
+                                Start Application
+                              </span>
+                            </div>
+
+                            <div>
+                              <h3 className="text-base font-bold text-slate-950 leading-snug">
+                                {settingsForm.startApplicationPageCopy?.title || "Start your application"}
+                              </h3>
+                              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                {(settingsForm.startApplicationPageCopy?.subtitle || "Fill travel details below to continue with your {country} visa process.").replace("{country}", "Afghanistan")}
+                              </p>
+                            </div>
+
+                            {/* Visa Type mock */}
+                            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                              <label className="text-[11px] font-medium text-slate-500 block mb-1">
+                                {settingsForm.startApplicationPageCopy?.visaTypeLabel || "Type of Visa"}
+                              </label>
+                              <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-2xs">
+                                <span className="font-medium">Tourist Visa</span>
+                                <ChevronDown size={14} className="text-slate-400" />
+                              </div>
+                            </div>
+
+                            {/* Traveler 1 Row Mock */}
+                            <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2.5 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-900">
+                                  {(settingsForm.startApplicationPageCopy?.travelerPrefix || "Traveler")} 1
+                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                                    {settingsForm.startApplicationPageCopy?.nameOnlyTag || "Name only"}
+                                  </span>
+                                  <span className="h-6 w-6 rounded-md border border-slate-200 flex items-center justify-center text-slate-400">
+                                    <Trash2 size={12} />
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="text-[11px] text-slate-500 block mb-1">
+                                  {settingsForm.startApplicationPageCopy?.fullNameLabel || "Full name (as on passport)"}
+                                </label>
+                                <div className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-400">
+                                  {settingsForm.startApplicationPageCopy?.fullNamePlaceholder || "Enter name"}
+                                </div>
+                                <p className="text-[10px] text-red-500 mt-1 font-medium">
+                                  {settingsForm.startApplicationPageCopy?.nameRequiredError || "Traveler name is required."}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Add Traveler button mock */}
+                            <div className="flex justify-end pt-1">
+                              <div className="inline-flex items-center gap-1.5 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-1.5 text-xs font-semibold text-cyan">
+                                <Plus size={13} />
+                                {settingsForm.startApplicationPageCopy?.addTravelerButtonText || "Add traveler"}
+                              </div>
+                            </div>
+
+                            {/* Proceed button mock */}
+                            <div className="rounded-xl bg-blue-600 py-2.5 text-center text-xs font-bold text-white shadow-xs">
+                              {settingsForm.startApplicationPageCopy?.proceedButtonText || "Proceed to Summary"}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Summary Preview Card */}
+                        {(travelerFormPreviewTab === "summary" || travelerFormPreviewTab === "both") && (
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-bold text-slate-950">
+                                {(settingsForm.startApplicationPageCopy?.applyForTitle || "Apply for {country}").replace("{country}", "Afghanistan")}
+                              </h4>
+                              <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wider">
+                                Summary Card
+                              </span>
+                            </div>
+
+                            <div className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-xs">
+                              {/* Blue Banner */}
+                              <div className="relative bg-[linear-gradient(135deg,#0f3ecf_0%,#214cf2_38%,#3d7bff_100%)] p-4 text-white">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex items-center gap-2.5">
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
+                                      <FileText size={15} />
+                                    </span>
+                                    <div>
+                                      <p className="text-xs font-bold leading-tight">
+                                        {settingsForm.startApplicationPageCopy?.travelSummaryBadge || "Travel Summary"}
+                                      </p>
+                                      <p className="text-[8px] uppercase tracking-wider text-white/70">
+                                        {settingsForm.startApplicationPageCopy?.travellerDetailsSubtitle || "TRAVELLER DETAILS"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="rounded-xl bg-white/10 border border-white/20 px-2.5 py-1 text-center backdrop-blur">
+                                    <p className="text-[8px] uppercase tracking-wider text-white/70">
+                                      {settingsForm.startApplicationPageCopy?.travellersCountLabel || "TRAVELLERS"}
+                                    </p>
+                                    <p className="text-sm font-bold leading-none mt-0.5">1</p>
+                                  </div>
+                                </div>
+                                <div className="mt-3 text-center">
+                                  <p className="text-[9px] uppercase tracking-wider text-white/70">
+                                    {settingsForm.startApplicationPageCopy?.amountToPayLabel || "AMOUNT TO BE PAID NOW"}
+                                  </p>
+                                  <p className="text-2xl font-black tracking-tight mt-0.5">₹9,605</p>
+                                </div>
+                              </div>
+
+                              {/* Summary Details */}
+                              <div className="p-3.5 space-y-2.5 bg-slate-50/50 text-xs">
+                                <div className="rounded-xl border border-slate-200 bg-white p-2.5 space-y-2">
+                                  <div className="flex items-start gap-2">
+                                    <Receipt size={14} className="text-sky-600 mt-0.5 shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                                        {settingsForm.startApplicationPageCopy?.summaryVisaTypeLabel || "VISA TYPE"}
+                                      </p>
+                                      <p className="font-semibold text-slate-800 text-[11px] mt-0.5">Tourist Visa</p>
+                                    </div>
+                                  </div>
+                                  <div className="border-t border-slate-100 pt-2 flex items-start gap-2">
+                                    <CalendarDays size={14} className="text-sky-600 mt-0.5 shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                                        {settingsForm.startApplicationPageCopy?.summaryTravelDatesLabel || "TRAVEL DATES"}
+                                      </p>
+                                      <p className="font-semibold text-slate-800 text-[11px] mt-0.5">12 Nov 2026 - 20 Nov 2026</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 bg-white p-2.5 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                                      {settingsForm.startApplicationPageCopy?.summaryTravelerNamesLabel || "TRAVELER NAMES"}
+                                    </p>
+                                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[9px] font-semibold text-sky-700">
+                                      {settingsForm.startApplicationPageCopy?.summaryAddedInFormBadge || "Added in form"}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    <span className="rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] text-slate-700 font-medium">
+                                      Traveler 1
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 bg-white p-2.5 space-y-1.5">
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-medium text-slate-700">
+                                      {settingsForm.startApplicationPageCopy?.summaryGovFeeLabel || "Government Fee"}
+                                    </span>
+                                    <span className="font-bold text-slate-900">₹8,000</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-medium text-slate-700">
+                                      {settingsForm.startApplicationPageCopy?.summaryServiceFeeLabel || "Our Service Fee"}
+                                    </span>
+                                    <span className="font-bold text-slate-900">₹1,605</span>
+                                  </div>
+                                </div>
+
+                                {/* Payment Summary Upload Later Notice Box Preview */}
+                                <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-2.5">
+                                  <div className="flex items-start gap-2">
+                                    <Info size={14} className="text-sky-600 mt-0.5 shrink-0" />
+                                    <div>
+                                      <p className="text-[11px] font-semibold text-slate-900 leading-snug">
+                                        {settingsForm.startApplicationPageCopy?.summaryDocNoticeTitle || "No worries — you can upload your documents anytime later."}
+                                      </p>
+                                      <p className="text-[10px] text-slate-600 mt-1 leading-relaxed">
+                                        {settingsForm.startApplicationPageCopy?.summaryDocNoticeDescription || "After payment, your application will remain available in My Dashboard → Open Your Application → Upload Documents, where you can upload documents for each traveler whenever it’s convenient for you."}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </Card>
               </div>
 
-              <div className={isControlSectionVisible("upload-methods") ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
-              </div>
-
+              {/* 4. DOCUMENTS (APPLICATION DOCUMENTS) */}
               <div className={isControlSectionVisible("application-documents") ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
                 <Card>
                   <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="font-semibold text-text-primary">Documents Required</h2>
-                      <p className="text-xs text-text-muted">Manage required document types.</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan/10 text-cyan">
+                        <FileText size={20} />
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-text-primary">Documents & Passport Upload Settings</h2>
+                        <p className="text-xs text-text-muted">Configure passport upload copy, file hints, button labels, and required document settings on the Start Application page.</p>
+                      </div>
                     </div>
-                    <DisplayToggle
-                      active={displayToggles.showDestinationRequiredDocs}
-                      busy={togglingDisplayKey === "showDestinationRequiredDocs"}
-                      onClick={() => runToggleDisplay("showDestinationRequiredDocs")}
-                      labelOn="Visible"
-                      labelOff="Hidden"
-                    />
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-text-muted">Document Settings</span>
+                    </div>
                   </div>
-                  <div className="bg-surface-2 border border-border rounded-xl p-8 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveControlGroupKey("cards");
-                        setActiveControlNavKey("visa-details-table");
-                        setExpandedControlTabKeys({ "section-cards": true, "visa-details-and-fee-manager": true });
-                        selectControlSection("visa-details-table");
-                      }}
-                      className="inline-flex items-center gap-2 rounded-xl bg-cyan px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-cyan/90"
-                    >
-                      Edit Documents
-                    </button>
-                  </div>
-                </Card>
-              </div>
 
-              <div className={isControlSectionVisible("application-documents") ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
-                <Card>
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="font-semibold text-text-primary">Optional Document</h2>
-                      <p className="text-xs text-text-muted">Manage optional document types.</p>
+                  <div className="space-y-6">
+                    {/* 1. GOOGLE DRIVE UPLOAD SECTION (FIRST) */}
+                    <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">1. Google Drive Upload Section (Drive Link & Guide)</h3>
+                        </div>
+                        <label className={`flex items-center gap-2 cursor-pointer ${instantToggleBusyKey === "gdrive-docs" ? "opacity-60 cursor-wait" : ""}`}>
+                          <span className="text-xs font-medium text-text-muted">
+                            {(settingsForm.enableGDriveUpload ?? true) ? "Visible" : "Hidden"}
+                          </span>
+                          <div className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-1 ${(settingsForm.enableGDriveUpload ?? true) ? 'bg-emerald-500' : 'bg-surface-3 border border-border'}`}>
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={settingsForm.enableGDriveUpload ?? true}
+                              disabled={instantToggleBusyKey === "gdrive-docs"}
+                              onChange={(e) =>
+                                handleInstantSettingToggle({
+                                  key: "gdrive-docs",
+                                  nextValue: e.target.checked,
+                                  fieldKey: "enableGDriveUpload",
+                                  copyKey: "showGDriveUpload",
+                                  label: "Google Drive Upload Section",
+                                })
+                              }
+                            />
+                            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${(settingsForm.enableGDriveUpload ?? true) ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="border-t border-border/60 pt-4">
+                          <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Google Drive Card Copy</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Input
+                              label="Drive Card Title"
+                              placeholder="Document Drive Link (for all travelers)"
+                              value={settingsForm.startApplicationPageCopy?.driveCardTitle ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveCardTitle: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                            <Input
+                              label="Drive Card Badge"
+                              placeholder="Optional"
+                              value={settingsForm.startApplicationPageCopy?.driveCardBadge ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveCardBadge: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                            <div className="md:col-span-2">
+                              <Input
+                                label="Card Info Hover Tooltip"
+                                placeholder="You can continue to payment now and share the Google Drive link later from your application dashboard."
+                                value={settingsForm.startApplicationPageCopy?.driveCardTooltip ?? ""}
+                                onChange={(e) =>
+                                  setSettingsForm((p) => ({
+                                    ...p,
+                                    startApplicationPageCopy: {
+                                      ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                      driveCardTooltip: e.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <Textarea
+                                label="Drive Card Description"
+                                rows={2}
+                                placeholder="Upload all required and optional documents to Google Drive and share the folder link here. This link will be applicable for all travelers."
+                                value={settingsForm.startApplicationPageCopy?.driveCardDescription ?? ""}
+                                onChange={(e) =>
+                                  setSettingsForm((p) => ({
+                                    ...p,
+                                    startApplicationPageCopy: {
+                                      ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                      driveCardDescription: e.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                            </div>
+                            <Input
+                              label="Drive Link Input Label"
+                              placeholder="Google Drive Link"
+                              value={settingsForm.startApplicationPageCopy?.driveInputLabel ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveInputLabel: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                            <Input
+                              label="Drive Link Input Placeholder"
+                              placeholder="https://drive.google.com/your-folder-link"
+                              value={settingsForm.startApplicationPageCopy?.driveInputPlaceholder ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveInputPlaceholder: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className="border-t border-border/60 pt-4">
+                          <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Folder Sharing Guide Steps (Modal / Popover)</h4>
+                          <div className="space-y-3">
+                            <Input
+                              label="Guide Title"
+                              placeholder="How to Share Folder Link"
+                              value={settingsForm.startApplicationPageCopy?.driveGuideTitle ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveGuideTitle: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                            <Input
+                              label="Step 1"
+                              placeholder="Upload all required documents to your Google Drive folder."
+                              value={settingsForm.startApplicationPageCopy?.driveGuideStep1 ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveGuideStep1: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                            <Input
+                              label="Step 2"
+                              placeholder="Right-click the folder and select Share > Share."
+                              value={settingsForm.startApplicationPageCopy?.driveGuideStep2 ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveGuideStep2: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                            <Input
+                              label="Step 3"
+                              placeholder="Under General access, change Restricted to Anyone with the link."
+                              value={settingsForm.startApplicationPageCopy?.driveGuideStep3 ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveGuideStep3: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                            <Input
+                              label="Step 4"
+                              placeholder="Make sure the role is set to Viewer."
+                              value={settingsForm.startApplicationPageCopy?.driveGuideStep4 ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveGuideStep4: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                            <Input
+                              label="Step 5"
+                              placeholder="Click Copy link and paste it in the field below."
+                              value={settingsForm.startApplicationPageCopy?.driveGuideStep5 ?? ""}
+                              onChange={(e) =>
+                                setSettingsForm((p) => ({
+                                  ...p,
+                                  startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    driveGuideStep5: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <DisplayToggle
-                      active={displayToggles.showDestinationOptionalDocs}
-                      busy={togglingDisplayKey === "showDestinationOptionalDocs"}
-                      onClick={() => runToggleDisplay("showDestinationOptionalDocs")}
-                      labelOn="Visible"
-                      labelOff="Hidden"
-                    />
-                  </div>
-                  <div className="bg-surface-2 border border-border rounded-xl p-8 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveControlGroupKey("cards");
-                        setActiveControlNavKey("visa-details-table");
-                        setExpandedControlTabKeys({ "section-cards": true, "visa-details-and-fee-manager": true });
-                        selectControlSection("visa-details-table");
-                      }}
-                      className="inline-flex items-center gap-2 rounded-xl bg-cyan px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-cyan/90"
-                    >
-                      Edit Documents
-                    </button>
+
+                    {/* 2. REQUIRED DOCUMENTS SECTION */}
+                    <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">2. Required Documents Section (Documents Required)</h3>
+                        </div>
+                        <label className={`flex items-center gap-2 cursor-pointer ${instantToggleBusyKey === "required-docs" ? "opacity-60 cursor-wait" : ""}`}>
+                          <span className="text-xs font-medium text-text-muted">
+                            {(settingsForm.startApplicationPageCopy?.showRequiredDocs ?? true) ? "Visible" : "Hidden"}
+                          </span>
+                          <div className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-1 ${(settingsForm.startApplicationPageCopy?.showRequiredDocs ?? true) ? 'bg-emerald-500' : 'bg-surface-3 border border-border'}`}>
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={settingsForm.startApplicationPageCopy?.showRequiredDocs ?? true}
+                              disabled={instantToggleBusyKey === "required-docs"}
+                              onChange={(e) =>
+                                handleInstantSettingToggle({
+                                  key: "required-docs",
+                                  nextValue: e.target.checked,
+                                  copyKey: "showRequiredDocs",
+                                  label: "Required Documents Section",
+                                })
+                              }
+                            />
+                            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${(settingsForm.startApplicationPageCopy?.showRequiredDocs ?? true) ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </div>
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label="Section Heading / Title"
+                          placeholder="Documents Required"
+                          value={settingsForm.startApplicationPageCopy?.requiredDocsHeading ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              startApplicationPageCopy: {
+                                ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                requiredDocsHeading: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <div className="md:col-span-2">
+                          <Textarea
+                            label="Section Description / Subtitle"
+                            placeholder="These are the country documents required for this application."
+                            rows={2}
+                            value={settingsForm.startApplicationPageCopy?.requiredDocsDescription ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    requiredDocsDescription: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. NORMAL DOCUMENT UPLOAD / PASSPORT */}
+                    <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">3. Normal Document Upload (Passport & Traveler Docs)</h3>
+                        </div>
+                        <label className={`flex items-center gap-2 cursor-pointer ${instantToggleBusyKey === "passport-docs" ? "opacity-60 cursor-wait" : ""}`}>
+                          <span className="text-xs font-medium text-text-muted">
+                            {(settingsForm.startApplicationPageCopy?.showPassportUpload ?? true) ? "Visible" : "Hidden"}
+                          </span>
+                          <div className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-1 ${(settingsForm.startApplicationPageCopy?.showPassportUpload ?? true) ? 'bg-emerald-500' : 'bg-surface-3 border border-border'}`}>
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={settingsForm.startApplicationPageCopy?.showPassportUpload ?? true}
+                              disabled={instantToggleBusyKey === "passport-docs"}
+                              onChange={(e) =>
+                                handleInstantSettingToggle({
+                                  key: "passport-docs",
+                                  nextValue: e.target.checked,
+                                  copyKey: "showPassportUpload",
+                                  fieldKey: "enableFileUpload",
+                                  label: "Normal Document Upload Section",
+                                })
+                              }
+                            />
+                            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${(settingsForm.startApplicationPageCopy?.showPassportUpload ?? true) ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </div>
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label="Passport Upload Field Label"
+                          placeholder="Passport Upload"
+                          value={settingsForm.startApplicationPageCopy?.passportUploadLabel ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              startApplicationPageCopy: {
+                                ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                passportUploadLabel: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Upload Button Text"
+                          placeholder="Upload"
+                          value={settingsForm.startApplicationPageCopy?.uploadButtonText ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              startApplicationPageCopy: {
+                                ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                uploadButtonText: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Replace File Button Text"
+                          placeholder="Replace File"
+                          value={settingsForm.startApplicationPageCopy?.replaceButtonText ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              startApplicationPageCopy: {
+                                ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                replaceButtonText: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Remove File Button Text"
+                          placeholder="Remove"
+                          value={settingsForm.startApplicationPageCopy?.removeButtonText ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              startApplicationPageCopy: {
+                                ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                removeButtonText: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Upload Success Text"
+                          placeholder="Passport uploaded"
+                          value={settingsForm.startApplicationPageCopy?.passportUploadedText ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              startApplicationPageCopy: {
+                                ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                passportUploadedText: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* 4. OPTIONAL DOCUMENTS SECTION */}
+                    <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">4. Optional Documents Section (Optional Documents)</h3>
+                        </div>
+                        <label className={`flex items-center gap-2 cursor-pointer ${instantToggleBusyKey === "optional-docs" ? "opacity-60 cursor-wait" : ""}`}>
+                          <span className="text-xs font-medium text-text-muted">
+                            {(settingsForm.startApplicationPageCopy?.showOptionalDocs ?? true) ? "Visible" : "Hidden"}
+                          </span>
+                          <div className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-1 ${(settingsForm.startApplicationPageCopy?.showOptionalDocs ?? true) ? 'bg-emerald-500' : 'bg-surface-3 border border-border'}`}>
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={settingsForm.startApplicationPageCopy?.showOptionalDocs ?? true}
+                              disabled={instantToggleBusyKey === "optional-docs"}
+                              onChange={(e) =>
+                                handleInstantSettingToggle({
+                                  key: "optional-docs",
+                                  nextValue: e.target.checked,
+                                  copyKey: "showOptionalDocs",
+                                  label: "Optional Documents Section",
+                                })
+                              }
+                            />
+                            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${(settingsForm.startApplicationPageCopy?.showOptionalDocs ?? true) ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </div>
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label="Section Heading / Title"
+                          placeholder="Optional Documents"
+                          value={settingsForm.startApplicationPageCopy?.optionalDocsHeading ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              startApplicationPageCopy: {
+                                ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                optionalDocsHeading: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <div className="md:col-span-2">
+                          <Textarea
+                            label="Section Description / Subtitle"
+                            placeholder="You can also attach other documents in the same Drive link."
+                            rows={2}
+                            value={settingsForm.startApplicationPageCopy?.optionalDocsDescription ?? ""}
+                            onChange={(e) =>
+                              setSettingsForm((p) => ({
+                                ...p,
+                                startApplicationPageCopy: {
+                                    ...(p.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                    optionalDocsDescription: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-surface-2 border border-border rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div>
+                        <h4 className="text-sm font-semibold text-text-primary">Document Catalog & Checklist</h4>
+                        <p className="text-xs text-text-muted mt-0.5">Manage which documents are required or optional across destination pages.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveControlGroupKey("body");
+                          setActiveControlNavKey("visa-details-table");
+                          setExpandedControlTabKeys({ "section-cards": true, "visa-details-and-fee-manager": true });
+                          selectControlSection("visa-details-table");
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl bg-cyan px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-cyan/90 shrink-0"
+                      >
+                        Edit Document Catalog
+                      </button>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        variant="primary"
+                        leftIcon={<Save size={16} />}
+                        loading={savingSettingsKey === "application-documents"}
+                        onClick={() =>
+                          saveSettingsPartial(
+                            "application-documents",
+                            {
+                              startApplicationPageCopy: {
+                                ...(settingsForm.startApplicationPageCopy || DEFAULT_START_APPLICATION_PAGE_COPY),
+                                showGDriveUpload: settingsForm.enableGDriveUpload,
+                              },
+                              enableGDriveUpload: settingsForm.enableGDriveUpload,
+                            },
+                            "Document copy settings saved successfully"
+                          )
+                        }
+                      >
+                        Save Document Copy Settings
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               </div>
@@ -8282,7 +10121,7 @@ const Dashboard = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setActiveControlGroupKey("cards");
+                        setActiveControlGroupKey("body");
                         setActiveControlNavKey("visa-details-table");
                         setExpandedControlTabKeys({ "section-cards": true, "visa-details-and-fee-manager": true });
                         selectControlSection("visa-details-table");
@@ -8303,8 +10142,8 @@ const Dashboard = () => {
                       <p className="text-xs text-text-muted">Manage customer testimonials and reviews.</p>
                     </div>
                   </div>
-                  <div className="bg-surface-2 border border-border rounded-xl p-8 text-center text-text-muted">
-                    Testimonials management coming soon!
+                  <div className="bg-surface-2 border border-border rounded-xl p-8">
+                    <TestimonialsManager />
                   </div>
                 </Card>
               </div>
@@ -10109,7 +11948,7 @@ const Dashboard = () => {
                 <SupportChatWorkspace />
               </div>
 
-              <div className={(isControlSectionVisible("why-book-now") || isControlSectionVisible("whats-included") || isControlSectionVisible("how-it-works") || isControlSectionVisible("faqs") || isControlSectionVisible("visa-requirements")) ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
+              <div className={(isControlSectionVisible("info-section") || isControlSectionVisible("why-book-now") || isControlSectionVisible("whats-included") || isControlSectionVisible("how-it-works") || isControlSectionVisible("faqs") || isControlSectionVisible("visa-requirements") || isControlSectionVisible("documents")) ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
               <Card className="w-full max-w-none flex-1 self-stretch">
                 <div className="hidden flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
                   <div className="flex-1 min-w-0">
@@ -10210,6 +12049,8 @@ const Dashboard = () => {
                       saveSettingsPartial(
                         "destination-content",
                         {
+                          destinationVisaInfo: settingsForm.destinationVisaInfo,
+                          destinationSectionHeadings: settingsForm.destinationSectionHeadings,
                           destinationWhyBookNow: whyBookNow,
                           destinationIncludedItems: included,
                           destinationFaqs: faqs,
@@ -10245,6 +12086,79 @@ const Dashboard = () => {
                     <p className="text-xs text-text-muted mb-4">
                       One reason per line. These appear on every destination page unless a specific country overrides them.
                     </p>
+                    {/* Distinct Section Top Header Card */}
+                    <div className="mb-6 rounded-2xl border-2 border-cyan/25 bg-gradient-to-br from-cyan/[0.07] via-cyan/[0.02] to-surface-2/60 p-5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3 border-b border-cyan/20 pb-3 mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan/15 text-cyan">
+                            <Type size={15} strokeWidth={2.5} />
+                          </span>
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+                              Section Header &amp; Column Titles
+                              <span className="inline-flex items-center rounded-full bg-cyan/15 px-2 py-0.5 text-[10px] font-semibold text-cyan">
+                                Top Titles
+                              </span>
+                            </h4>
+                            <p className="text-[11px] text-text-muted">
+                              Customize main section heading and table column headers (comparison labels)
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <Input
+                          label="Section Heading"
+                          value={settingsForm.destinationSectionHeadings?.whyBookNowHeading ?? ""}
+                          placeholder="Why book now"
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                whyBookNowHeading: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Col 1 Title (Our Service)"
+                          value={settingsForm.destinationSectionHeadings?.whyBookNowColWeProvides ?? ""}
+                          placeholder="We Provides"
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                whyBookNowColWeProvides: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Col 2 Title (Competitors)"
+                          value={settingsForm.destinationSectionHeadings?.whyBookNowColOthers ?? ""}
+                          placeholder="Others"
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                whyBookNowColOthers: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mb-4 flex items-center gap-2.5">
+                      <div className="h-4 w-1 rounded-full bg-cyan" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                        Comparison Reasons List ({settingsForm.destinationWhyBookNow?.length || 0})
+                      </span>
+                      <div className="flex-1 h-px bg-border/70" />
+                    </div>
                     <div className="space-y-3 w-full max-w-none">
                       {(settingsForm.destinationWhyBookNow || []).map((item, idx) => (
                         <div key={`why-${idx}`} className="rounded-xl border border-border bg-background p-4 space-y-3">
@@ -10353,6 +12267,65 @@ const Dashboard = () => {
                     <p className="text-xs text-text-muted mb-4">
                       One bullet per line. Empty rows are ignored when you save.
                     </p>
+                    {/* Distinct Section Top Header Card */}
+                    <div className="mb-6 rounded-2xl border-2 border-cyan/25 bg-gradient-to-br from-cyan/[0.07] via-cyan/[0.02] to-surface-2/60 p-5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3 border-b border-cyan/20 pb-3 mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan/15 text-cyan">
+                            <Type size={15} strokeWidth={2.5} />
+                          </span>
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+                              Section Header &amp; Subtitle
+                              <span className="inline-flex items-center rounded-full bg-cyan/15 px-2 py-0.5 text-[10px] font-semibold text-cyan">
+                                Top Texts
+                              </span>
+                            </h4>
+                            <p className="text-[11px] text-text-muted">
+                              Main heading and intro description shown above the cards on destination pages
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Input
+                          label="Section Heading"
+                          value={settingsForm.destinationSectionHeadings?.whatsIncludedHeading ?? ""}
+                          placeholder="What's Included"
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                whatsIncludedHeading: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Section Subtitle"
+                          value={settingsForm.destinationSectionHeadings?.whatsIncludedSubtitle ?? ""}
+                          placeholder="Everything you need for a smooth and hassle-free visa process."
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                whatsIncludedSubtitle: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mb-4 flex items-center gap-2.5">
+                      <div className="h-4 w-1 rounded-full bg-cyan" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                        Included Feature Items ({settingsForm.destinationIncludedItems?.length || 0})
+                      </span>
+                      <div className="flex-1 h-px bg-border/70" />
+                    </div>
                     <div className="space-y-6 w-full max-w-none">
                       {(settingsForm.destinationIncludedItems || []).map((item, idx) => (
                         <div key={`inc-${idx}`} className="rounded-xl border border-border bg-background p-4 space-y-4">
@@ -10525,6 +12498,49 @@ const Dashboard = () => {
                     <p className="text-xs text-text-muted mb-4">
                       Question and answer pairs. Incomplete pairs are skipped when you save.
                     </p>
+                    {/* Distinct Section Top Header Card */}
+                    <div className="mb-6 rounded-2xl border-2 border-cyan/25 bg-gradient-to-br from-cyan/[0.07] via-cyan/[0.02] to-surface-2/60 p-5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3 border-b border-cyan/20 pb-3 mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan/15 text-cyan">
+                            <Type size={15} strokeWidth={2.5} />
+                          </span>
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+                              Section Header Text
+                              <span className="inline-flex items-center rounded-full bg-cyan/15 px-2 py-0.5 text-[10px] font-semibold text-cyan">
+                                Top Title
+                              </span>
+                            </h4>
+                            <p className="text-[11px] text-text-muted">
+                              Main heading shown above the FAQ accordion list on destination pages
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <Input
+                        label="Section Heading"
+                        value={settingsForm.destinationSectionHeadings?.faqsHeading ?? ""}
+                        placeholder="Frequently Asked Questions"
+                        onChange={(e) =>
+                          setSettingsForm((p) => ({
+                            ...p,
+                            destinationSectionHeadings: {
+                              ...(p.destinationSectionHeadings || {}),
+                              faqsHeading: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="mb-4 flex items-center gap-2.5">
+                      <div className="h-4 w-1 rounded-full bg-cyan" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                        FAQ Question &amp; Answer Pairs ({settingsForm.destinationFaqs?.length || 0})
+                      </span>
+                      <div className="flex-1 h-px bg-border/70" />
+                    </div>
                     <div className="space-y-6 w-full max-w-none">
                       {(settingsForm.destinationFaqs || []).map((faq, idx) => (
                         <div key={`faq-${idx}`} className="rounded-xl border border-border bg-background p-4 space-y-3">
@@ -10624,6 +12640,190 @@ const Dashboard = () => {
                   </ExpandableAdminControlCard>
                   </div>
 
+                  <div className={isControlSectionVisible("info-section") ? "" : "hidden"}>
+                  <ExpandableAdminControlCard previewHeight={420} {...getControlCardExpansionProps("destination-info-section")}>
+                  <div className="bg-surface-2 border border-border rounded-xl p-5">
+                    <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+                      <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                        <Info size={18} className="text-cyan" />
+                        Visa Information (Header & Card Order)
+                      </h3>
+                    </div>
+                    <p className="text-xs text-text-muted mb-4">
+                      Customize the header text and change the display order of the 3 summary cards (Length of Stay, Validity, Entry) shown on every destination page.
+                    </p>
+
+                    <div className="space-y-4 w-full max-w-none">
+                      <Input
+                        label="Badge Text"
+                        value={settingsForm.destinationVisaInfo?.badgeText ?? ""}
+                        placeholder="100% Online Process"
+                        onChange={(e) =>
+                          setSettingsForm((p) => ({
+                            ...p,
+                            destinationVisaInfo: {
+                              ...p.destinationVisaInfo,
+                              badgeText: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+
+                      <Input
+                        label="Title"
+                        value={settingsForm.destinationVisaInfo?.title ?? ""}
+                        placeholder="Visa Information"
+                        onChange={(e) =>
+                          setSettingsForm((p) => ({
+                            ...p,
+                            destinationVisaInfo: {
+                              ...p.destinationVisaInfo,
+                              title: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+
+                      <div>
+                        <label className="text-xs font-semibold text-text-secondary block mb-1.5">
+                          Subtitle / Description
+                        </label>
+                        <textarea
+                          rows={2}
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-cyan focus:outline-none transition resize-none"
+                          placeholder="A 100% online visa application process that is simple, secure and hassle-free."
+                          value={settingsForm.destinationVisaInfo?.subtitle ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationVisaInfo: {
+                                ...p.destinationVisaInfo,
+                                subtitle: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className="pt-2 border-t border-border">
+                        <p className="text-xs font-semibold text-text-primary mb-1">
+                          3 Summary Cards Order
+                        </p>
+                        <p className="text-xs text-text-muted mb-3">
+                          Rearrange the display sequence of the 3 cards. The numbers (01, 02, 03) will automatically reflect the order here.
+                        </p>
+
+                        <div className="space-y-2.5">
+                          {(() => {
+                            const CARD_META = {
+                              lengthOfStay: { label: "Length of Stay", tag: "Blue Card", example: "e.g. 30 Days" },
+                              validity: { label: "Validity", tag: "Green Card", example: "e.g. 15 Days" },
+                              entry: { label: "Entry", tag: "Purple Card", example: "e.g. Double Entry" },
+                            };
+                            const order = Array.isArray(settingsForm.destinationVisaInfo?.cardOrder) && settingsForm.destinationVisaInfo.cardOrder.length > 0
+                              ? settingsForm.destinationVisaInfo.cardOrder
+                              : ["lengthOfStay", "validity", "entry"];
+
+                            const moveCard = (idx, dir) => {
+                              const nextOrder = [...order];
+                              const targetIdx = idx + dir;
+                              if (targetIdx < 0 || targetIdx >= nextOrder.length) return;
+                              const temp = nextOrder[idx];
+                              nextOrder[idx] = nextOrder[targetIdx];
+                              nextOrder[targetIdx] = temp;
+                              setSettingsForm((p) => ({
+                                ...p,
+                                destinationVisaInfo: {
+                                  ...p.destinationVisaInfo,
+                                  cardOrder: nextOrder,
+                                },
+                              }));
+                            };
+
+                            return order.map((cardId, idx) => {
+                              const meta = CARD_META[cardId] || { label: cardId, tag: "Card", example: "" };
+                              return (
+                                <div
+                                  key={cardId}
+                                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-3.5 transition-colors hover:border-border/80"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan/10 text-cyan text-xs font-bold ring-1 ring-cyan/20">
+                                      {String(idx + 1).padStart(2, "0")}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-semibold text-text-primary">
+                                        {meta.label}
+                                      </p>
+                                      <p className="text-xs text-text-muted">
+                                        {meta.tag} • {meta.example}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => moveCard(idx, -1)}
+                                      className={`flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-2 text-text-secondary transition ${
+                                        idx === 0 ? "opacity-30 cursor-not-allowed" : "hover:bg-cyan/10 hover:text-cyan hover:border-cyan/30"
+                                      }`}
+                                      title="Move Up"
+                                    >
+                                      <ArrowUp size={15} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === order.length - 1}
+                                      onClick={() => moveCard(idx, 1)}
+                                      className={`flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-2 text-text-secondary transition ${
+                                        idx === order.length - 1 ? "opacity-30 cursor-not-allowed" : "hover:bg-cyan/10 hover:text-cyan hover:border-cyan/30"
+                                      }`}
+                                      title="Move Down"
+                                    >
+                                      <ArrowDown size={15} />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          leftIcon={<Save size={14} />}
+                          loading={savingSettingsKey === "destination-content"}
+                          onClick={() => {
+                            const order = Array.isArray(settingsForm.destinationVisaInfo?.cardOrder) && settingsForm.destinationVisaInfo.cardOrder.length > 0
+                              ? settingsForm.destinationVisaInfo.cardOrder
+                              : ["lengthOfStay", "validity", "entry"];
+                            const payload = {
+                              badgeText: String(settingsForm.destinationVisaInfo?.badgeText || "").trim() || "100% Online Process",
+                              title: String(settingsForm.destinationVisaInfo?.title || "").trim() || "Visa Information",
+                              subtitle: String(settingsForm.destinationVisaInfo?.subtitle || "").trim() || "A 100% online visa application process that is simple, secure and hassle-free.",
+                              cardOrder: order,
+                            };
+                            saveSettingsPartial(
+                              "destination-content",
+                              { destinationVisaInfo: payload },
+                              "Visa Information saved."
+                            );
+                          }}
+                        >
+                          Save Visa Information
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  </ExpandableAdminControlCard>
+                  </div>
+
                   <div className={isControlSectionVisible("how-it-works") ? "" : "hidden"}>
                   <ExpandableAdminControlCard previewHeight={360} {...getControlCardExpansionProps("destination-how-it-works")}>
                   <div className="bg-surface-2 border border-border rounded-xl p-5">
@@ -10644,6 +12844,49 @@ const Dashboard = () => {
                       Numbered steps shown above &quot;Document Requirements&quot; on every destination page. Step number is
                       auto-generated from order. Incomplete pairs are skipped when you save.
                     </p>
+                    {/* Distinct Section Top Header Card */}
+                    <div className="mb-6 rounded-2xl border-2 border-cyan/25 bg-gradient-to-br from-cyan/[0.07] via-cyan/[0.02] to-surface-2/60 p-5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3 border-b border-cyan/20 pb-3 mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan/15 text-cyan">
+                            <Type size={15} strokeWidth={2.5} />
+                          </span>
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+                              Section Header Text
+                              <span className="inline-flex items-center rounded-full bg-cyan/15 px-2 py-0.5 text-[10px] font-semibold text-cyan">
+                                Top Title
+                              </span>
+                            </h4>
+                            <p className="text-[11px] text-text-muted">
+                              Controls the main heading shown at the top of this section on destination pages
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <Input
+                        label="Section Heading"
+                        value={settingsForm.destinationSectionHeadings?.howItWorksHeading ?? ""}
+                        placeholder="How it works"
+                        onChange={(e) =>
+                          setSettingsForm((p) => ({
+                            ...p,
+                            destinationSectionHeadings: {
+                              ...(p.destinationSectionHeadings || {}),
+                              howItWorksHeading: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="mb-4 flex items-center gap-2.5">
+                      <div className="h-4 w-1 rounded-full bg-cyan" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                        Step Items ({settingsForm.destinationHowItWorks?.length || 0})
+                      </span>
+                      <div className="flex-1 h-px bg-border/70" />
+                    </div>
                     <div className="space-y-4 w-full max-w-none">
                       {(settingsForm.destinationHowItWorks || []).map((step, idx) => (
                         <div key={`how-${idx}`} className="rounded-xl border border-border bg-background p-4 space-y-3">
@@ -10765,6 +13008,79 @@ const Dashboard = () => {
                       One requirement per line. These show on every destination page (below &quot;How it works&quot;). Per-country
                       extras you add inside Country Manager are appended below - duplicates are skipped.
                     </p>
+                    {/* Distinct Section Top Header Card */}
+                    <div className="mb-6 rounded-2xl border-2 border-cyan/25 bg-gradient-to-br from-cyan/[0.07] via-cyan/[0.02] to-surface-2/60 p-5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3 border-b border-cyan/20 pb-3 mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan/15 text-cyan">
+                            <Type size={15} strokeWidth={2.5} />
+                          </span>
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+                              Section Header, Subtitle &amp; Note
+                              <span className="inline-flex items-center rounded-full bg-cyan/15 px-2 py-0.5 text-[10px] font-semibold text-cyan">
+                                Top Texts
+                              </span>
+                            </h4>
+                            <p className="text-[11px] text-text-muted">
+                              Main heading, intro subtitle, and the 'Please Note' alert banner shown on destination pages
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <Input
+                          label="Section Heading"
+                          value={settingsForm.destinationSectionHeadings?.visaRequirementsHeading ?? ""}
+                          placeholder="Visa Requirements"
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                visaRequirementsHeading: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Section Subtitle"
+                          value={settingsForm.destinationSectionHeadings?.visaRequirementsSubtitle ?? ""}
+                          placeholder="Please ensure you have the following documents ready for a smooth visa application process."
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                visaRequirementsSubtitle: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="'Please Note' Alert Text"
+                          value={settingsForm.destinationSectionHeadings?.visaRequirementsNote ?? ""}
+                          placeholder="Visa rules and conditions may change. Please check the latest requirements before applying."
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                visaRequirementsNote: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mb-4 flex items-center gap-2.5">
+                      <div className="h-4 w-1 rounded-full bg-cyan" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                        Requirements Items List ({settingsForm.destinationVisaRequirements?.length || 0})
+                      </span>
+                      <div className="flex-1 h-px bg-border/70" />
+                    </div>
                     <div className="space-y-3 w-full max-w-none">
                       {(settingsForm.destinationVisaRequirements || []).map((item, idx) => (
                         <div key={`visa-${idx}`} className="rounded-xl border border-border bg-background p-4 space-y-3">
@@ -10842,6 +13158,114 @@ const Dashboard = () => {
                               payloadBuilder: buildDestinationVisaRequirementsPayload,
                               payloadKey: "destinationVisaRequirements",
                               successMessage: "Visa requirements saved.",
+                            })
+                          }
+                        >
+                          Save This Section
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  </ExpandableAdminControlCard>
+                  </div>
+
+                  <div className={isControlSectionVisible("documents") ? "" : "hidden"}>
+                  <ExpandableAdminControlCard previewHeight={360} {...getControlCardExpansionProps("destination-documents")}>
+                  <div className="bg-surface-2 border border-border rounded-xl p-5">
+                    <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+                      <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                        <FileText size={18} className="text-cyan" />
+                        Documents Required (Header &amp; Badge)
+                      </h3>
+                      <DisplayToggle
+                        active={displayToggles.showDestinationDocuments}
+                        busy={togglingDisplayKey === "showDestinationDocuments"}
+                        onClick={() => runToggleDisplay("showDestinationDocuments")}
+                        labelOn="Visible"
+                        labelOff="Hidden"
+                      />
+                    </div>
+                    <p className="text-xs text-text-muted mb-4">
+                      Customize the badge, heading, and subtitle shown on every destination page for the Documents Required section.
+                    </p>
+                    {/* Distinct Section Top Header Card */}
+                    <div className="mb-6 rounded-2xl border-2 border-cyan/25 bg-gradient-to-br from-cyan/[0.07] via-cyan/[0.02] to-surface-2/60 p-5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3 border-b border-cyan/20 pb-3 mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan/15 text-cyan">
+                            <Type size={15} strokeWidth={2.5} />
+                          </span>
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+                              Section Badge, Header &amp; Subtitle
+                              <span className="inline-flex items-center rounded-full bg-cyan/15 px-2 py-0.5 text-[10px] font-semibold text-cyan">
+                                Header Config
+                              </span>
+                            </h4>
+                            <p className="text-[11px] text-text-muted">
+                              Customize the top badge pill, title, and subtitle displayed above the documents grid
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <Input
+                          label="Badge Text (Pill above heading)"
+                          value={settingsForm.destinationSectionHeadings?.documentsBadge ?? ""}
+                          placeholder="Verified & Secure"
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                documentsBadge: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Heading Text"
+                          value={settingsForm.destinationSectionHeadings?.documentsHeading ?? ""}
+                          placeholder="Documents Required"
+                          helperText="Appears as '{Heading} for [Country Name] Visa' on client page"
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                documentsHeading: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Subtitle Text"
+                          value={settingsForm.destinationSectionHeadings?.documentsSubtitle ?? ""}
+                          placeholder="To proceed with the application immediately"
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              destinationSectionHeadings: {
+                                ...(p.destinationSectionHeadings || {}),
+                                documentsSubtitle: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-4 w-full max-w-none">
+                      <div className="pt-2">
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          leftIcon={<Save size={14} />}
+                          loading={savingSettingsKey === "destination-content"}
+                          onClick={() =>
+                            saveDestinationContentSection({
+                              sectionKey: "documents",
+                              successMessage: "Documents Required headers saved.",
                             })
                           }
                         >

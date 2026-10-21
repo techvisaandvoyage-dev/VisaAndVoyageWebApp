@@ -13,6 +13,7 @@ const PassportUploadRow = ({
   helperText = "",
   fileSizeText = "",
   savedText = "Passport uploaded",
+  uploadLabel = "Upload",
   reuploadLabel = "Re-upload",
   onChange,
   onReupload,
@@ -146,7 +147,7 @@ const PassportUploadRow = ({
                 disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-cyan/25"
               }`}
             >
-              {file ? "Replace" : "Upload"}
+              {file ? (reuploadLabel || "Replace") : (uploadLabel || "Upload")}
             </label>
           </div>
         )}

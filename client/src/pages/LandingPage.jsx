@@ -73,6 +73,31 @@ const DEFAULT_HERO_HIGHLIGHTS = [
   },
 ];
 
+const HERO_HIGHLIGHTS_CACHE_KEY = "vv_landing_hero_highlights_v1";
+
+const loadCachedHeroHighlights = () => {
+  if (typeof window === "undefined") return DEFAULT_HERO_HIGHLIGHTS;
+  try {
+    const raw = window.localStorage.getItem(HERO_HIGHLIGHTS_CACHE_KEY);
+    if (!raw) return DEFAULT_HERO_HIGHLIGHTS;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length) {
+      return DEFAULT_HERO_HIGHLIGHTS.map((fallback, index) => {
+        const item = parsed[index];
+        if (!item) return fallback;
+        const iconName = item.icon;
+        return {
+          ...fallback,
+          icon: AVAILABLE_ICONS[iconName] || fallback.icon,
+          title: String(item.title ?? "").trim() || fallback.title,
+          body: String(item.body ?? "").trim() || fallback.body,
+        };
+      });
+    }
+  } catch {}
+  return DEFAULT_HERO_HIGHLIGHTS;
+};
+
 // ── Animation variants ─────────────────────────────────────
 const POPULAR_COUNTRIES_CACHE_KEY = "vb_popular_countries_home_v3";
 const POPULAR_COUNTRIES_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -127,7 +152,7 @@ const LandingPage = () => {
   // Global requirements for merging logic on cards
   const [globalRequirements, setGlobalRequirements] = useState([]);
   const [showVisaRequirements, setShowVisaRequirements] = useState(false);
-  const [heroHighlights, setHeroHighlights] = useState(DEFAULT_HERO_HIGHLIGHTS);
+  const [heroHighlights, setHeroHighlights] = useState(() => loadCachedHeroHighlights());
   const [popularCountryCards, setPopularCountryCards] = useState(() => loadPopularCountriesCache());
   const [popularCountriesLoading, setPopularCountriesLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNTRY_CARD_COUNT);
@@ -223,13 +248,19 @@ const LandingPage = () => {
 
   useEffect(() => {
     let alive = true;
-    const cancelSchedule = scheduleAfterPaint(async () => {
+    const fetchDestinationContent = async () => {
       try {
         const { data } = await api.get("/config/destination-content");
         if (alive && data?.success) {
           if (data.config?.visaRequirements) setGlobalRequirements(data.config.visaRequirements);
           if (data.config?.showVisaRequirements !== undefined) setShowVisaRequirements(data.config.showVisaRequirements);
           if (Array.isArray(data.config?.landingHeroHighlights) && data.config.landingHeroHighlights.length) {
+            try {
+              window.localStorage.setItem(
+                HERO_HIGHLIGHTS_CACHE_KEY,
+                JSON.stringify(data.config.landingHeroHighlights)
+              );
+            } catch {}
             setHeroHighlights(
               DEFAULT_HERO_HIGHLIGHTS.map((fallback, index) => {
                 const iconName = data.config.landingHeroHighlights[index]?.icon;
@@ -246,10 +277,10 @@ const LandingPage = () => {
       } catch (err) {
         console.error("Failed to fetch global requirements:", err);
       }
-    });
+    };
+    fetchDestinationContent();
     return () => {
       alive = false;
-      cancelSchedule?.();
     };
   }, []);
 
@@ -856,191 +887,7 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* ── Pinned Filters (visible on scroll, desktop only) ── */}
-          {siteConfig?.landingPage?.hideFilter !== true && (
-            <div
-              className={`fixed inset-x-0 top-[72px] z-[990] flex h-[64px] items-center justify-center transition-all duration-300 pointer-events-none ${
-                isFilterPinned && !effectiveMobileSearchExpanded ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
-              }`}
-            >
-              <div className="hidden lg:flex items-center gap-3 filter-dropdown-container pointer-events-auto">
-                {/* Visa Type */}
-                <div className="relative">
-                  <button type="button" onClick={() => setOpenDropdown(openDropdown === 'pinnedVisaType' ? null : 'pinnedVisaType')} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-text-primary shadow-sm  transition-colors hover:border-cyan hover:text-cyan">
-                    {selectedVisaType} <ChevronDown size={14} className={`transition-transform ${openDropdown === 'pinnedVisaType' ? "rotate-180" : ""}`} />
-                  </button>
-                  {openDropdown === 'pinnedVisaType' && (
-                    <div className="absolute left-0 top-full mt-2 w-48 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
-                      {visaTypes.map((type) => (
-                        <button key={type} onClick={() => { setSelectedVisaType(type); setOpenDropdown(null); }} className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${selectedVisaType === type ? "bg-cyan/10 text-cyan font-semibold" : "text-text-secondary hover:bg-white hover:text-text-primary"}`}>{type}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {/* Validity */}
-                <div className="relative">
-                  <button type="button" onClick={() => setOpenDropdown(openDropdown === 'pinnedValidity' ? null : 'pinnedValidity')} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-text-primary shadow-sm  transition-colors hover:border-cyan hover:text-cyan">
-                    {selectedValidity} <ChevronDown size={14} className={`transition-transform ${openDropdown === 'pinnedValidity' ? "rotate-180" : ""}`} />
-                  </button>
-                  {openDropdown === 'pinnedValidity' && (
-                    <div className="absolute left-0 top-full mt-2 w-48 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
-                      {validities.map((val) => (
-                        <button key={val} onClick={() => { setSelectedValidity(val); setOpenDropdown(null); }} className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${selectedValidity === val ? "bg-cyan/10 text-cyan font-semibold" : "text-text-secondary hover:bg-white hover:text-text-primary"}`}>{val}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {/* Length of Stay */}
-                <div className="relative">
-                  <button type="button" onClick={() => setOpenDropdown(openDropdown === 'pinnedLength' ? null : 'pinnedLength')} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-text-primary shadow-sm  transition-colors hover:border-cyan hover:text-cyan">
-                    {selectedLengthOfStay} <ChevronDown size={14} className={`transition-transform ${openDropdown === 'pinnedLength' ? "rotate-180" : ""}`} />
-                  </button>
-                  {openDropdown === 'pinnedLength' && (
-                    <div className="absolute left-0 top-full mt-2 w-56 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
-                      {lengthsOfStay.map((len) => (
-                        <button key={len} onClick={() => { setSelectedLengthOfStay(len); setOpenDropdown(null); }} className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${selectedLengthOfStay === len ? "bg-cyan/10 text-cyan font-semibold" : "text-text-secondary hover:bg-white hover:text-text-primary"}`}>{len}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {/* Entry Type */}
-                <div className="relative">
-                  <button type="button" onClick={() => setOpenDropdown(openDropdown === 'pinnedEntry' ? null : 'pinnedEntry')} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-text-primary shadow-sm  transition-colors hover:border-cyan hover:text-cyan">
-                    {selectedEntryType} <ChevronDown size={14} className={`transition-transform ${openDropdown === 'pinnedEntry' ? "rotate-180" : ""}`} />
-                  </button>
-                  {openDropdown === 'pinnedEntry' && (
-                    <div className="absolute left-0 top-full mt-2 w-48 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
-                      {entryTypes.map((type) => (
-                        <button key={type} onClick={() => { setSelectedEntryType(type); setOpenDropdown(null); }} className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${selectedEntryType === type ? "bg-cyan/10 text-cyan font-semibold" : "text-text-secondary hover:bg-white hover:text-text-primary"}`}>{type}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {(selectedVisaType !== "All Visa Types" || selectedValidity !== "Any Validity" || selectedLengthOfStay !== "Any Length of Stay" || selectedEntryType !== "Any Entry Type") && (
-                  <button onClick={clearFilters} className="flex items-center gap-1.5 rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-rose-50 hover:text-rose-600 ml-2">
-                    <X size={14} /> Clear
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
 
-          {/* ── Standard Filter Bar (always visible in hero, sleek design) ── */}
-          {siteConfig?.landingPage?.hideFilter !== true && (
-            <div ref={filterAnchorRef} className="relative z-30 mx-auto mt-6 sm:mt-8 w-full max-w-6xl flex flex-col lg:flex-row lg:items-center rounded-3xl lg:rounded-[48px] bg-white p-2 lg:p-2 filter-dropdown-container animate-home-enter [animation-delay:40ms]">
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-1 lg:items-center w-full">
-                
-                {/* Visa Type */}
-                <div className="relative w-full lg:flex-1">
-                  <button type="button" onClick={() => setOpenDropdown(openDropdown === 'heroVisaType' ? null : 'heroVisaType')} className="flex items-center justify-between w-full p-2 sm:p-3 lg:px-5 lg:py-2 hover:bg-white transition-colors lg:rounded-[36px] rounded-2xl group text-left">
-                    <div className="flex items-center gap-3 lg:gap-4 min-w-0">
-                      <div className="flex-shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-[#eff4ff] text-[#0052cc] flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <FileText size={20} className="lg:w-5 lg:h-5" strokeWidth={1.5} />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[11px] lg:text-xs font-medium text-slate-500 mb-0.5">Visa Type</span>
-                        <span className="text-sm lg:text-[15px] font-semibold text-slate-900 truncate">{selectedVisaType}</span>
-                      </div>
-                    </div>
-                    <ChevronDown size={18} className={`text-slate-400 transition-transform flex-shrink-0 ml-2 ${openDropdown === 'heroVisaType' ? "rotate-180 text-[#0052cc]" : "group-hover:text-[#0052cc]"}`} />
-                  </button>
-                  {openDropdown === 'heroVisaType' && (
-                    <div className="absolute left-0 top-full z-10 mt-2 w-[calc(100vw-3rem)] sm:w-64 lg:w-full rounded-2xl border border-slate-100 bg-white p-2 shadow-xl">
-                      {visaTypes.map((type) => (
-                        <button key={type} onClick={() => { setSelectedVisaType(type); setOpenDropdown(null); }} className={`w-full rounded-xl px-4 py-2.5 text-left text-sm transition-colors ${selectedVisaType === type ? "bg-[#eff4ff] text-[#0052cc] font-semibold" : "text-slate-600 hover:bg-white hover:text-slate-900"}`}>{type}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="hidden lg:block w-[1px] h-10 bg-slate-100 flex-shrink-0 mx-1" />
-
-                {/* Validity */}
-                <div className="relative w-full lg:flex-1">
-                  <button type="button" onClick={() => setOpenDropdown(openDropdown === 'heroValidity' ? null : 'heroValidity')} className="flex items-center justify-between w-full p-2 sm:p-3 lg:px-5 lg:py-2 hover:bg-white transition-colors lg:rounded-[36px] rounded-2xl group text-left">
-                    <div className="flex items-center gap-3 lg:gap-4 min-w-0">
-                      <div className="flex-shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-[#eff4ff] text-[#0052cc] flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <CalendarDays size={20} className="lg:w-5 lg:h-5" strokeWidth={1.5} />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[11px] lg:text-xs font-medium text-slate-500 mb-0.5">Validity</span>
-                        <span className="text-sm lg:text-[15px] font-semibold text-slate-900 truncate">{selectedValidity}</span>
-                      </div>
-                    </div>
-                    <ChevronDown size={18} className={`text-slate-400 transition-transform flex-shrink-0 ml-2 ${openDropdown === 'heroValidity' ? "rotate-180 text-[#0052cc]" : "group-hover:text-[#0052cc]"}`} />
-                  </button>
-                  {openDropdown === 'heroValidity' && (
-                    <div className="absolute left-0 top-full z-10 mt-2 w-[calc(100vw-3rem)] sm:w-64 lg:w-full rounded-2xl border border-slate-100 bg-white p-2 shadow-xl">
-                      {validities.map((val) => (
-                        <button key={val} onClick={() => { setSelectedValidity(val); setOpenDropdown(null); }} className={`w-full rounded-xl px-4 py-2.5 text-left text-sm transition-colors ${selectedValidity === val ? "bg-[#eff4ff] text-[#0052cc] font-semibold" : "text-slate-600 hover:bg-white hover:text-slate-900"}`}>{val}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="hidden lg:block w-[1px] h-10 bg-slate-100 flex-shrink-0 mx-1" />
-
-                {/* Length of Stay */}
-                <div className="relative w-full lg:flex-1">
-                  <button type="button" onClick={() => setOpenDropdown(openDropdown === 'heroLength' ? null : 'heroLength')} className="flex items-center justify-between w-full p-2 sm:p-3 lg:px-5 lg:py-2 hover:bg-white transition-colors lg:rounded-[36px] rounded-2xl group text-left">
-                    <div className="flex items-center gap-3 lg:gap-4 min-w-0">
-                      <div className="flex-shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-[#eff4ff] text-[#0052cc] flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <Clock size={20} className="lg:w-5 lg:h-5" strokeWidth={1.5} />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[11px] lg:text-xs font-medium text-slate-500 mb-0.5">Length of Stay</span>
-                        <span className="text-sm lg:text-[15px] font-semibold text-slate-900 truncate">{selectedLengthOfStay}</span>
-                      </div>
-                    </div>
-                    <ChevronDown size={18} className={`text-slate-400 transition-transform flex-shrink-0 ml-2 ${openDropdown === 'heroLength' ? "rotate-180 text-[#0052cc]" : "group-hover:text-[#0052cc]"}`} />
-                  </button>
-                  {openDropdown === 'heroLength' && (
-                    <div className="absolute right-0 lg:left-0 top-full z-10 mt-2 w-[calc(100vw-3rem)] sm:w-64 lg:w-full rounded-2xl border border-slate-100 bg-white p-2 shadow-xl">
-                      {lengthsOfStay.map((len) => (
-                        <button key={len} onClick={() => { setSelectedLengthOfStay(len); setOpenDropdown(null); }} className={`w-full rounded-xl px-4 py-2.5 text-left text-sm transition-colors ${selectedLengthOfStay === len ? "bg-[#eff4ff] text-[#0052cc] font-semibold" : "text-slate-600 hover:bg-white hover:text-slate-900"}`}>{len}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="hidden lg:block w-[1px] h-10 bg-slate-100 flex-shrink-0 mx-1" />
-
-                {/* Entry Type */}
-                <div className="relative w-full lg:flex-1">
-                  <button type="button" onClick={() => setOpenDropdown(openDropdown === 'heroEntry' ? null : 'heroEntry')} className="flex items-center justify-between w-full p-2 sm:p-3 lg:px-5 lg:py-2 hover:bg-white transition-colors lg:rounded-[36px] rounded-2xl group text-left">
-                    <div className="flex items-center gap-3 lg:gap-4 min-w-0">
-                      <div className="flex-shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-[#eff4ff] text-[#0052cc] flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <Plane size={20} className="lg:w-5 lg:h-5" strokeWidth={1.5} />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[11px] lg:text-xs font-medium text-slate-500 mb-0.5">Entry Type</span>
-                        <span className="text-sm lg:text-[15px] font-semibold text-slate-900 truncate">{selectedEntryType}</span>
-                      </div>
-                    </div>
-                    <ChevronDown size={18} className={`text-slate-400 transition-transform flex-shrink-0 ml-2 ${openDropdown === 'heroEntry' ? "rotate-180 text-[#0052cc]" : "group-hover:text-[#0052cc]"}`} />
-                  </button>
-                  {openDropdown === 'heroEntry' && (
-                    <div className="absolute right-0 lg:left-0 top-full z-10 mt-2 w-[calc(100vw-3rem)] sm:w-64 lg:w-[120%] rounded-2xl border border-slate-100 bg-white p-2 shadow-xl">
-                      {entryTypes.map((type) => (
-                        <button key={type} onClick={() => { setSelectedEntryType(type); setOpenDropdown(null); }} className={`w-full rounded-xl px-4 py-2.5 text-left text-sm transition-colors ${selectedEntryType === type ? "bg-[#eff4ff] text-[#0052cc] font-semibold" : "text-slate-600 hover:bg-white hover:text-slate-900"}`}>{type}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Clear All */}
-                {(selectedVisaType !== "All Visa Types" || selectedValidity !== "Any Validity" || selectedLengthOfStay !== "Any Length of Stay" || selectedEntryType !== "Any Entry Type") && (
-                  <div className="col-span-1 sm:col-span-2 lg:col-span-1 flex justify-center lg:justify-end lg:pr-4 mt-2 lg:mt-0">
-                    <button onClick={clearFilters} className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-rose-500 transition-colors whitespace-nowrap lg:p-2 lg:bg-white lg:hover:bg-rose-50 lg:rounded-full">
-                      <span className="lg:hidden">Clear all filters</span>
-                      <X size={16} className="hidden lg:block" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           <div
             className="mx-auto mt-6 w-full max-w-5xl rounded-2xl bg-white px-4 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.03)] sm:mt-8 sm:px-6 animate-home-enter [animation-delay:80ms]"

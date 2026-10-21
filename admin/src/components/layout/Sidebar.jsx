@@ -29,11 +29,12 @@ const ADMIN_NAV = [
   { label: "Activity Center",  icon: BarChart2,         to: "/activity",     id: "nav-admin-activity", inlineTree: true,
     subItems: [
       { label: "Analytics", sectionKey: "analytics" },
+      { label: "Visitor Analytics", sectionKey: "visitor-analytics" },
       { label: "Applications", sectionKey: "applications" },
       { label: "Transactions", sectionKey: "transactions" },
     ]
   },
-  { label: "Header",           icon: Home,              to: "/landing-page", id: "nav-admin-landing", inlineTree: true,
+  { label: "Header",           icon: Home,              to: "/header", id: "nav-admin-landing", inlineTree: true,
     subItems: [
       {
         label: "Navbar",
@@ -47,7 +48,7 @@ const ADMIN_NAV = [
       },
     ]
   },
-  { label: "Body",             icon: CreditCard,        to: "/cards",        id: "nav-admin-cards", inlineTree: true,
+  { label: "Body",             icon: CreditCard,        to: "/body",        id: "nav-admin-cards", inlineTree: true,
     subItems: [
       {
         label: "Hero",
@@ -81,12 +82,13 @@ const ADMIN_NAV = [
             label: "Visa Information Page",
             isGroup: true,
             children: [
+              { label: "Info", sectionKey: "info-section" },
               { label: "How it works", sectionKey: "how-it-works" },
               { label: "Why book now?", sectionKey: "why-book-now" },
+              { label: "Visa Requirements", sectionKey: "visa-requirements" },
               { label: "Documents", sectionKey: "documents" },
               { label: "What's included", sectionKey: "whats-included" },
               { label: "FAQs", sectionKey: "faqs" },
-              { label: "Visa Requirements", sectionKey: "visa-requirements" },
             ],
           },
           {

@@ -135,7 +135,49 @@ const verifyPayment = async (req, res) => {
     application.transactionId = razorpay_payment_id;
     application.paymentMethod = 'Razorpay';
     application.paymentStatus = 'completed';
-    if (application.status !== 'review') {
+    const Settings = require('../models/Settings');
+    const settings = await Settings.findOne({}) || {};
+    const incoming = Array.isArray(application.requiredDocuments) && application.requiredDocuments.length
+      ? application.requiredDocuments
+      : ['passport'];
+    const normalized = incoming.map((key) => String(key || "").trim()).filter(Boolean);
+    const unique = Array.from(new Set(normalized));
+    const optionalKeys = settings.enableFileUpload === false
+      ? []
+      : unique.filter((key) => key !== "passport");
+    const requiredDocs = ["passport", ...optionalKeys];
+
+    const travellers = Array.isArray(application.travellerDocuments) ? application.travellerDocuments : [];
+    const travellerCount = Math.max(1, application.travellerCount || 1);
+
+    let allUploaded = true;
+    for (let tNo = 1; tNo <= travellerCount; tNo += 1) {
+      const tr = travellers.find((entry) => Number(entry?.travelerNo) === tNo);
+      if (!tr) {
+        allUploaded = false;
+        continue;
+      }
+      let travelerDocsUploaded = true;
+      const docs = tr.documents || {};
+      for (const key of requiredDocs) {
+        const val = typeof docs.get === 'function' ? docs.get(key) : docs[key];
+        if (!val || typeof val !== 'string' || !val.trim()) {
+          travelerDocsUploaded = false;
+          allUploaded = false;
+          break;
+        }
+      }
+      if (travelerDocsUploaded) {
+        if (!tr.status || tr.status === 'pending' || tr.status === 'doc_pending') {
+          tr.status = 'review';
+        }
+      }
+    }
+    application.markModified('travellerDocuments');
+
+    if (allUploaded && application.status !== 'approved' && application.status !== 'rejected' && application.status !== 'cancelled') {
+      application.status = 'review';
+    } else if (application.status !== 'review') {
       application.status = 'pending';
     }
     const orderLine = `Razorpay order: ${razorpay_order_id}`;

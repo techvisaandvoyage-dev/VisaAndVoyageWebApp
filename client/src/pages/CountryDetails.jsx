@@ -66,11 +66,12 @@ import {
   needsPhoneContactGate,
   needsEmailContactGate,
 } from "../utils/contactVerificationGate";
-import { loadTravelDraft, saveTravelDraft } from "../utils/travelDraftStorage";
+import { clearTravelDraft, loadTravelDraft, saveTravelDraft } from "../utils/travelDraftStorage";
 import { getLocalDateYmd } from "../utils/dateInput";
 import { matchesCountryRouteId, getCountryRouteId } from "../utils/countryRouting";
 import { getCountryFlagEmoji, getIsoAlpha2FromCountryName } from "../utils/countrySearch";
 import { formatOrdinalDate } from "../utils/dateUtils";
+import { trackEvent } from "../hooks/useVisitorTracking";
 
 import FilePreviewModal from "../components/ui/FilePreviewModal";
 import { getFileUrl } from "../utils/fileUrl";
@@ -503,10 +504,25 @@ const CountryDetails = () => {
     return DOCUMENT_DESCRIPTIONS[key] || "Supporting document required for visa processing.";
   };
 
+  const getInitialDraft = () => {
+    if (!countryId) return null;
+    try {
+      return loadTravelDraft(countryId);
+    } catch {
+      return null;
+    }
+  };
+
   // ── All hooks must be called before any conditional return (Rules of Hooks) ──
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
-  const [showTravelDetails, setShowTravelDetails] = useState(false);
-  const [visaOption, setVisaOption] = useState("e-Visa");
+  const [showTravelDetails, setShowTravelDetails] = useState(() => {
+    const draft = getInitialDraft();
+    return Boolean(draft?.showTravelDetails);
+  });
+  const [visaOption, setVisaOption] = useState(() => {
+    const draft = getInitialDraft();
+    return draft?.visaOption ? String(draft.visaOption) : "e-Visa";
+  });
   const [activeVisaTypes, setActiveVisaTypes] = useState([]);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const pendingAuthActionRef = useRef(null);
@@ -571,6 +587,9 @@ const CountryDetails = () => {
     (async () => {
       try {
         await api.post(`/countries/${encodeURIComponent(visitId)}/visit`);
+        if (!cancelled && country?.name) {
+          trackEvent("country_selected", { country: country.name });
+        }
         if (cancelled) return;
         try {
           window.localStorage.setItem(storageKey, String(Date.now()));
@@ -589,19 +608,50 @@ const CountryDetails = () => {
     };
   }, [country?._id, country?.slug, country?.id]);
 
-  const [travelDateFrom, setTravelDateFrom] = useState("");
-  const [travelDateTo, setTravelDateTo] = useState("");
+  const [travelDateFrom, setTravelDateFrom] = useState(() => {
+    const draft = getInitialDraft();
+    const today = getLocalDateYmd();
+    let from = draft?.travelDateFrom ? String(draft.travelDateFrom).trim() : "";
+    if (from && from < today) from = "";
+    return from;
+  });
+  const [travelDateTo, setTravelDateTo] = useState(() => {
+    const draft = getInitialDraft();
+    const today = getLocalDateYmd();
+    let from = draft?.travelDateFrom ? String(draft.travelDateFrom).trim() : "";
+    let to = draft?.travelDateTo ? String(draft.travelDateTo).trim() : "";
+    if (from && from < today) from = "";
+    if (to && to < today) to = "";
+    if (!from) to = "";
+    if (from && to && to < from) to = from;
+    return to;
+  });
   /** Open/closed state for the date-range calendar popup. */
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [travelers, setTravelers] = useState([createTravelerState()]);
-  const [sharedDriveLink, setSharedDriveLink] = useState("");
-  const [sharedDriveLinkVerified, setSharedDriveLinkVerified] = useState(false);
+  const [travelers, setTravelers] = useState(() => {
+    const draft = getInitialDraft();
+    if (Array.isArray(draft?.travelers) && draft.travelers.length > 0) {
+      return draft.travelers.map((t) => ({ ...createTravelerState(), name: String(t?.name || "") }));
+    }
+    return [createTravelerState()];
+  });
+  const [sharedDriveLink, setSharedDriveLink] = useState(() => {
+    const draft = getInitialDraft();
+    return draft?.sharedDriveLink ? String(draft.sharedDriveLink).trim() : "";
+  });
+  const [sharedDriveLinkVerified, setSharedDriveLinkVerified] = useState(() => {
+    const draft = getInitialDraft();
+    return Boolean(draft?.sharedDriveLink && String(draft.sharedDriveLink).trim());
+  });
   const [paymentSummaryOpen, setPaymentSummaryOpen] = useState(false);
   const [visaTermsAccepted, setVisaTermsAccepted] = useState(false);
   const [razorpayReady, setRazorpayReady] = useState(false);
   const [razorpayCheckLoading, setRazorpayCheckLoading] = useState(false);
   const [razorpayReadyMessage, setRazorpayReadyMessage] = useState("");
-  const [currentApplicationId, setCurrentApplicationId] = useState("");
+  const [currentApplicationId, setCurrentApplicationId] = useState(() => {
+    const draft = getInitialDraft();
+    return draft?.applicationId ? String(draft.applicationId) : "";
+  });
   const [uploadSettings, setUploadSettings] = useState(() => {
     try {
       const raw = localStorage.getItem("vb-upload-settings");
@@ -617,22 +667,45 @@ const CountryDetails = () => {
   const [passportUploading, setPassportUploading] = useState({});
   const [passportOptimizing, setPassportOptimizing] = useState({});
   const [passportErrors, setPassportErrors] = useState({});
-  const [passportSuccesses, setPassportSuccesses] = useState({});
-  const [passportDetails, setPassportDetails] = useState({});
-  const [hiddenPassportTravelerNos, setHiddenPassportTravelerNos] = useState({});
+  const [passportSuccesses, setPassportSuccesses] = useState(() => {
+    const draft = getInitialDraft();
+    return draft?.passportSuccesses && typeof draft.passportSuccesses === "object" ? draft.passportSuccesses : {};
+  });
+  const [passportDetails, setPassportDetails] = useState(() => {
+    const draft = getInitialDraft();
+    return draft?.passportDetails && typeof draft.passportDetails === "object" ? draft.passportDetails : {};
+  });
+  const [hiddenPassportTravelerNos, setHiddenPassportTravelerNos] = useState(() => {
+    const draft = getInitialDraft();
+    return draft?.hiddenPassportTravelerNos && typeof draft.hiddenPassportTravelerNos === "object" ? draft.hiddenPassportTravelerNos : {};
+  });
   const [passportPreview, setPassportPreview] = useState(null);
   const [docUploading, setDocUploading] = useState({});
   const [docOptimizing, setDocOptimizing] = useState({});
   const [docErrors, setDocErrors] = useState({});
-  const [uploadedDocSuccesses, setUploadedDocSuccesses] = useState({});
-  const [uploadedDocDetails, setUploadedDocDetails] = useState({});
+  const [uploadedDocSuccesses, setUploadedDocSuccesses] = useState(() => {
+    const draft = getInitialDraft();
+    return draft?.uploadedDocSuccesses && typeof draft.uploadedDocSuccesses === "object" ? draft.uploadedDocSuccesses : {};
+  });
+  const [uploadedDocDetails, setUploadedDocDetails] = useState(() => {
+    const draft = getInitialDraft();
+    return draft?.uploadedDocDetails && typeof draft.uploadedDocDetails === "object" ? draft.uploadedDocDetails : {};
+  });
   const [documentPreview, setDocumentPreview] = useState(null);
   const travelerNameInputRefs = useRef({});
   const sharedDriveLinkInputRef = useRef(null);
   const startApplicationCardRef = useRef(null);
   const driveLinkSaveTimerRef = useRef(null);
   const startApplicationCardSeenRef = useRef(false);
-  const [destinationPageContent, setDestinationPageContent] = useState(null);
+  const [destinationPageContent, setDestinationPageContent] = useState(() => {
+    try {
+      const cached = localStorage.getItem("vb-destination-content");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const startAppCopy = destinationPageContent?.startApplicationPageCopy || {};
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [contactModalMode, setContactModalMode] = useState("phone");
   const [contactGateDismissed, setContactGateDismissed] = useState(false);
@@ -642,13 +715,21 @@ const CountryDetails = () => {
   const [showStickyStartCta, setShowStickyStartCta] = useState(false);
 
   useEffect(() => {
-    if (showStickyStartCta) {
-      document.body.classList.add("has-sticky-cta");
-    } else {
-      document.body.classList.remove("has-sticky-cta");
-    }
-    return () => document.body.classList.remove("has-sticky-cta");
-  }, [showStickyStartCta]);
+    const timer = setTimeout(() => {
+      if (!country?.name || !showTravelDetails) return;
+      const nameEntered = travelers.map(t => String(t.name || "").trim()).filter(Boolean).join(", ");
+      trackEvent('draft_updated', {
+        draftDetails: {
+          travelDate: travelDateFrom || undefined,
+          returnDate: travelDateTo || undefined,
+          travellerCount: travelers.length,
+          nameEntered: nameEntered || undefined
+        }
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [travelDateFrom, travelDateTo, travelers, country?.name, showTravelDetails]);
+
   /**
    * When a guest hits an action that requires authentication ("Upload docs
    * first" / "Upload docs later"), we attach a `?postLoginAction=<key>` to the
@@ -979,7 +1060,14 @@ const CountryDetails = () => {
     (async () => {
       try {
         const { data } = await api.get("/config/destination-content");
-        if (alive && data?.success && data.config) setDestinationPageContent(data.config);
+        if (alive && data?.success && data.config) {
+          setDestinationPageContent(data.config);
+          try {
+            localStorage.setItem("vb-destination-content", JSON.stringify(data.config));
+          } catch {
+            /* ignore */
+          }
+        }
       } catch {
         /* keep fallbacks below */
       }
@@ -1148,7 +1236,11 @@ const CountryDetails = () => {
   useEffect(() => {
     if (!countryId) return;
     const draft = loadTravelDraft(countryId);
-    if (!draft) return;
+    if (!draft) {
+      setShowTravelDetails(false);
+      return;
+    }
+    setShowTravelDetails(Boolean(draft.showTravelDetails));
     const today = getLocalDateYmd();
     let from = draft.travelDateFrom != null && String(draft.travelDateFrom).length
       ? String(draft.travelDateFrom).trim()
@@ -1193,9 +1285,7 @@ const CountryDetails = () => {
     if (draft.uploadedDocDetails && typeof draft.uploadedDocDetails === "object") {
       setUploadedDocDetails(draft.uploadedDocDetails);
     }
-    if (draft.showTravelDetails) {
-      setShowTravelDetails(true);
-    }
+
   }, [countryId]);
 
   useEffect(() => {
@@ -1481,13 +1571,13 @@ const CountryDetails = () => {
     featured: false,
   }));
   const documentSectionCopy = {
-    requiredHeading: String(country?.documentSectionCopy?.requiredHeading ?? "Documents Required").trim() || "Documents Required",
+    requiredHeading: String(startAppCopy?.requiredDocsHeading || country?.documentSectionCopy?.requiredHeading || "Documents Required").trim() || "Documents Required",
     requiredDescription:
-      String(country?.documentSectionCopy?.requiredDescription ?? "These are the country documents required for this application.").trim() ||
+      String(startAppCopy?.requiredDocsDescription || country?.documentSectionCopy?.requiredDescription || "These are the country documents required for this application.").trim() ||
       "These are the country documents required for this application.",
-    optionalHeading: String(country?.documentSectionCopy?.optionalHeading ?? "Optional Documents").trim() || "Optional Documents",
+    optionalHeading: String(startAppCopy?.optionalDocsHeading || country?.documentSectionCopy?.optionalHeading || "Optional Documents").trim() || "Optional Documents",
     optionalDescription:
-      String(country?.documentSectionCopy?.optionalDescription ?? "You can also attach other documents in the same Drive link.").trim() ||
+      String(startAppCopy?.optionalDocsDescription || country?.documentSectionCopy?.optionalDescription || "You can also attach other documents in the same Drive link.").trim() ||
       "You can also attach other documents in the same Drive link.",
   };
   const travelDetailsRequiredDocumentFields = requiredDocumentKeys.map((key) => ({
@@ -1528,7 +1618,7 @@ const CountryDetails = () => {
 
   const renderTravelDetailsDocumentSections = () => (
     <div className="space-y-6">
-      {countryDisplay?.showDestinationRequiredDocs !== false && (
+      {startAppCopy?.showRequiredDocs !== false && countryDisplay?.showDestinationRequiredDocs !== false && (
       <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_42%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_24px_70px_-42px_rgba(15,23,42,0.24)]">
         <div className="flex flex-col sm:flex-row items-start gap-4 px-5 py-6 sm:px-7">
           <span className="self-center sm:self-start flex h-[64px] w-[64px] shrink-0 items-center justify-center rounded-[24px] bg-sky-50 text-cyan shadow-inner shadow-sky-100/60">
@@ -1578,7 +1668,7 @@ const CountryDetails = () => {
       </div>
       )}
 
-      {countryDisplay?.showDestinationOptionalDocs !== false && travelDetailsOtherDocumentFields.length > 0 ? (
+      {startAppCopy?.showOptionalDocs !== false && countryDisplay?.showDestinationOptionalDocs !== false && travelDetailsOtherDocumentFields.length > 0 ? (
         <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_42%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_24px_70px_-42px_rgba(15,23,42,0.24)]">
           <div className="flex flex-col sm:flex-row items-start gap-4 px-5 py-6 sm:px-7">
             <span className="self-center sm:self-start flex h-[64px] w-[64px] shrink-0 items-center justify-center rounded-[24px] bg-sky-50 text-cyan shadow-inner shadow-sky-100/60">
@@ -2025,29 +2115,32 @@ const CountryDetails = () => {
       const persist = async () => {
         const normalized = trimmed ? normalizeDriveLink(trimmed) : "";
         setSharedDriveLink(normalized);
-        if (!localStorage.getItem("token")) {
-          setSharedDriveLinkVerified(Boolean(normalized));
+        
+        if (!normalized) {
+          setSharedDriveLinkVerified(false);
           return;
         }
 
-        try {
-          const appId = await createCheckoutDraftAndSetId();
-          if (appId) {
-            const { data } = await api.put(`/users/applications/${appId}`, {
-              gdriveLink: normalized,
-            });
-            if (data?.success && data.application) {
-              setCurrentApplicationId(data.application._id || appId);
-              await fetchUserApplications();
+        requireAuth(async () => {
+          try {
+            const appId = await createCheckoutDraftAndSetId();
+            if (appId) {
+              const { data } = await api.put(`/users/applications/${appId}`, {
+                gdriveLink: normalized,
+              });
+              if (data?.success && data.application) {
+                setCurrentApplicationId(data.application._id || appId);
+                await fetchUserApplications();
+              }
             }
+            setSharedDriveLinkVerified(Boolean(normalized));
+            showToast("Google Drive link saved.", "success");
+          } catch (err) {
+            showToast(err?.response?.data?.message || "Could not save Google Drive link.", "error");
+          } finally {
+            driveLinkSaveTimerRef.current = null;
           }
-          setSharedDriveLinkVerified(Boolean(normalized));
-          showToast("Google Drive link saved.", "success");
-        } catch (err) {
-          showToast(err?.response?.data?.message || "Could not save Google Drive link.", "error");
-        } finally {
-          driveLinkSaveTimerRef.current = null;
-        }
+        });
       };
 
       persist();
@@ -2124,18 +2217,27 @@ const CountryDetails = () => {
     };
   }, [visaRequirements]);
 
+  const isVisaRequirementsVisible = useMemo(() => {
+    const isEnabled =
+      destinationPageContent?.showVisaRequirements !== undefined
+        ? destinationPageContent.showVisaRequirements
+        : countryDisplay?.showVisaRequirements !== false;
+    return isEnabled && (parsedVisaRequirements.items.length > 0);
+  }, [destinationPageContent?.showVisaRequirements, countryDisplay?.showVisaRequirements, parsedVisaRequirements.items.length]);
+
   const SUB_NAV = useMemo(() => showTravelDetails
     ? [{ id: "travel-details", label: "Travel Details" }]
     : [
         { id: "info", label: "Info" },
-        ...(countryDisplay?.showHowItWorks !== false ? [{ id: "how-it-works", label: "How it works" }] : []),
-        ...(countryDisplay?.showWhyBookNow !== false ? [{ id: "why-book-now", label: "Why book now?" }] : []),
+        ...(countryDisplay?.showHowItWorks !== false ? [{ id: "how-it-works", label: destinationPageContent?.destinationSectionHeadings?.howItWorksHeading || "How it works" }] : []),
+        ...(isVisaRequirementsVisible ? [{ id: "visa-requirements", label: destinationPageContent?.destinationSectionHeadings?.visaRequirementsHeading || "Visa Requirements" }] : []),
+        ...(countryDisplay?.showWhyBookNow !== false ? [{ id: "why-book-now", label: destinationPageContent?.destinationSectionHeadings?.whyBookNowHeading ? `${destinationPageContent.destinationSectionHeadings.whyBookNowHeading}?` : "Why book now?" }] : []),
         ...(countryDisplay?.showDestinationDocuments !== false
-          ? [{ id: "document-requirements", label: "Document Requirements" }]
+          ? [{ id: "document-requirements", label: destinationPageContent?.destinationSectionHeadings?.documentsHeading || "Document Requirements" }]
           : []),
-        ...(countryDisplay?.showWhatsIncluded !== false ? [{ id: "whats-included", label: "What's Included" }] : []),
-        ...(countryDisplay?.showFaqs !== false ? [{ id: "faqs", label: "FAQs" }] : []),
-      ], [showTravelDetails, countryDisplay?.showHowItWorks, countryDisplay?.showWhyBookNow, countryDisplay?.showDestinationDocuments, countryDisplay?.showWhatsIncluded, countryDisplay?.showFaqs]);
+        ...(countryDisplay?.showWhatsIncluded !== false ? [{ id: "whats-included", label: destinationPageContent?.destinationSectionHeadings?.whatsIncludedHeading || "What's Included" }] : []),
+        ...(countryDisplay?.showFaqs !== false ? [{ id: "faqs", label: destinationPageContent?.destinationSectionHeadings?.faqsHeading || "FAQs" }] : []),
+      ], [showTravelDetails, countryDisplay?.showHowItWorks, isVisaRequirementsVisible, countryDisplay?.showWhyBookNow, countryDisplay?.showDestinationDocuments, countryDisplay?.showWhatsIncluded, countryDisplay?.showFaqs, destinationPageContent?.destinationSectionHeadings]);
 
   useEffect(() => {
     setActiveSubNav(SUB_NAV[0]?.id || "");
@@ -2226,6 +2328,7 @@ const CountryDetails = () => {
 
   const openTravelDetails = () => {
     setShowTravelDetails(true);
+    trackEvent('start_application', { country: country?.name });
     // Auto-save draft so a page refresh doesn't hide the form
     persistCurrentTravelDraft();
     setTimeout(() => scrollToSection("travel-details"), 100);
@@ -2252,6 +2355,8 @@ const CountryDetails = () => {
       passportSuccesses,
       passportDetails,
       hiddenPassportTravelerNos,
+      uploadedDocSuccesses,
+      uploadedDocDetails,
       showTravelDetails: true,
     });
     localStorage.setItem("lastActiveCountryId", countryId);
@@ -2279,7 +2384,9 @@ const CountryDetails = () => {
     travelers,
     passportSuccesses,
     passportDetails,
-    hiddenPassportTravelerNos
+    hiddenPassportTravelerNos,
+    uploadedDocSuccesses,
+    uploadedDocDetails,
   ]);
 
   /** Build the `redirect=` value used when a guest needs to log in mid-flow. */
@@ -2663,6 +2770,7 @@ const CountryDetails = () => {
         applicantName: user.name || "Applicant",
         applicantEmail: user.email || "",
         onSuccess: async () => {
+          clearTravelDraft(countryId);
           await fetchUserApplications();
           closePaymentSummaryModal();
           showToast("Payment successful! Complete your application on the dashboard.", "success");
@@ -2700,7 +2808,9 @@ const CountryDetails = () => {
       >
         <div className="mb-6 flex items-center justify-center gap-2">
           <ListChecks size={18} className="text-cyan" />
-          <h2 className="font-playfair text-3xl sm:text-5xl font-bold tracking-tight text-text-primary text-center">How it works</h2>
+          <h2 className="font-playfair text-3xl sm:text-5xl font-bold tracking-tight text-text-primary text-center">
+            {destinationPageContent?.destinationSectionHeadings?.howItWorksHeading || "How it works"}
+          </h2>
         </div>
         <ol className="space-y-4">
           {howItWorks.map((step, idx) => (
@@ -2725,7 +2835,7 @@ const CountryDetails = () => {
       </motion.section>
       )}
 
-      {countryDisplay?.showVisaRequirements !== false && (
+      {isVisaRequirementsVisible && (
         <motion.section
           id="visa-requirements"
           initial="initial"
@@ -2739,7 +2849,7 @@ const CountryDetails = () => {
                 <ScrollText size={34} strokeWidth={2} />
               </div>
               <h2 className="mt-5 font-playfair text-3xl sm:text-5xl font-bold tracking-tight text-text-primary">
-                Documents Required
+                {destinationPageContent?.destinationSectionHeadings?.visaRequirementsHeading || "Visa Requirements"}
               </h2>
               <div className="mx-auto mt-4 flex w-full max-w-xs items-center justify-center gap-4 text-cyan">
                 <span className="h-px flex-1 bg-cyan/40" />
@@ -2747,7 +2857,7 @@ const CountryDetails = () => {
                 <span className="h-px flex-1 bg-cyan/40" />
               </div>
               <p className="mx-auto mt-5 max-w-3xl text-base sm:text-xl text-text-secondary">
-                Please ensure you have the following documents ready for a smooth visa application process.
+                {destinationPageContent?.destinationSectionHeadings?.visaRequirementsSubtitle || "Please ensure you have the following documents ready for a smooth visa application process."}
               </p>
             </div>
 
@@ -2790,7 +2900,7 @@ const CountryDetails = () => {
                   <div className="flex-1">
                     <p className="text-sm sm:text-base font-semibold text-amber-700">Please Note</p>
                     <p className="mt-1 text-xs sm:text-sm leading-6 text-text-secondary">
-                      {parsedVisaRequirements.note}
+                      {destinationPageContent?.destinationSectionHeadings?.visaRequirementsNote || parsedVisaRequirements.note}
                     </p>
                   </div>
                   <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-2xl bg-white/70 text-amber-500">
@@ -2807,7 +2917,7 @@ const CountryDetails = () => {
       <motion.section id="why-book-now" initial="initial" animate="animate" variants={fadeUp} className="mx-auto max-w-4xl rounded-[2rem] bg-white px-3 py-5 sm:px-6 sm:py-7 md:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="font-playfair text-3xl sm:text-5xl font-bold tracking-tight text-text-primary">
-            Why book now
+            {destinationPageContent?.destinationSectionHeadings?.whyBookNowHeading || "Why book now"}
           </h2>
         </div>
 
@@ -2815,10 +2925,14 @@ const CountryDetails = () => {
             <div className="grid grid-cols-[minmax(0,1fr)_70px_70px] sm:grid-cols-[minmax(0,1.2fr)_120px_120px] md:grid-cols-[minmax(0,1.5fr)_190px_160px] items-end">
               <div className="px-2 sm:px-5 py-2 sm:py-3" />
               <div className="px-2 sm:px-5 py-2 sm:py-3 text-center">
-                <span className="text-xs sm:text-sm md:text-xl font-bold tracking-tight text-cyan">We Provides</span>
+                <span className="text-xs sm:text-sm md:text-xl font-bold tracking-tight text-cyan">
+                  {destinationPageContent?.destinationSectionHeadings?.whyBookNowColWeProvides || "We Provides"}
+                </span>
               </div>
               <div className="px-2 sm:px-5 py-2 sm:py-3 text-center">
-                <span className="text-xs sm:text-sm md:text-lg font-semibold text-text-muted">Others</span>
+                <span className="text-xs sm:text-sm md:text-lg font-semibold text-text-muted">
+                  {destinationPageContent?.destinationSectionHeadings?.whyBookNowColOthers || "Others"}
+                </span>
               </div>
             </div>
 
@@ -2884,14 +2998,16 @@ const CountryDetails = () => {
             <div className="relative mx-auto max-w-4xl text-center">
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan/15 bg-cyan/5 px-4 py-2 text-cyan shadow-[0_12px_30px_rgba(2,132,199,0.08)]">
                 <ShieldCheck size={18} strokeWidth={2.2} />
-                <span className="text-sm font-medium">Verified &amp; Secure</span>
+                <span className="text-sm font-medium">
+                  {destinationPageContent?.destinationSectionHeadings?.documentsBadge || "Verified & Secure"}
+                </span>
               </div>
               <h2 className="font-playfair text-3xl sm:text-5xl font-bold tracking-tight text-text-primary">
-                Documents Required
+                {destinationPageContent?.destinationSectionHeadings?.documentsHeading || "Documents Required"}
                 <span className="block text-cyan">for {country.name} Visa</span>
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-sm text-text-secondary sm:text-base">
-                To proceed with the application immediately
+                {destinationPageContent?.destinationSectionHeadings?.documentsSubtitle || "To proceed with the application immediately"}
               </p>
             </div>
 
@@ -2951,10 +3067,10 @@ const CountryDetails = () => {
           </div>
           <div>
             <h2 className="font-playfair text-3xl sm:text-5xl font-bold tracking-tight text-text-primary">
-              What's Included
+              {destinationPageContent?.destinationSectionHeadings?.whatsIncludedHeading || "What's Included"}
             </h2>
             <p className="text-text-secondary mt-2 text-base sm:text-lg max-w-xl mx-auto">
-              Everything you need for a smooth and hassle-free visa process.
+              {destinationPageContent?.destinationSectionHeadings?.whatsIncludedSubtitle || "Everything you need for a smooth and hassle-free visa process."}
             </p>
           </div>
 
@@ -3046,7 +3162,7 @@ const CountryDetails = () => {
       >
         <div className="mb-6 text-center">
           <h2 className="font-playfair text-3xl sm:text-5xl font-bold tracking-tight text-text-primary text-center">
-            Frequently Asked Questions
+            {destinationPageContent?.destinationSectionHeadings?.faqsHeading || "Frequently Asked Questions"}
           </h2>
         </div>
         <div className="divide-y divide-border/70">
@@ -3193,9 +3309,17 @@ const CountryDetails = () => {
         <div className="sticky top-0 z-40 bg-background/100 border-b border-border/50 shadow-sm hidden sm:block">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex min-h-18 items-center text-center justify-between gap-4">
-            <ul className="flex min-w-0 flex-1 items-center justify-center gap-8 overflow-x-auto no-scrollbar">
+            <motion.ul
+              layout="position"
+              transition={{ duration: 0.42, ease }}
+              className="flex min-w-0 flex-1 items-center justify-center gap-8 overflow-x-auto no-scrollbar"
+            >
               {SUB_NAV.map((tab) => (
-                <li key={tab.id}>
+                <motion.li
+                  key={tab.id}
+                  layout="position"
+                  transition={{ duration: 0.42, ease }}
+                >
                   <button
                     onClick={() => scrollToSection(tab.id)}
                     className={`relative py-6 text-sm font-medium whitespace-nowrap transition-colors ${
@@ -3213,27 +3337,34 @@ const CountryDetails = () => {
                       />
                     ) : null}
                   </button>
-                </li>
+                </motion.li>
               ))}
-            </ul>
+            </motion.ul>
             <AnimatePresence initial={false}>
               {!showTravelDetails && showStickyStartCta && (
                 <motion.div
                   key="sticky-start-application-cta"
-                  className="shrink-0 py-4"
-                  initial={{ opacity: 0, x: 28, scale: 0.96 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: 28, scale: 0.96 }}
-                  transition={{ duration: 0.28, ease }}
+                  className="shrink-0 overflow-hidden"
+                  initial={{ opacity: 0, width: 0, x: 24, scale: 0.95 }}
+                  animate={{ opacity: 1, width: "auto", x: 0, scale: 1 }}
+                  exit={{ opacity: 0, width: 0, x: 24, scale: 0.95 }}
+                  transition={{
+                    width: { duration: 0.42, ease },
+                    x: { duration: 0.42, ease },
+                    scale: { duration: 0.38, ease },
+                    opacity: { duration: 0.3, ease: "easeOut" },
+                  }}
                 >
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleStartApplication}
-                    id="country-details-sticky-start-application-btn"
-                  >
-                    Start Application
-                  </Button>
+                  <div className="py-4 pl-4 whitespace-nowrap">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleStartApplication}
+                      id="country-details-sticky-start-application-btn"
+                    >
+                      Start Application
+                    </Button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -3266,6 +3397,7 @@ const CountryDetails = () => {
                   <VisaInformationSection
                     visaInformation={country?.visaInformation}
                     display={countryDisplay}
+                    globalVisaInfo={destinationPageContent?.destinationVisaInfo}
                   />
                 </div>
       </motion.section>
@@ -3341,15 +3473,15 @@ const CountryDetails = () => {
                 className="bg-surface border border-border rounded-2xl p-4 sm:p-6 space-y-6"
               >
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-cyan font-semibold mb-2">Travel Details</p>
-                  <h2 className="text-2xl font-bold text-text-primary">Start your application</h2>
+                  <p className="text-xs uppercase tracking-wider text-cyan font-semibold mb-2">{startAppCopy.badgeText || "Travel Details"}</p>
+                  <h2 className="text-2xl font-bold text-text-primary">{startAppCopy.title || "Start your application"}</h2>
                   <p className="text-sm text-text-secondary mt-1">
-                    Fill travel details below to continue with your {country.name} visa process.
+                    {(startAppCopy.subtitle || "Fill travel details below to continue with your {country} visa process.").replace("{country}", country.name)}
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-border bg-white p-4">
-                  <label className="text-xs text-text-muted block mb-2">Type of Visa</label>
+                  <label className="text-xs text-text-muted block mb-2">{startAppCopy.visaTypeLabel || "Type of Visa"}</label>
                   <select
                     value={visaOption}
                     onChange={(e) => setVisaOption(e.target.value)}
@@ -3371,12 +3503,16 @@ const CountryDetails = () => {
                 <div className="rounded-2xl border border-border bg-white p-4">
                   <div className="flex items-center gap-2 mb-3 text-sm font-medium text-text-primary">
                     <CalendarDays size={16} className="text-cyan" />
-                    Select Travel Date
+                    {startAppCopy.calendarHeading || "Select Travel Date"}
                   </div>
                   <DateRangePicker
                     startDate={travelDateFrom}
                     endDate={travelDateTo}
                     minDate={minDepartureYmd}
+                    startLabel={startAppCopy.departureLabel || "DEPARTURE"}
+                    endLabel={startAppCopy.returnLabel || "RETURN"}
+                    startPlaceholder={startAppCopy.departurePlaceholder || "Select start date"}
+                    endPlaceholder={startAppCopy.returnPlaceholder || "Select end date"}
                     open={calendarOpen}
                     onOpenChange={(isOpen) => {
                       setCalendarOpen(isOpen);
@@ -3396,7 +3532,7 @@ const CountryDetails = () => {
                     }}
                   />
                   {dateWarning && (
-                    <p className="text-xs text-red-400 mt-2">Select both travel dates to continue.</p>
+                    <p className="text-xs text-red-400 mt-2">{startAppCopy.dateWarningText || "Select both travel dates to continue."}</p>
                   )}
                 </div>
 
@@ -3408,10 +3544,10 @@ const CountryDetails = () => {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-semibold text-text-primary">
-                          Traveler {index + 1}
+                          {(startAppCopy.travelerPrefix || "Traveler")} {index + 1}
                         </p>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-text-muted">Name only</span>
+                          <span className="text-xs text-text-muted">{startAppCopy.nameOnlyTag || "Name only"}</span>
                           <button
                             type="button"
                             onClick={() => removeTravelerAt(index)}
@@ -3425,7 +3561,7 @@ const CountryDetails = () => {
                       </div>
                       <div>
                         <label htmlFor={`traveler-name-${index}`} className="text-xs text-text-muted block mb-1.5">
-                          Full name (as on passport)
+                          {startAppCopy.fullNameLabel || "Full name (as on passport)"}
                         </label>
                         <input
                           id={`traveler-name-${index}`}
@@ -3465,7 +3601,7 @@ const CountryDetails = () => {
                               sharedDriveLinkInputRef.current?.focus();
                             }
                           }}
-                          placeholder="Enter name"
+                          placeholder={startAppCopy.fullNamePlaceholder || "Enter name"}
                           className={`w-full bg-white border rounded-xl px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted transition-colors ${
                             travelValidationAttempted && !String(traveler.name || "").trim()
                               ? "border-red-500 focus:border-red-400"
@@ -3473,48 +3609,51 @@ const CountryDetails = () => {
                           }`}
                         />
                         {travelValidationAttempted && !String(traveler.name || "").trim() && (
-                          <p className="text-xs text-red-400 mt-1.5">Traveler name is required.</p>
+                          <p className="text-xs text-red-400 mt-1.5">{startAppCopy.nameRequiredError || "Traveler name is required."}</p>
                         )}
                       </div>
 
-                      <PassportUploadRow
-                        inputId={`traveler-passport-${index}`}
-                        label="Passport Upload"
-                        file={traveler.passportFile}
-                        error={passportErrors[index + 1]}
-                        uploading={Boolean(passportUploading[index + 1])}
-                        optimizing={Boolean(passportOptimizing[index + 1])}
-                        saved={Boolean(passportSuccesses[index + 1] && !traveler.passportFile)}
-                        previewEnabled={Boolean(passportDetails[index + 1]?.url)}
-                        accept={getFileValidationRules(uploadSettings?.allowedFileFormats).acceptString}
-                        helperText={
-                          traveler.passportFile
-                            ? `${traveler.passportFile.name} - ${formatFileSize(traveler.passportFile.size)}`
-                            : passportDetails[index + 1]?.fileName
-                              ? `${passportDetails[index + 1].fileName} - ${formatFileSize(passportDetails[index + 1].fileSize)}`
-                              : `${getFileValidationRules(uploadSettings?.allowedFileFormats).displayLabel} - max 300 KB`
-                        }
-                        savedText="Passport uploaded"
-                        reuploadLabel="Replace File"
-                        removeLabel="Remove"
-                        onChange={(file) => handleTravelerPassportFile(index, file)}
-                        onPreview={() => openPassportPreview(index + 1)}
-                        onRemove={() => hideTravelerPassportLocally(index + 1, index)}
-                        onReupload={() => {
-                          setPassportErrors((prev) => {
-                            const next = { ...prev };
-                            delete next[index + 1];
-                            return next;
-                          });
-                          setHiddenPassportTravelerNos((prev) => {
-                            const next = { ...prev };
-                            delete next[index + 1];
-                            return next;
-                          });
-                        }}
-                      />
+                      {startAppCopy?.showPassportUpload !== false && (
+                        <PassportUploadRow
+                          inputId={`traveler-passport-${index}`}
+                          label={startAppCopy.passportUploadLabel || "Passport Upload"}
+                          file={traveler.passportFile}
+                          error={passportErrors[index + 1]}
+                          uploading={Boolean(passportUploading[index + 1])}
+                          optimizing={Boolean(passportOptimizing[index + 1])}
+                          saved={Boolean(passportSuccesses[index + 1] && !traveler.passportFile)}
+                          previewEnabled={Boolean(passportDetails[index + 1]?.url)}
+                          accept={getFileValidationRules(uploadSettings?.allowedFileFormats).acceptString}
+                          helperText={
+                            traveler.passportFile
+                              ? `${traveler.passportFile.name} - ${formatFileSize(traveler.passportFile.size)}`
+                              : passportDetails[index + 1]?.fileName
+                                ? `${passportDetails[index + 1].fileName} - ${formatFileSize(passportDetails[index + 1].fileSize)}`
+                                : `${getFileValidationRules(uploadSettings?.allowedFileFormats).displayLabel} - max 300 KB`
+                          }
+                          uploadLabel={startAppCopy.uploadButtonText || "Upload"}
+                          savedText={startAppCopy.passportUploadedText || "Passport uploaded"}
+                          reuploadLabel={startAppCopy.replaceButtonText || "Replace File"}
+                          removeLabel={startAppCopy.removeButtonText || "Remove"}
+                          onChange={(file) => handleTravelerPassportFile(index, file)}
+                          onPreview={() => openPassportPreview(index + 1)}
+                          onRemove={() => hideTravelerPassportLocally(index + 1, index)}
+                          onReupload={() => {
+                            setPassportErrors((prev) => {
+                              const next = { ...prev };
+                              delete next[index + 1];
+                              return next;
+                            });
+                            setHiddenPassportTravelerNos((prev) => {
+                              const next = { ...prev };
+                              delete next[index + 1];
+                              return next;
+                            });
+                          }}
+                        />
+                      )}
 
-                      {(uploadSettings.enableFileUpload ? requiredDocumentFields : requiredDocumentFields.filter((f) => f.key === "passport")).filter((f) => f.key !== "passport").map((field) => {
+                      {startAppCopy?.showPassportUpload !== false && (uploadSettings.enableFileUpload ? requiredDocumentFields : requiredDocumentFields.filter((f) => f.key === "passport")).filter((f) => f.key !== "passport").map((field) => {
                         const docKey = field.key;
                         const travelerNo = index + 1;
                         const zoneKey = `${travelerNo}-${docKey}`;
@@ -3545,9 +3684,10 @@ const CountryDetails = () => {
                                     ? `${detail.fileName} - ${formatFileSize(detail.fileSize)}`
                                     : `${getFileValidationRules(uploadSettings?.allowedFileFormats).displayLabel} - max 300 KB`
                               }
+                              uploadLabel={startAppCopy.uploadButtonText || "Upload"}
                               savedText={`${displayName} uploaded`}
-                              reuploadLabel="Replace File"
-                              removeLabel="Remove"
+                              reuploadLabel={startAppCopy.replaceButtonText || "Replace File"}
+                              removeLabel={startAppCopy.removeButtonText || "Remove"}
                               onChange={(newFile) => handleTravelerDocumentFile(index, docKey, newFile)}
                               onPreview={() => openDocumentPreview(travelerNo, docKey)}
                               onRemove={() => {
@@ -3614,25 +3754,25 @@ const CountryDetails = () => {
                       className="inline-flex items-center gap-2 rounded-xl border border-cyan/30 bg-cyan/10 px-4 py-2.5 text-sm font-semibold text-cyan transition-colors hover:bg-cyan/15"
                     >
                       <Plus size={16} />
-                      Add traveler
+                      {startAppCopy.addTravelerButtonText || "Add traveler"}
                     </button>
                   </div>
                 </div>
 
                 <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-[0_18px_45px_-35px_rgba(15,23,42,0.45)]">
-                  {uploadSettings.enableGDriveUpload && (
+                  {(uploadSettings.enableGDriveUpload && startAppCopy?.showGDriveUpload !== false) && (
                     <>
-                      <div className="flex flex-col sm:flex-row items-start gap-4">
-                        <span className="self-center sm:self-start flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-[#4285F4] shadow-inner">
+                      <div className="flex items-start gap-4">
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-[#4285F4] shadow-inner">
                           <Link2 size={22} />
                         </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h4 className="text-lg font-semibold text-slate-950">
-                          Document Drive Link (for all travelers)
+                          {startAppCopy.driveCardTitle || "Document Drive Link (for all travelers)"}
                         </h4>
                         <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                          Optional
+                          {startAppCopy.driveCardBadge || "Optional"}
                         </span>
                         <span className="group relative inline-flex align-middle">
                           <span
@@ -3642,12 +3782,12 @@ const CountryDetails = () => {
                             <Info size={14} />
                           </span>
                           <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-normal leading-relaxed text-slate-500 shadow-lg group-hover:block">
-                            You can continue to payment now and share the Google Drive link later from your application dashboard.
+                            {startAppCopy.driveCardTooltip || "You can continue to payment now and share the Google Drive link later from your application dashboard."}
                           </span>
                         </span>
                       </div>
                       <p className="mt-1 text-sm leading-6 text-slate-500">
-                        Upload all required and optional documents to Google Drive and share the folder link here. This link will be applicable for all travelers.
+                        {startAppCopy.driveCardDescription || "Upload all required and optional documents to Google Drive and share the folder link here. This link will be applicable for all travelers."}
                       </p>
                     </div>
                   </div>
@@ -3655,7 +3795,7 @@ const CountryDetails = () => {
                   <div className="mt-5">
                     <div className="flex items-center gap-1.5 mb-2">
                       <label className="text-sm font-medium text-slate-900">
-                        Google Drive Link
+                        {startAppCopy.driveInputLabel || "Google Drive Link"}
                       </label>
                       <div className="group relative inline-flex items-center">
                         <button
@@ -3669,14 +3809,14 @@ const CountryDetails = () => {
                           <div className="space-y-3">
                             <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
                               <span className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-50 text-blue-600 font-semibold text-[10px]">GD</span>
-                              <h5 className="font-bold text-slate-800 text-sm">How to Share Folder Link</h5>
+                              <h5 className="font-bold text-slate-800 text-sm">{startAppCopy.driveGuideTitle || "How to Share Folder Link"}</h5>
                             </div>
                             <ol className="list-decimal pl-4 space-y-2 text-slate-600">
-                              <li>Upload all required documents to your Google Drive folder.</li>
-                              <li>Right-click the folder and select <span className="font-semibold text-slate-800">Share &gt; Share</span>.</li>
-                              <li>Under <span className="font-semibold text-slate-800">General access</span>, change <span className="font-semibold text-slate-800">Restricted</span> to <span className="font-semibold text-slate-800">Anyone with the link</span>.</li>
-                              <li>Make sure the role is set to <span className="font-semibold text-slate-800">Viewer</span>.</li>
-                              <li>Click <span className="font-semibold text-slate-800">Copy link</span> and paste it in the field below.</li>
+                              <li>{startAppCopy.driveGuideStep1 || "Upload all required documents to your Google Drive folder."}</li>
+                              <li>{startAppCopy.driveGuideStep2 || <>Right-click the folder and select <span className="font-semibold text-slate-800">Share &gt; Share</span>.</>}</li>
+                              <li>{startAppCopy.driveGuideStep3 || <>Under <span className="font-semibold text-slate-800">General access</span>, change <span className="font-semibold text-slate-800">Restricted</span> to <span className="font-semibold text-slate-800">Anyone with the link</span>.</>}</li>
+                              <li>{startAppCopy.driveGuideStep4 || <>Make sure the role is set to <span className="font-semibold text-slate-800">Viewer</span>.</>}</li>
+                              <li>{startAppCopy.driveGuideStep5 || <>Click <span className="font-semibold text-slate-800">Copy link</span> and paste it in the field below.</>}</li>
                             </ol>
                           </div>
                         </div>
@@ -3700,7 +3840,7 @@ const CountryDetails = () => {
                           }
                         }}
                         onChange={(e) => handleSharedDriveLinkChange(e.target.value)}
-                        placeholder="https://drive.google.com/your-folder-link"
+                        placeholder={startAppCopy.driveInputPlaceholder || "https://drive.google.com/your-folder-link"}
                         className={`w-full rounded-2xl border bg-white py-3 pl-12 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 ${
                           sharedDriveLinkVerified
                             ? "border-emerald-300 focus:border-emerald-400"
@@ -3712,7 +3852,7 @@ const CountryDetails = () => {
                   </>
                 )}
 
-                  <div className={uploadSettings.enableGDriveUpload ? "mt-4" : ""}>
+                  <div className={(uploadSettings.enableGDriveUpload && startAppCopy?.showGDriveUpload !== false) ? "mt-4" : ""}>
                     {renderTravelDetailsDocumentSections()}
                   </div>
 
@@ -3726,7 +3866,7 @@ const CountryDetails = () => {
                   loading={draftCreating}
                   disabled={draftCreating}
                 >
-                  Proceed to Summary
+                  {startAppCopy.proceedButtonText || "Proceed to Summary"}
                 </Button>
               </motion.section>
             ) : null}
@@ -3750,7 +3890,9 @@ const CountryDetails = () => {
                 <>
                   <div className="mb-3">
                     <div className="max-w-xl">
-                      <h3 className="text-3xl font-bold tracking-tight text-slate-950">Apply for {country.name}</h3>
+                      <h3 className="text-3xl font-bold tracking-tight text-slate-950">
+                        {(startAppCopy.applyForTitle || "Apply for {country}").replace("{country}", country.name)}
+                      </h3>
                     </div>
                   </div>
                   <div className="mb-7 overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-[0_30px_80px_-36px_rgba(14,116,144,0.32)]">
@@ -3762,17 +3904,17 @@ const CountryDetails = () => {
                             <FileText className="h-5 w-5" />
                           </span>
                           <div className="min-w-0">
-                            <p className="text-[0.95rem] font-semibold">Travel Summary</p>
-                            <p className="text-[0.72rem] uppercase tracking-[0.3em] text-white/72">Traveller details</p>
+                            <p className="text-[0.95rem] font-semibold">{startAppCopy.travelSummaryBadge || "Travel Summary"}</p>
+                            <p className="text-[0.72rem] uppercase tracking-[0.3em] text-white/72">{startAppCopy.travellerDetailsSubtitle || "Traveller details"}</p>
                           </div>
                         </div>
                         <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-center backdrop-blur">
-                          <p className="text-[0.62rem] uppercase tracking-[0.26em] text-white/70">Travellers</p>
+                          <p className="text-[0.62rem] uppercase tracking-[0.26em] text-white/70">{startAppCopy.travellersCountLabel || "Travellers"}</p>
                           <p className="mt-1 text-xl font-bold leading-none">{travellerCount}</p>
                         </div>
                       </div>
                       <div className="relative mt-5 text-center">
-                        <p className="text-[0.7rem] uppercase tracking-[0.34em] text-white/72">Amount to be paid now</p>
+                        <p className="text-[0.7rem] uppercase tracking-[0.34em] text-white/72">{startAppCopy.amountToPayLabel || "Amount to be paid now"}</p>
                         <p className="mt-2 text-4xl font-extrabold tracking-tight sm:text-[2.8rem]">₹{finalTotal.toLocaleString("en-IN")}</p>
                       </div>
                     </div>
@@ -3784,7 +3926,7 @@ const CountryDetails = () => {
                             <Receipt className="h-4 w-4" />
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500">Visa Type</p>
+                            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500">{startAppCopy.summaryVisaTypeLabel || "Visa Type"}</p>
                             <p className="mt-1 text-[0.95rem] font-semibold text-slate-900">{visaOption || "Tourist Visa"}</p>
                           </div>
                         </div>
@@ -3794,7 +3936,7 @@ const CountryDetails = () => {
                               <CalendarDays className="h-4 w-4" />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500">Travel Dates</p>
+                              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500">{startAppCopy.summaryTravelDatesLabel || "Travel Dates"}</p>
                               <p className="mt-1 text-[0.95rem] font-semibold text-slate-900">{formatTravelRange()}</p>
                             </div>
                           </div>
@@ -3809,8 +3951,8 @@ const CountryDetails = () => {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500">Traveler Names</p>
-                                <p className="mt-1 text-[0.95rem] font-semibold text-slate-900">Added in form</p>
+                                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500">{startAppCopy.summaryTravelerNamesLabel || "Traveler Names"}</p>
+                                <p className="mt-1 text-[0.95rem] font-semibold text-slate-900">{startAppCopy.summaryAddedInFormBadge || "Added in form"}</p>
                               </div>
                               <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
                                 {travellerCount} total
@@ -3834,7 +3976,7 @@ const CountryDetails = () => {
                         <div className="space-y-3 text-sm">
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <p className="font-semibold text-slate-900">Government Fee</p>
+                              <p className="font-semibold text-slate-900">{startAppCopy.summaryGovFeeLabel || "Government Fee"}</p>
                               {travellerCount > 1 && (
                                 <p className="text-xs text-slate-500">
                                   x{travellerCount}
@@ -3845,7 +3987,7 @@ const CountryDetails = () => {
                           </div>
                           <div className="group relative flex items-center justify-between gap-3">
                             <div>
-                              <p className="font-semibold text-slate-900">Our Service Fee</p>
+                              <p className="font-semibold text-slate-900">{startAppCopy.summaryServiceFeeLabel || "Our Service Fee"}</p>
                               {travellerCount > 1 && (
                                 <p className="text-xs text-slate-500">
                                   x{travellerCount}

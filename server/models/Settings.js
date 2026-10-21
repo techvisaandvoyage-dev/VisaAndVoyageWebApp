@@ -340,6 +340,109 @@ const settingsSchema = new mongoose.Schema({
     type: [mongoose.Schema.Types.Mixed],
     default: []
   },
+  /** Shown on every destination detail page — Info header badge, title, subtitle, and card order. */
+  destinationVisaInfo: {
+    badgeText: { type: String, default: "100% Online Process", trim: true },
+    title: { type: String, default: "Visa Information", trim: true },
+    subtitle: { type: String, default: "A 100% online visa application process that is simple, secure and hassle-free.", trim: true },
+    cardOrder: { type: [String], default: ["lengthOfStay", "validity", "entry"] },
+  },
+  /** Custom headings, subtitles, and badges for each destination page section. */
+  destinationSectionHeadings: {
+    howItWorksHeading: { type: String, default: "How it works", trim: true },
+    whyBookNowHeading: { type: String, default: "Why book now", trim: true },
+    whyBookNowColWeProvides: { type: String, default: "We Provides", trim: true },
+    whyBookNowColOthers: { type: String, default: "Others", trim: true },
+    visaRequirementsHeading: { type: String, default: "Visa Requirements", trim: true },
+    visaRequirementsSubtitle: { type: String, default: "Please ensure you have the following documents ready for a smooth visa application process.", trim: true },
+    visaRequirementsNote: { type: String, default: "Visa rules and conditions may change. Please check the latest requirements before applying.", trim: true },
+    documentsBadge: { type: String, default: "Verified & Secure", trim: true },
+    documentsHeading: { type: String, default: "Documents Required", trim: true },
+    documentsSubtitle: { type: String, default: "To proceed with the application immediately", trim: true },
+    whatsIncludedHeading: { type: String, default: "What's Included", trim: true },
+    whatsIncludedSubtitle: { type: String, default: "Everything you need for a smooth and hassle-free visa process.", trim: true },
+    faqsHeading: { type: String, default: "Frequently Asked Questions", trim: true },
+  },
+  /** Custom copy, labels, and placeholders for the Start Application page tabs. */
+  startApplicationPageCopy: {
+    // Calendar Manager (Tab: calendar-manager)
+    calendarHeading: { type: String, default: "Select Travel Date", trim: true },
+    departureLabel: { type: String, default: "DEPARTURE", trim: true },
+    departurePlaceholder: { type: String, default: "Select start date", trim: true },
+    returnLabel: { type: String, default: "RETURN", trim: true },
+    returnPlaceholder: { type: String, default: "Select end date", trim: true },
+    dateWarningText: { type: String, default: "Select both travel dates to continue.", trim: true },
+
+    // Traveler Form Manager (Tab: traveler-form-manager)
+    badgeText: { type: String, default: "TRAVEL DETAILS", trim: true },
+    title: { type: String, default: "Start your application", trim: true },
+    subtitle: { type: String, default: "Fill travel details below to continue with your {country} visa process.", trim: true },
+    visaTypeLabel: { type: String, default: "Type of Visa", trim: true },
+    travelerPrefix: { type: String, default: "Traveler", trim: true },
+    nameOnlyTag: { type: String, default: "Name only", trim: true },
+    fullNameLabel: { type: String, default: "Full name (as on passport)", trim: true },
+    fullNamePlaceholder: { type: String, default: "Enter name", trim: true },
+    nameRequiredError: { type: String, default: "Traveler name is required.", trim: true },
+    addTravelerButtonText: { type: String, default: "Add traveler", trim: true },
+    proceedButtonText: { type: String, default: "Proceed to Summary", trim: true },
+    applyForTitle: { type: String, default: "Apply for {country}", trim: true },
+    travelSummaryBadge: { type: String, default: "Travel Summary", trim: true },
+    travellerDetailsSubtitle: { type: String, default: "TRAVELLER DETAILS", trim: true },
+    travellersCountLabel: { type: String, default: "TRAVELLERS", trim: true },
+    amountToPayLabel: { type: String, default: "AMOUNT TO BE PAID NOW", trim: true },
+    summaryVisaTypeLabel: { type: String, default: "VISA TYPE", trim: true },
+    summaryTravelDatesLabel: { type: String, default: "TRAVEL DATES", trim: true },
+    summaryTravelerNamesLabel: { type: String, default: "TRAVELER NAMES", trim: true },
+    summaryAddedInFormBadge: { type: String, default: "Added in form", trim: true },
+    summaryGovFeeLabel: { type: String, default: "Government Fee", trim: true },
+    summaryServiceFeeLabel: { type: String, default: "Our Service Fee", trim: true },
+    summaryDocNoticeTitle: {
+      type: String,
+      default: "No worries — you can upload your documents anytime later.",
+      trim: true,
+    },
+    summaryDocNoticeDescription: {
+      type: String,
+      default: "After payment, your application will remain available in My Dashboard → Open Your Application → Upload Documents, where you can upload documents for each traveler whenever it’s convenient for you.",
+      trim: true,
+    },
+
+    // Document Uploads (Tab: upload-methods)
+    driveCardTitle: { type: String, default: "Document Drive Link (for all travelers)", trim: true },
+    driveCardBadge: { type: String, default: "Optional", trim: true },
+    driveCardTooltip: { type: String, default: "You can continue to payment now and share the Google Drive link later from your application dashboard.", trim: true },
+    driveCardDescription: { type: String, default: "Upload all required and optional documents to Google Drive and share the folder link here. This link will be applicable for all travelers.", trim: true },
+    driveInputLabel: { type: String, default: "Google Drive Link", trim: true },
+    driveInputPlaceholder: { type: String, default: "https://drive.google.com/your-folder-link", trim: true },
+    driveGuideTitle: { type: String, default: "How to Share Folder Link", trim: true },
+    driveGuideStep1: { type: String, default: "Upload all required documents to your Google Drive folder.", trim: true },
+    driveGuideStep2: { type: String, default: "Right-click the folder and select Share > Share.", trim: true },
+    driveGuideStep3: { type: String, default: "Under General access, change Restricted to Anyone with the link.", trim: true },
+    driveGuideStep4: { type: String, default: "Make sure the role is set to Viewer.", trim: true },
+    driveGuideStep5: { type: String, default: "Click Copy link and paste it in the field below.", trim: true },
+
+    // Documents (Tab: application-documents)
+    // 1. Required Documents section
+    showRequiredDocs: { type: Boolean, default: true },
+    requiredDocsHeading: { type: String, default: "Documents Required", trim: true },
+    requiredDocsDescription: { type: String, default: "These are the country documents required for this application.", trim: true },
+
+    // 2. Normal Document Upload / Passport section
+    showPassportUpload: { type: Boolean, default: true },
+    passportUploadLabel: { type: String, default: "Passport Upload", trim: true },
+    uploadButtonText: { type: String, default: "Upload", trim: true },
+    replaceButtonText: { type: String, default: "Replace File", trim: true },
+    removeButtonText: { type: String, default: "Remove", trim: true },
+    passportUploadedText: { type: String, default: "Passport uploaded", trim: true },
+
+    // 3. Optional Documents section
+    showOptionalDocs: { type: Boolean, default: true },
+    optionalDocsHeading: { type: String, default: "Optional Documents", trim: true },
+    optionalDocsDescription: { type: String, default: "You can also attach other documents in the same Drive link.", trim: true },
+
+    // 4. Google Drive Upload section
+    showGDriveUpload: { type: Boolean, default: true },
+  },
   /** Shown on the landing page under the hero search bar as four editable highlight cards. */
   landingHeroHighlights: {
     type: [{

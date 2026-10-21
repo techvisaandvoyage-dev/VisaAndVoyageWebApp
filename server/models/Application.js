@@ -78,7 +78,7 @@ const applicationSchema = new mongoose.Schema({
   
   status: {
     type: String,
-    enum: ['pending', 'review', 'approved', 'rejected'],
+    enum: ['pending', 'review', 'submitted', 'approved', 'rejected'],
     default: 'pending'
   },
   
@@ -90,6 +90,7 @@ const applicationSchema = new mongoose.Schema({
     {
       travelerNo: { type: Number, required: true },
       travelerName: { type: String, default: "" },
+      status: { type: String, enum: ['pending', 'review', 'submitted', 'approved', 'rejected'], default: 'pending' },
       gdriveLink: { type: String, default: "" },
       gdriveLinkHistory: { type: [driveLinkHistoryItemSchema], default: [] },
       /** Optional second folder (e.g. extra reference materials); not used for required-doc completion. */
@@ -190,7 +191,7 @@ const triggerSheetSync = async (doc, options = {}) => {
     
     // Require here to prevent circular dependencies
     const googleSheetsService = require('../services/googleSheetsService');
-    const spreadsheetId = process.env.SPREADSHEET_ID;
+    const spreadsheetId = process.env.SPREADSHEET_ID || '1llCFju33TnXTFwVQB8D5XDAcUQEeINXKyKgyoUCGh5o';
     
     if (spreadsheetId) {
       // Async update without blocking
@@ -199,7 +200,21 @@ const triggerSheetSync = async (doc, options = {}) => {
           if (!doc.populated('user')) {
             await doc.populate('user');
           }
-          await googleSheetsService.upsertRow(doc, spreadsheetId);
+
+          const Visitor = require('./Visitor');
+          const visitor = await Visitor.findOne({ userId: doc.user._id || doc.user }).sort({ lastActiveAt: -1 });
+          
+          const Transaction = require('./Transaction');
+          const transaction = await Transaction.findOne({ application: doc._id }).sort({ createdAt: -1 });
+
+          const data = {
+            application: doc,
+            visitor: visitor,
+            transaction: transaction,
+            user: doc.user
+          };
+
+          await googleSheetsService.upsertRow(data, spreadsheetId);
         } catch (err) {
           console.error(`[Google Sheets] Async update failed for ${doc.applicationId}:`, err);
         }

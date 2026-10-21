@@ -105,4 +105,69 @@ export const StatusBadge = ({ status, ...props }) => {
   );
 };
 
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+export const StatusDropdown = ({ currentStatus, onChange, disabled, options = ["pending", "review", "submitted", "approved", "rejected"] }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="flex items-center gap-1.5 focus:outline-none disabled:opacity-50 transition-opacity hover:opacity-80 rounded-full border border-transparent hover:border-cyan/30 p-0.5"
+      >
+        <StatusBadge status={currentStatus || "pending"} />
+        <svg className={`w-3.5 h-3.5 text-text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 mt-2 min-w-[140px] bg-surface border border-border rounded-xl shadow-xl z-[100] p-1.5 flex flex-col gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {options.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(opt);
+                  setIsOpen(false);
+                }}
+                className={`flex items-center px-2 py-1.5 rounded-lg text-left text-sm transition-colors hover:bg-surface-2 ${currentStatus === opt ? "bg-surface-3" : ""}`}
+              >
+                <StatusBadge status={opt} />
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 export default Badge;

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { loginAdmin, changePassword } = require('../controllers/adminController');
-const { getAllApplications, getApplicationById, updateApplicationByAdmin, updateApplicationStatus, uploadApprovedVisaFile, downloadApplicationDocument } = require('../controllers/applicationController');
+const { getAllApplications, getApplicationById, updateApplicationByAdmin, updateApplicationStatus, updateTravelerStatus, uploadApprovedVisaFile, downloadApplicationDocument } = require('../controllers/applicationController');
 const { getSettings, updateSettings, uploadSeoAssets, getFooterSections, updateFooterSections } = require('../controllers/settingsController');
 const {
   getAuthSettings,
@@ -133,6 +133,7 @@ router.get('/applications/:id', protect, requireAdmin, getApplicationById);
 router.put('/applications/:id', protect, requireAdmin, updateApplicationByAdmin);
 router.post('/applications/:id/visa-file', protect, requireAdmin, visaFileUpload.single('visaFile'), uploadApprovedVisaFile);
 router.put('/applications/:id/status', protect, requireAdmin, updateApplicationStatus);
+router.put('/applications/:id/travelers/:travelerNo/status', protect, requireAdmin, updateTravelerStatus);
 
 // Admin Settings routes
 router.get('/settings', protect, requireAdmin, getSettings);

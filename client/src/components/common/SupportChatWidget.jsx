@@ -498,24 +498,14 @@ export default function SupportChatWidget() {
   if (!chatConfig.enabled) return null;
 
   return (
-    <div className="support-chat-widget fixed bottom-6 right-6 z-[9999] font-sans select-none antialiased transition-all duration-300">
+    <div className="support-chat-widget fixed bottom-6 right-6 z-[9999] font-sans select-none antialiased">
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes chatFadeIn {
           from { opacity: 0; transform: translateY(12px) scale(0.96); }
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        @keyframes chatFloat {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-4px); }
-        }
-        body.has-sticky-cta .support-chat-widget {
-          bottom: 104px !important;
-        }
         .animate-fade-in {
           animation: chatFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-chat-float {
-          animation: chatFloat 2.8s ease-in-out infinite;
         }
       ` }} />
 
@@ -1009,7 +999,7 @@ export default function SupportChatWidget() {
         type="button"
         onClick={toggleOpen}
         whileTap={{ scale: 0.96 }}
-        className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,#005BEA_0%,#0C79FF_100%)] text-white shadow-[0_18px_45px_rgba(2,82,213,0.32)] transition-all hover:translate-y-[-1px] animate-chat-float"
+        className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,#005BEA_0%,#0C79FF_100%)] text-white shadow-[0_18px_45px_rgba(2,82,213,0.32)] transition-transform hover:scale-[1.04]"
         aria-label="Open customer chat"
       >
         <span className="absolute right-1 top-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-400" />

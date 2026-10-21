@@ -38,80 +38,41 @@ const getSheetsClient = async () => {
   return google.sheets({ version: 'v4', auth: authClient });
 };
 
-const getDriveClient = async () => {
-  const auth = getAuthClient();
-  const authClient = await auth.getClient();
-  return google.drive({ version: 'v3', auth: authClient });
-};
-
-/**
- * Ensures a spreadsheet exists. Creates one if SPREADSHEET_ID is not in .env.
- */
-const getOrCreateSpreadsheet = async () => {
-  const spreadsheetId = process.env.SPREADSHEET_ID;
-  if (spreadsheetId) {
-    return spreadsheetId;
-  }
-
-  // Create a new spreadsheet
-  const sheets = await getSheetsClient();
-  const response = await sheets.spreadsheets.create({
-    resource: {
-      properties: {
-        title: `Visa Applications Export - ${new Date().toISOString().split('T')[0]}`,
-      },
-    },
-  });
-
-  const newSpreadsheetId = response.data.spreadsheetId;
-  
-  // Append to .env file
-  const envPath = path.join(__dirname, '..', '.env');
-  try {
-    fs.appendFileSync(envPath, `\nSPREADSHEET_ID=${newSpreadsheetId}\n`);
-    console.log(`Created new Google Sheet and added SPREADSHEET_ID to .env: ${newSpreadsheetId}`);
-  } catch (err) {
-    console.error('Failed to write SPREADSHEET_ID to .env file', err);
-  }
-  
-  // Try to share it if possible (requires drive API)
-  try {
-    const drive = await getDriveClient();
-    await drive.permissions.create({
-      fileId: newSpreadsheetId,
-      resource: {
-        type: 'anyone',
-        role: 'writer',
-      },
-    });
-  } catch (err) {
-    console.warn('Could not share the spreadsheet. You might need to open it with the service account or manually share it.');
-  }
-
-  return newSpreadsheetId;
-};
-
 const COLUMNS = [
-  'Application ID',
-  'Applicant Name',
-  'Email',
-  'Phone',
-  'Country',
-  'Visa Type',
-  'Fee',
-  'Passport Number',
-  'Travel Date',
-  'Payment Status',
-  'Current Status',
-  'Action'
+  'Visitor ID',         // A
+  'Visit Date',         // B
+  'Last Active',        // C
+  'Selected Country',   // D
+  'Start Application',  // E
+  'Travel Start Date',  // F
+  'Travel End Date',    // G
+  'Travelers',          // H
+  'Document Upload',    // I
+  'Registration',       // J
+  'Current Page',       // K
+  'A/c ID',             // L
+  'Application ID',     // M
+  'Phone No.',          // N
+  'Email',              // O
+  'Name',               // P
+  'Fee',                // Q
+  'Payment Date',       // R
+  'Transaction',        // S
+  'Payment Status',     // T
+  'Traveler 1',         // U
+  'Traveler 2',         // V
+  'Traveler 3',         // W
+  'Traveler 4',         // X
+  'Traveler 5',         // Y
+  'Traveler 6',         // Z
+  'Traveler 7',         // AA
+  'Traveler 8',         // AB
+  'Traveler 9',         // AC
+  'Traveler 10',        // AD
 ];
 
-/**
- * Initializes the sheet: clears data, sets headers, adds data validation for 'Action'.
- */
 const initializeSheet = async (spreadsheetId) => {
   const sheets = await getSheetsClient();
-  
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const sheet = spreadsheet.data.sheets[0];
   const sheetTitle = sheet.properties.title;
@@ -126,49 +87,28 @@ const initializeSheet = async (spreadsheetId) => {
   // 2. Set headers
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `'${sheetTitle}'!A1:L1`,
+    range: `'${sheetTitle}'!A1:AD1`,
     valueInputOption: 'USER_ENTERED',
     resource: {
       values: [COLUMNS],
     },
   });
 
-  // 3. Set Data Validation (Dropdown) for the Action column (Column K, index 10)
+  // 3. Format headers to be bold
   const requests = [
     {
-      setDataValidation: {
+      repeatCell: {
         range: {
           sheetId: sheetId,
-          startRowIndex: 1, // Skip header
-          startColumnIndex: 0, 
-          endColumnIndex: 11,
         },
-        rule: null
+        cell: {
+          userEnteredFormat: {
+            textFormat: { bold: false }
+          }
+        },
+        fields: 'userEnteredFormat(textFormat,backgroundColor)'
       }
     },
-    {
-      setDataValidation: {
-        range: {
-          sheetId: sheetId,
-          startRowIndex: 1, // Skip header
-          startColumnIndex: 11, // Column L (Action)
-          endColumnIndex: 12,
-        },
-        rule: {
-          condition: {
-            type: 'ONE_OF_LIST',
-            values: [
-              { userEnteredValue: 'APPROVE' },
-              { userEnteredValue: 'REJECT' },
-              { userEnteredValue: 'SUBMITTED' },
-            ],
-          },
-          showCustomUi: true,
-          strict: true,
-        },
-      },
-    },
-    // Format headers to be bold
     {
       repeatCell: {
         range: {
@@ -184,6 +124,26 @@ const initializeSheet = async (spreadsheetId) => {
         },
         fields: 'userEnteredFormat(textFormat,backgroundColor)'
       }
+    },
+    {
+      setDataValidation: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1,
+          startColumnIndex: 10, // K
+          endColumnIndex: 12,
+        }
+      }
+    },
+    {
+      setDataValidation: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1,
+          startColumnIndex: 20, // U
+          endColumnIndex: 30, // AD
+        }
+      }
     }
   ];
 
@@ -193,152 +153,342 @@ const initializeSheet = async (spreadsheetId) => {
   });
 };
 
-const mapAppToRow = (app) => {
-  return [
-    app.applicationId || '',
-    `${app.firstName || ''} ${app.lastName || ''}`.trim(),
-    app.email || '',
-    (app.user && app.user.phone) ? app.user.phone : (app.phone || ''),
-    app.countryName || app.countryId || '',
-    app.visaType || '',
-    app.fee || 0,
-    app.passportNo || '',
-    app.travelDate ? new Date(app.travelDate).toISOString().split('T')[0] : '',
-    app.paymentStatus || '',
-    app.status || '',
-    '' // Action starts empty
+const mapDataToRow = (data) => {
+  const formatDateDDMMYYYY = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d)) return "";
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `'${dd}-${mm}-${yyyy}`;
+  };
+
+  const v = data.visitor || {};
+  const a = data.application || {};
+  const u = data.user || a.user || {};
+  const t = data.transaction || {};
+
+  const nameEntered = [a.firstName, a.lastName].filter(Boolean).join(" ");
+  
+  let docUploadStatus = "❌";
+  if (a.gdriveLink || (a.documents && a.documents.length > 0)) {
+    docUploadStatus = "✅";
+  }
+
+  const registrationStatus = u._id ? "✅" : "❌";
+  
+  const paymentDate = t.createdAt || (a.paymentStatus === 'completed' && a.updatedAt) ? formatDateDDMMYYYY(t.createdAt || a.updatedAt) : "";
+  const transactionId = t.razorpayPaymentId || a.transactionId || "";
+
+  const rawStatus = a.status || v.status || "Active";
+  const applicationStarted = a.createdAt || (v.status && !['Active', 'Registered', 'Abandoned'].includes(v.status)) || v.draftTravelDate;
+  let displayStatus = rawStatus;
+  
+  if (rawStatus === 'review') displayStatus = 'Under Review';
+  else if (rawStatus === 'submitted') displayStatus = 'Submitted';
+  else if (rawStatus === 'approved') displayStatus = 'Approved';
+  else if (rawStatus === 'rejected') displayStatus = 'Rejected';
+  else if (rawStatus === 'cancelled') displayStatus = 'Cancelled';
+  else if (['pending', 'pending_payment', 'doc_pending', 'drive_link_pending'].includes(rawStatus)) {
+    displayStatus = 'Pending';
+  }
+
+  const row = [
+    v.visitorId || "",                                   // A: Visitor ID
+    formatDateDDMMYYYY(v.firstVisitAt),                  // B: Visit Date
+    formatDateDDMMYYYY(v.lastActiveAt),                  // C: Last Active
+    a.countryName || v.country || "",                    // D: Selected Country
+    formatDateDDMMYYYY(applicationStarted ? (a.createdAt || v.updatedAt || v.lastActiveAt) : ""), // E: Start Application
+    formatDateDDMMYYYY(a.travelDate || v.draftTravelDate), // F: Travel Start Date
+    formatDateDDMMYYYY(a.returnDate || v.draftReturnDate), // G: Travel End Date
+    a.travellerCount ? `'${a.travellerCount}` : (v.draftTravellerCount ? `'${v.draftTravellerCount}` : ""), // H: Travelers
+    docUploadStatus,                                     // I: Document Upload
+    registrationStatus,                                  // J: Registration
+    v.currentPage || "/",                                // K: Current Page
+    u.accountId ? `'${u.accountId}` : "",                // L: A/c ID
+    a.applicationId || "",                               // M: Application ID
+    u.phone || a.phone || "",                            // N: Phone No.
+    a.email || u.email || "",                            // O: Email
+    u.name || nameEntered || "",                         // P: Name
+    t.amount || a.fee || "",                             // Q: Fee
+    paymentDate,                                         // R: Payment Date
+    transactionId,                                       // S: Transaction
+    a.paymentStatus || t.status || "",                   // T: Payment Status
   ];
-};
 
-/**
- * Writes data rows to the sheet.
- */
-const writeDataToSheet = async (spreadsheetId, data) => {
-  const sheets = await getSheetsClient();
+  const travelers = Array.isArray(a.travellerDocuments) ? a.travellerDocuments : (Array.isArray(a.travelers) ? a.travelers : []);
+  const numTravelers = Math.max(1, parseInt(a.travellerCount) || travelers.length);
   
-  if (!data || data.length === 0) return;
-
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheetTitle = spreadsheet.data.sheets[0].properties.title;
-
-  const rows = data.map(mapAppToRow);
-
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `'${sheetTitle}'!A2:L${rows.length + 1}`,
-    valueInputOption: 'USER_ENTERED',
-    resource: {
-      values: rows,
-    },
-  });
-};
-
-/**
- * Upserts a single application row in the Google Sheet.
- * Real-Time sync.
- */
-const upsertRow = async (application, spreadsheetId) => {
-  const sheets = await getSheetsClient();
-  
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheetTitle = spreadsheet.data.sheets[0].properties.title;
-
-  // 1. Fetch Column A to find the row index
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${sheetTitle}'!A:A`,
-  });
-
-  const columnA = response.data.values || [];
-  let rowIndex = -1;
-  
-  // Find the row with matching Application ID
-  for (let i = 0; i < columnA.length; i++) {
-    if (columnA[i][0] === application.applicationId) {
-      rowIndex = i + 1; // 1-indexed
-      break;
+  for (let i = 0; i < 10; i++) {
+    const travelerNo = i + 1;
+    if (i < numTravelers) {
+      const traveler = travelers.find(tr => Number(tr.travelerNo) === travelerNo) || travelers[i] || {};
+      let tStatus = traveler.status ? String(traveler.status).toLowerCase().replace(' ', '_') : rawStatus;
+      
+      let displayTStatus = "Pending";
+      if (tStatus === 'review' || tStatus === 'under_review') displayTStatus = 'Under Review';
+      else if (tStatus === 'submitted') displayTStatus = 'Submitted';
+      else if (tStatus === 'approved') displayTStatus = 'Approved';
+      else if (tStatus === 'rejected') displayTStatus = 'Rejected';
+      
+      row.push(displayTStatus);
+    } else {
+      row.push("");
     }
   }
 
-  const newRow = mapAppToRow(application);
+  return row;
+};
+
+/**
+ * Upserts a single unified row in the Google Sheet.
+ * Real-Time sync. Performs null-protection for existing data.
+ */
+// Mutex to prevent race conditions during rapid tracking events
+let upsertQueue = Promise.resolve();
+
+const upsertRow = async (data, spreadsheetId) => {
+  return new Promise((resolve, reject) => {
+    upsertQueue = upsertQueue.then(async () => {
+      try {
+        const sheets = await getSheetsClient();
+        if (!spreadsheetId) {
+          throw new Error('Spreadsheet ID is required.');
+        }
+      
+        console.log(`[GoogleSheets Sync] upsertRow called. Application: ${data.application?.applicationId}, Visitor: ${data.visitor?.visitorId}, User: ${data.user?._id}`);
+        
+        const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+        const sheetTitle = spreadsheet.data.sheets[0].properties.title;
+
+  const Settings = require('../models/Settings');
+  const settings = await Settings.findOne({}) || {};
+  const fileUploadEnabled = settings.enableFileUpload !== false;
+
+  const a = data.application || {};
+  const t = data.transaction || {};
+
+  const normalizedPaymentStatus = String(a.paymentStatus || t.status || "").trim().toLowerCase();
+  const isPaymentCompleted = a.isPaid === true || ["paid", "completed", "success", "captured"].includes(normalizedPaymentStatus);
+
+  if (isPaymentCompleted && a.status !== 'approved' && a.status !== 'rejected' && a.status !== 'cancelled') {
+    const requiredDocs = Array.isArray(a.requiredDocuments) && a.requiredDocuments.length
+      ? a.requiredDocuments
+      : ['passport'];
+    const normalized = requiredDocs.map((key) => String(key || "").trim()).filter(Boolean);
+    const unique = Array.from(new Set(normalized));
+    const optionalKeys = fileUploadEnabled === false
+      ? []
+      : unique.filter((key) => key !== "passport");
+    
+    const requiredKeys = ["passport", ...optionalKeys];
+
+    const travellers = Array.isArray(a.travellerDocuments) ? a.travellerDocuments : [];
+    const travellerCount = Math.max(1, a.travellerCount || 1);
+    let allUploaded = true;
+    for (let tNo = 1; tNo <= travellerCount; tNo += 1) {
+      const tr = travellers.find((entry) => Number(entry?.travelerNo) === tNo);
+      if (!tr) {
+        allUploaded = false;
+        break;
+      }
+      const docs = tr.documents || {};
+      for (const key of requiredKeys) {
+        const val = typeof docs.get === 'function' ? docs.get(key) : docs[key];
+        if (!val || typeof val !== 'string' || !val.trim()) {
+          allUploaded = false;
+          break;
+        }
+      }
+      if (!allUploaded) break;
+    }
+    
+    if (allUploaded) {
+      data.application = { ...data.application, status: 'review' };
+    }
+  }
+
+  // Fetch all existing data to find matches and do null-protection
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${sheetTitle}'!A:AD`,
+  });
+
+  const allRows = response.data.values || [];
+  let rowIndex = -1;
+  let existingRow = [];
+  
+  const vId = data.visitor?.visitorId;
+  const appId = data.application?.applicationId;
+
+  // Match by Application ID first (Col N - index 13), then Visitor ID (Col A - index 0)
+  // Search backwards to prioritize the most recent row (in case of duplicate merged visitor IDs)
+  for (let i = allRows.length - 1; i >= 1; i--) {
+    const row = allRows[i];
+    if (appId && row[12] === appId) {
+      rowIndex = i + 1; // 1-indexed for Sheets
+      existingRow = row;
+      break;
+    }
+    
+    if (vId && row[0] === vId) {
+      if (appId) {
+        if (!row[12] && rowIndex === -1) {
+          rowIndex = i + 1;
+          existingRow = row;
+        }
+      } else {
+        if (rowIndex === -1) {
+          rowIndex = i + 1;
+          existingRow = row;
+        }
+      }
+    }
+  }
+
+  const newRow = mapDataToRow(data);
 
   if (rowIndex !== -1) {
-    // 2a. Update existing row
+    // Merge new data over existing data (null protection)
+    const mergedRow = newRow.map((newVal, idx) => {
+      const existingVal = existingRow[idx];
+      if (newVal === "" || newVal === null || newVal === undefined) {
+        return existingVal || ""; // keep existing if new is empty
+      }
+      return newVal;
+    });
+
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `'${sheetTitle}'!A${rowIndex}:V${rowIndex}`,
+      range: `'${sheetTitle}'!A${rowIndex}:AD${rowIndex}`,
       valueInputOption: 'USER_ENTERED',
       resource: {
-        values: [newRow],
+        values: [mergedRow],
       },
     });
   } else {
-    // 2b. Append new row at the exact next empty row
-    const appendRowIndex = columnA.length + 1;
-    await sheets.spreadsheets.values.update({
+    // Append new row
+    await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `'${sheetTitle}'!A${appendRowIndex}:V${appendRowIndex}`,
+      range: `'${sheetTitle}'!A:AD`,
       valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
       resource: {
         values: [newRow],
       },
     });
   }
-};
-
-
-/**
- * Reads all data from the sheet.
- */
-const readDataFromSheet = async (spreadsheetId) => {
-  const sheets = await getSheetsClient();
-  
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheetTitle = spreadsheet.data.sheets[0].properties.title;
-
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${sheetTitle}'!A2:K`, // Skip headers
+      } catch (err) {
+        reject(err);
+      }
+      resolve();
+    });
   });
-
-  const rows = response.data.values || [];
-  
-  return rows.map((row, index) => ({
-    rowIndex: index + 2, // 1-indexed, +1 for header
-    applicationId: row[0] || '',
-    applicantName: row[1] || '',
-    email: row[2] || '',
-    phone: row[3] || '',
-    country: row[4] || '',
-    visaType: row[5] || '',
-    passportNo: row[6] || '',
-    travelDate: row[7] || '',
-    paymentStatus: row[8] || '',
-    currentStatus: row[9] || '',
-    action: row[10] || ''
-  }));
 };
 
 /**
- * Clears the Action cell (Column L) for a specific row.
+ * Polls the Google Sheet for changes to the Status column (Column W).
+ * Compares with MongoDB and updates the database if necessary.
  */
-const clearActionCell = async (spreadsheetId, rowIndex) => {
-  const sheets = await getSheetsClient();
-  
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheetTitle = spreadsheet.data.sheets[0].properties.title;
+const pollSheetForStatusUpdates = async (spreadsheetId) => {
+  try {
+    const sheets = await getSheetsClient();
+    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+    const sheetTitle = spreadsheet.data.sheets[0].properties.title;
 
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId,
-    range: `'${sheetTitle}'!L${rowIndex}`,
-  });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `'${sheetTitle}'!A:U`,
+    });
+
+    const allRows = response.data.values || [];
+    if (allRows.length <= 1) return; // No data yet
+
+    // We only need the mongoose models inside here to avoid circular dependencies
+    const Application = require('../models/Application');
+    const Visitor = require('../models/Visitor');
+
+    // 0 = Visitor ID (Col A)
+    // 12 = App ID (Col M)
+    // 20 = Status (Col U)
+    for (let i = 1; i < allRows.length; i++) {
+      const row = allRows[i];
+      const visitorId = row[0];
+      const appId = row[12];
+      const sheetStatus = (row[20] || "").trim();
+
+      if (!sheetStatus) continue; // Skip if no status
+
+      let dbStatus = sheetStatus;
+      if (sheetStatus === 'Under Review') dbStatus = 'review';
+      else if (sheetStatus === 'Submitted') dbStatus = 'submitted';
+      else if (sheetStatus === 'Approved') dbStatus = 'approved';
+      else if (sheetStatus === 'Rejected') dbStatus = 'rejected';
+      else if (sheetStatus === 'Pending') dbStatus = 'pending';
+      else if (sheetStatus === 'Cancelled') dbStatus = 'cancelled';
+
+      if (appId) {
+        // Find application by ID
+        const app = await Application.findOne({ applicationId: appId });
+        if (app && app.status !== dbStatus) {
+          console.log(`[GoogleSheets Sync] Detected status change for App ${appId}: ${app.status} -> ${dbStatus}`);
+          // Disable the hook so we don't cause an infinite loop back to Google Sheets!
+          await Application.updateOne({ _id: app._id }, { status: dbStatus });
+        }
+      }
+      // Note: We intentionally do NOT fallback to updating Visitor status here. 
+      // The sheet's status column contains Application statuses ('Pending', 'Approved', etc.) 
+      // which are not valid enums for the Visitor schema. Updating the Visitor with these
+      // would corrupt the document and prevent future .save() operations.
+    }
+  } catch (err) {
+    console.error("[GoogleSheets Sync] Polling error:", err);
+  }
+};
+
+const renameVisitorIdInSheet = async (oldVisitorId, newVisitorId, spreadsheetId) => {
+  try {
+    const sheets = await getSheetsClient();
+    if (!spreadsheetId) {
+      throw new Error('Spreadsheet ID is required.');
+    }
+    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+    const sheetTitle = spreadsheet.data.sheets[0].properties.title;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `'${sheetTitle}'!A:A`,
+    });
+
+    const allRows = response.data.values || [];
+    let rowIndex = -1;
+    for (let i = allRows.length - 1; i >= 1; i--) {
+      if (allRows[i][0] === oldVisitorId) {
+        rowIndex = i + 1; // 1-indexed for sheets.spreadsheets.values.update
+        break;
+      }
+    }
+
+    if (rowIndex !== -1) {
+      console.log(`[GoogleSheets Sync] Renaming orphaned visitor row ${oldVisitorId} to ${newVisitorId} at row ${rowIndex}`);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${sheetTitle}'!A${rowIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[newVisitorId]]
+        }
+      });
+    }
+  } catch (err) {
+    console.error("[GoogleSheets Sync] Rename row error:", err);
+  }
 };
 
 module.exports = {
-  getOrCreateSpreadsheet,
   initializeSheet,
-  writeDataToSheet,
-  readDataFromSheet,
-  clearActionCell,
   upsertRow,
+  renameVisitorIdInSheet,
+  pollSheetForStatusUpdates
 };

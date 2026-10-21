@@ -826,31 +826,51 @@ const appendApplicationDocuments = async (req, res) => {
       if (existingIdx >= 0) travellers[existingIdx] = payload;
       else travellers.push(payload);
       application.travellerDocuments = travellers.sort((a, b) => a.travelerNo - b.travelerNo);
-      application.markModified('travellerDocuments');
 
       // Auto-transition status to 'review' if all required documents are uploaded
-      const requiredDocs = Array.isArray(application.requiredDocuments) && application.requiredDocuments.length
+      const Settings = require('../models/Settings');
+      const settings = await Settings.findOne({}) || {};
+      
+      const incoming = Array.isArray(application.requiredDocuments) && application.requiredDocuments.length
         ? application.requiredDocuments
         : ['passport'];
+      const normalized = incoming.map((key) => String(key || "").trim()).filter(Boolean);
+      const unique = Array.from(new Set(normalized));
+      const optionalKeys = settings.enableFileUpload === false
+        ? []
+        : unique.filter((key) => key !== "passport");
+      
+      const requiredDocs = ["passport", ...optionalKeys];
+
       const travellerCount = Math.max(1, application.travellerCount || 1);
+      const isPaymentCompleted = application.paymentStatus === 'completed';
 
       let allUploaded = true;
       for (let tNo = 1; tNo <= travellerCount; tNo += 1) {
-        const tr = travellers.find((entry) => Number(entry?.travelerNo) === tNo);
+        const tr = application.travellerDocuments.find((entry) => Number(entry?.travelerNo) === tNo);
         if (!tr) {
           allUploaded = false;
-          break;
+          continue;
         }
+        let travelerDocsUploaded = true;
         const docs = tr.documents || {};
         for (const key of requiredDocs) {
           const val = typeof docs.get === 'function' ? docs.get(key) : docs[key];
           if (!val || typeof val !== 'string' || !val.trim()) {
+            travelerDocsUploaded = false;
             allUploaded = false;
             break;
           }
         }
-        if (!allUploaded) break;
+        
+        if (travelerDocsUploaded && isPaymentCompleted) {
+          if (!tr.status || tr.status === 'pending' || tr.status === 'doc_pending') {
+             tr.status = 'review';
+          }
+        }
       }
+
+      application.markModified('travellerDocuments');
 
       console.log('--- auto-transition debug ---');
       console.log('requiredDocs:', requiredDocs);
@@ -985,7 +1005,7 @@ const getUserApplications = async (req, res) => {
 const getAllApplications = async (req, res) => {
   try {
     const applications = await Application.find()
-      .populate('user', 'name email phone age gender')
+      .populate('user', 'name email phone age gender accountId')
       .sort({ createdAt: -1 });
     res.json({
       success: true,
@@ -1007,7 +1027,7 @@ const findApplicationByIdOrSeq = async (id, populateUser = false) => {
   }
   let q = Application.findOne(query);
   if (populateUser) {
-    q = q.populate('user', 'name email phone age gender');
+    q = q.populate('user', 'name email phone age gender accountId');
   }
   return q;
 };
@@ -1167,9 +1187,56 @@ const updateApplicationStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Application not found' });
     }
     res.json({ success: true, application });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, message: 'Server error updating status' });
+    }
+};
+
+const updateTravelerStatus = async (req, res) => {
+  try {
+    const { travelerNo } = req.params;
+    const { status } = req.body;
+    const mongoose = require('mongoose');
+    const query = mongoose.Types.ObjectId.isValid(req.params.id)
+      ? { _id: req.params.id }
+      : { applicationId: String(req.params.id).trim() };
+
+    const application = await Application.findOne(query);
+    if (!application) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    const tNum = parseInt(travelerNo, 10);
+    let travelerDoc = application.travellerDocuments.find(t => t.travelerNo === tNum);
+
+    if (!travelerDoc) {
+      application.travellerDocuments.push({
+        travelerNo: tNum,
+        travelerName: `Traveler ${tNum}`,
+        status: 'pending',
+        documents: {}
+      });
+      travelerDoc = application.travellerDocuments.find(t => t.travelerNo === tNum);
+    }
+
+    const previousStatus = travelerDoc.status;
+    travelerDoc.status = status;
+
+    application.auditLog.push({
+      action: 'TRAVELER_STATUS_UPDATE',
+      adminName: req.admin ? req.admin.name : 'Unknown',
+      previousStatus: previousStatus || 'pending',
+      newStatus: status,
+      fieldName: `Traveler ${tNum} Status`,
+    });
+
+    await application.save();
+
+    res.json({ success: true, application });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ success: false, message: 'Server error updating status' });
+    res.status(500).json({ success: false, message: 'Server error updating traveler status' });
   }
 };
 
@@ -1240,5 +1307,6 @@ module.exports = {
   updateApplicationByAdmin,
   uploadApprovedVisaFile,
   updateApplicationStatus,
+  updateTravelerStatus,
   downloadApplicationDocument,
 };  

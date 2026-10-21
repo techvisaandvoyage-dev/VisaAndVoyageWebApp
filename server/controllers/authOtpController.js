@@ -9,6 +9,7 @@ const {
   normalizeIdentifier,
 } = require('../services/otpAuthService');
 const { publicAuthControlsFromSettings } = require('./authSettingsController');
+const { mergeVisitorOnLogin } = require('../utils/visitorMerge');
 
 const generateToken = (id) => jwt.sign({ id: String(id), role: 'user' }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
@@ -212,12 +213,18 @@ const verifyOtp = async (req, res) => {
         consume: true,
       }).catch(() => {});
       
+      let resolvedVisitorId = req.body.visitorId;
+      if (req.body.visitorId && user) {
+        resolvedVisitorId = await mergeVisitorOnLogin(req.body.visitorId, user);
+      }
+
       const safe = await User.findById(user._id).lean();
       return res.json({
         success: true,
         userExists: true,
         token: generateToken(user._id),
         user: safeUserPayload(safe),
+        visitorId: resolvedVisitorId
       });
     }
 
@@ -288,12 +295,18 @@ const verifyOtp = async (req, res) => {
       isVerified: true,
     });
 
+    let resolvedVisitorId = req.body.visitorId;
+    if (req.body.visitorId && user) {
+      resolvedVisitorId = await mergeVisitorOnLogin(req.body.visitorId, user);
+    }
+
     const safe = await User.findById(user._id).lean();
     return res.json({
       success: true,
       userExists: false,
       token: generateToken(user._id),
       user: safeUserPayload(safe),
+      visitorId: resolvedVisitorId
     });
   } catch (error) {
     res.status(error.statusCode || 500).json({

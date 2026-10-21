@@ -88,10 +88,10 @@ const getDocumentKeyFromPath = (path) => {
 export const getApplicationProgress = (application, settings = { enableFileUpload: true, enableGDriveUpload: true }) => {
   const travellerCount = Math.max(1, Number(application?.travellerCount || 1));
   const requiredDocuments = resolveVisibleRequiredDocuments(
-    Array.isArray(settings?.customRequiredDocs) && settings.customRequiredDocs.length
-      ? settings.customRequiredDocs
-      : Array.isArray(application?.requiredDocuments) && application.requiredDocuments.length
-        ? application.requiredDocuments
+    Array.isArray(application?.requiredDocuments) && application.requiredDocuments.length
+      ? application.requiredDocuments
+      : Array.isArray(settings?.customRequiredDocs) && settings.customRequiredDocs.length
+        ? settings.customRequiredDocs
         : ["passport"],
     settings
   );
@@ -222,7 +222,7 @@ export const resolveApplicationStatus = (
     return application.status;
   }
 
-  if (application.status === "review") {
+  if (application.status === "review" || application.status === "submitted") {
     return isPaid ? "review" : "pending_payment";
   }
 

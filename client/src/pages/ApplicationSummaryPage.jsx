@@ -412,6 +412,15 @@ const ApplicationSummaryPage = () => {
   const [uploadSettings, setUploadSettings] = useState({ enableFileUpload: true, enableGDriveUpload: true, allowedFileFormats: ["pdf", "jpg", "jpeg", "png"] });
   const [razorpayReady, setRazorpayReady] = useState(false);
   const [razorpayMessage, setRazorpayMessage] = useState("");
+  const [startAppCopy, setStartAppCopy] = useState(() => {
+    try {
+      const cached = localStorage.getItem("vb-destination-content");
+      const parsed = cached ? JSON.parse(cached) : null;
+      return parsed?.startApplicationPageCopy || {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     let alive = true;
@@ -423,6 +432,28 @@ const ApplicationSummaryPage = () => {
         }
       } catch {
         /* keep defaults */
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.get("/config/destination-content");
+        if (alive && data?.success && data.config) {
+          try {
+            localStorage.setItem("vb-destination-content", JSON.stringify(data.config));
+          } catch {
+            /* ignore */
+          }
+          if (data.config.startApplicationPageCopy) {
+            setStartAppCopy(data.config.startApplicationPageCopy);
+          }
+        }
+      } catch {
+        /* keep fallbacks */
       }
     })();
     return () => { alive = false; };
@@ -1472,10 +1503,26 @@ const ApplicationSummaryPage = () => {
                 <Info size={18} className="text-cyan mt-0.5 shrink-0" />
                 <div>
                   <p className="text-sm font-semibold text-text-primary">
-                    No worries — you can upload your documents anytime later.
+                    {startAppCopy?.summaryDocNoticeTitle || "No worries — you can upload your documents anytime later."}
                   </p>
                   <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
-                    After payment, your application will remain available in <span className="text-text-primary font-medium">My Dashboard → Open Your Application → Upload Documents</span>, where you can upload documents for each traveler whenever it’s convenient for you.
+                    {(() => {
+                      const text =
+                        startAppCopy?.summaryDocNoticeDescription ||
+                        "After payment, your application will remain available in My Dashboard → Open Your Application → Upload Documents, where you can upload documents for each traveler whenever it’s convenient for you.";
+                      const target = "My Dashboard → Open Your Application → Upload Documents";
+                      if (text.includes(target)) {
+                        const parts = text.split(target);
+                        return (
+                          <>
+                            {parts[0]}
+                            <span className="text-text-primary font-medium">{target}</span>
+                            {parts.slice(1).join(target)}
+                          </>
+                        );
+                      }
+                      return text;
+                    })()}
                   </p>
                 </div>
               </div>

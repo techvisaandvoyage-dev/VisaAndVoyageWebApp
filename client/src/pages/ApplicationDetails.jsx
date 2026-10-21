@@ -846,6 +846,7 @@ const ApplicationDetails = () => {
     return {
       travelerNo,
       travelerName,
+      status: uploadedTraveler?.status || "pending",
       gdriveLink: getSharedDriveLink(),
       gdriveFurtherInfoLink: uploadedTraveler?.gdriveFurtherInfoLink || "",
       uploadedDocumentsCount,
@@ -2006,11 +2007,14 @@ const ApplicationDetails = () => {
                       <p className="text-sm font-semibold text-text-primary">Traveler {traveler.travelerNo}</p>
                       <p className="text-sm text-text-secondary mt-1">{traveler.travelerName}</p>
                     </div>
-                    {traveler.isComplete ? (
-                      <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-400">
-                        Complete
-                      </span>
-                    ) : null}
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={traveler.status === "submitted" ? "review" : traveler.status} />
+                      {traveler.isComplete ? (
+                        <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-400">
+                          Complete
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   {!canUploadDocuments && (

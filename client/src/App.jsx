@@ -35,6 +35,8 @@ const scheduleAfterPaint = (callback) => {
   return () => window.cancelAnimationFrame(frame);
 };
 
+import { useVisitorTracking } from "./hooks/useVisitorTracking";
+
 /** Outside Suspense so lazy routes still reset scroll on SPA navigation. */
 const ScrollToTop = () => {
   const location = useLocation();
@@ -43,6 +45,11 @@ const ScrollToTop = () => {
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
   }, [location.pathname]);
+  return null;
+};
+
+const VisitorTracking = () => {
+  useVisitorTracking();
   return null;
 };
 
@@ -71,6 +78,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ScrollToTop />
+        <VisitorTracking />
         <SiteSeoManager />
         {/* Both components render null — Suspense fallback is null so no flash */}
         {loadDeferredShell ? (

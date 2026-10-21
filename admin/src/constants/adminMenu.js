@@ -14,8 +14,8 @@ import {
 export const ADMIN_DASHBOARD_TABS = [
   { id: "activity", label: "Activity Center", icon: BarChart2 },
   { id: "countries", label: "Country Manager", icon: MapPin, hidden: true },
-  { id: "landing-page", label: "Header", icon: Globe },
-  { id: "cards", label: "Body", icon: CreditCard },
+  { id: "header", label: "Header", icon: Globe },
+  { id: "body", label: "Body", icon: CreditCard },
   { id: "footer", label: "Footer", icon: Globe },
   { id: "chat", label: "Chat", icon: MessageSquare },
   { id: "settings", label: "Settings", icon: Settings },

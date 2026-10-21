@@ -20,6 +20,7 @@ const path = require('path');
 
 const { getFirebaseAdminApp } = require('../utils/firebaseAdmin');
 const { getAuth } = require('firebase-admin/auth');
+const { mergeVisitorOnLogin } = require('../utils/visitorMerge');
 
 const generateToken = (id) => {
   return jwt.sign({ id: String(id), role: 'user' }, process.env.JWT_SECRET, {
@@ -736,11 +737,17 @@ const firebaseAuthLogin = async (req, res) => {
 
     const refreshed = await User.findById(user._id).select('-password').lean();
 
+    let resolvedVisitorId = req.body.visitorId;
+    if (req.body.visitorId && user) {
+      resolvedVisitorId = await mergeVisitorOnLogin(req.body.visitorId, user);
+    }
+
     res.json({
       success: true,
       token: generateToken(user._id),
       user: publicUserPayload(refreshed, user),
       isNewUser,
+      visitorId: resolvedVisitorId,
     });
   } catch (error) {
     console.error('[Firebase Auth]', error);
@@ -806,6 +813,11 @@ const loginUser = async (req, res) => {
 
     if (!user.isVerified) {
       return res.status(403).json({ success: false, message: 'Account not verified. Please request OTP.' });
+    }
+
+    let resolvedVisitorId = req.body.visitorId;
+    if (req.body.visitorId && user) {
+      resolvedVisitorId = await mergeVisitorOnLogin(req.body.visitorId, user);
     }
 
     res.json({

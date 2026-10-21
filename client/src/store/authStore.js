@@ -6,6 +6,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
+import { trackEvent } from "../hooks/useVisitorTracking";
 
 // ── Axios Instance ───────────────────────────────────────────
 /** Backend origin only (no /api). Strips trailing /api so VITE_API_URL=http://host:5000/api does not become .../api/api. */
@@ -133,7 +134,12 @@ export const useAuthStore = create(
       login: async (identifier, password) => {
         set({ isLoading: true, error: null });
         try {
-          const { data } = await api.post("/users/login", { identifier, email: identifier, password });
+          const { data } = await api.post("/users/login", { 
+            identifier, 
+            email: identifier, 
+            password,
+            visitorId: localStorage.getItem("visitorId") || undefined
+          });
           
           if (data.success) {
             if (!data.token) {
@@ -149,6 +155,13 @@ export const useAuthStore = create(
               }
             }
             set({ isLoading: false });
+            try {
+              if (data.visitorId) {
+                localStorage.setItem("visitorId", data.visitorId);
+              }
+              const uId = data.user?._id || data.admin?._id;
+              if (uId) trackEvent("login_completed", { userId: uId });
+            } catch(e) {}
             return { success: true, role: "user" };
           }
           set({ isLoading: false });
@@ -170,6 +183,7 @@ export const useAuthStore = create(
             identifier,
             otp,
             purpose: "auth",
+            visitorId: localStorage.getItem("visitorId") || undefined
           });
           if (data.success) {
             if (data.userExists === true) {
@@ -219,6 +233,7 @@ export const useAuthStore = create(
             lastName: String(lastName || "").trim(),
             email: String(email || "").trim().toLowerCase(),
             password: pending.password || "",
+            visitorId: localStorage.getItem("visitorId") || undefined
           };
 
           const { data } = await api.post("/auth/verify-otp", payload);
@@ -232,6 +247,13 @@ export const useAuthStore = create(
               }
             }
             set({ isLoading: false, pendingSignup: null });
+            try {
+              if (data.visitorId) {
+                localStorage.setItem("visitorId", data.visitorId);
+              }
+              const uId = data.user?._id || data.user?.id;
+              if (uId) trackEvent("registration_completed", { userId: uId });
+            } catch(e) {}
             return { success: true, role: "user" };
           }
 
@@ -280,7 +302,12 @@ export const useAuthStore = create(
       verifyLoginOtp: async (identifier, otp) => {
         set({ isLoading: true, error: null });
         try {
-          const { data } = await api.post("/auth/verify-otp", { identifier, otp, purpose: "auth" });
+          const { data } = await api.post("/auth/verify-otp", { 
+            identifier, 
+            otp, 
+            purpose: "auth",
+            visitorId: localStorage.getItem("visitorId") || undefined
+          });
           if (data.success) {
             localStorage.setItem("token", data.token);
             let userFromProfile = await get().refreshUserFromServer({ sessionAuthMethod: "otp" });
@@ -302,6 +329,9 @@ export const useAuthStore = create(
               if (shown) {
                 set({ user: { ...get().user, phone: shown } });
               }
+            }
+            if (data.visitorId) {
+              localStorage.setItem("visitorId", data.visitorId);
             }
             set({ isLoading: false });
             return { success: true, role: "user" };
@@ -334,7 +364,8 @@ export const useAuthStore = create(
         set({ isLoading: true, error: null });
         try {
           const { createIfMissing = true } = options;
-          const { data } = await api.post("/users/firebase-auth", { idToken, createIfMissing });
+          const visitorId = localStorage.getItem("visitorId") || undefined;
+          const { data } = await api.post("/users/firebase-auth", { idToken, createIfMissing, visitorId });
           if (data.success) {
             if (data.user === null) {
               set({ isLoading: false });
@@ -352,10 +383,26 @@ export const useAuthStore = create(
               get()
                 .refreshUserFromServer({ sessionAuthMethod })
                 .catch(() => {});
+              try {
+                if (data.visitorId) {
+                  localStorage.setItem("visitorId", data.visitorId);
+                }
+                if (data.isNewUser) trackEvent("registration_completed", { userId: data.user._id });
+                else trackEvent("login_completed", { userId: data.user._id });
+              } catch(e) {}
               return { success: true, role: "user", isNewUser: data.isNewUser, user: initial };
             }
             const refreshed = await get().refreshUserFromServer({ sessionAuthMethod });
             set({ isLoading: false });
+            try {
+              if (data.visitorId) {
+                localStorage.setItem("visitorId", data.visitorId);
+              }
+              if (refreshed) {
+                if (data.isNewUser) trackEvent("registration_completed", { userId: refreshed._id });
+                else trackEvent("login_completed", { userId: refreshed._id });
+              }
+            } catch(e) {}
             return { success: !!refreshed, role: refreshed ? "user" : null, isNewUser: data.isNewUser, user: refreshed };
           }
           set({ isLoading: false });
@@ -482,6 +529,7 @@ export const useAuthStore = create(
        */
       logout: () => {
         localStorage.removeItem("token");
+        localStorage.removeItem("visitorId");
         set({ user: null, isAuthenticated: false, error: null, sessionAuthMethod: null, isLoading: false });
       },
 
@@ -668,7 +716,8 @@ export const useAuthStore = create(
       popupVerifyOtp: async (phone, otp) => {
         set({ isLoading: true, error: null });
         try {
-          const { data } = await api.post("/auth/verify-otp", { identifier: phone, otp, purpose: "auth" });
+          const visitorId = localStorage.getItem("visitorId") || undefined;
+          const { data } = await api.post("/auth/verify-otp", { identifier: phone, otp, purpose: "auth", visitorId });
           if (data.success && data.userExists) {
             localStorage.setItem("token", data.token);
             let userFromProfile = await get().refreshUserFromServer({ sessionAuthMethod: "otp" });
@@ -678,6 +727,12 @@ export const useAuthStore = create(
                 set({ user: fallback, isAuthenticated: true, sessionAuthMethod: "otp" });
               }
             }
+            if (data.visitorId) {
+              localStorage.setItem("visitorId", data.visitorId);
+            }
+            try {
+              trackEvent("login_completed", { userId: data.user.id || data.user._id });
+            } catch(e) {}
             set({ isLoading: false });
             return { success: true, userExists: true };
           }
@@ -701,6 +756,7 @@ export const useAuthStore = create(
             email,
             completeSignup: true,
             purpose: "auth",
+            visitorId: localStorage.getItem("visitorId") || undefined,
           });
           if (data.success) {
             localStorage.setItem("token", data.token);
@@ -711,6 +767,12 @@ export const useAuthStore = create(
                 set({ user: fallback, isAuthenticated: true, sessionAuthMethod: "otp" });
               }
             }
+            if (data.visitorId) {
+              localStorage.setItem("visitorId", data.visitorId);
+            }
+            try {
+              trackEvent("registration_completed", { userId: data.user.id || data.user._id });
+            } catch(e) {}
             set({ isLoading: false });
             return { success: true };
           }

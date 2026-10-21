@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
+  accountId: {
+    type: Number,
+    unique: true,
+    sparse: true
+  },
   name: {
     type: String,
     default: '',
@@ -103,6 +108,56 @@ const UserSchema = new mongoose.Schema({
     default: false
   }
 }, { timestamps: true });
+
+// Auto-increment accountId
+UserSchema.pre('save', async function () {
+  if (this.isNew && !this.accountId) {
+    try {
+      const Counter = require('./Counter');
+      const ACCOUNT_ID_COUNTER = 'accountId';
+      const ACCOUNT_ID_START = 500901;
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        let counter = await Counter.findOne({ name: ACCOUNT_ID_COUNTER });
+        if (!counter) {
+          try {
+            counter = await Counter.create({
+              name: ACCOUNT_ID_COUNTER,
+              value: ACCOUNT_ID_START,
+            });
+            this.accountId = counter.value;
+            return;
+          } catch (err) {
+            if (err.code === 11000 && attempt === 0) continue;
+            throw err;
+          }
+        }
+
+        if (counter.value < ACCOUNT_ID_START) {
+          counter = await Counter.findOneAndUpdate(
+            { name: ACCOUNT_ID_COUNTER },
+            { $set: { value: ACCOUNT_ID_START } },
+            { returnDocument: 'after' }
+          );
+          this.accountId = counter.value;
+          return;
+        }
+
+        counter = await Counter.findOneAndUpdate(
+          { name: ACCOUNT_ID_COUNTER },
+          { $inc: { value: 1 } },
+          { returnDocument: 'after' }
+        );
+        this.accountId = counter.value;
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to generate accountId:', error);
+      // Fallback if counter completely fails
+      this.accountId = 500000 + Math.floor(Math.random() * 9000); 
+    }
+  }
+});
 
 UserSchema.pre('save', async function() {
   if (!this.isModified('password') || !this.password) return;

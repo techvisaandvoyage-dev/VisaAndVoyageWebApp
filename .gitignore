@@ -31,3 +31,5 @@ server/firebase-key*.json
 server/uploads/*
 !server/uploads/.gitkeep
 client/dist/
+diff*.txt
+old_country_details.jsx

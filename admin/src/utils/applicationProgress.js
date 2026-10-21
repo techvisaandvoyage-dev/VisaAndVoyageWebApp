@@ -61,10 +61,10 @@ const resolveVisibleRequiredDocuments = (rawRequiredDocuments = [], settings = {
 export const getApplicationProgress = (application, settings = { enableFileUpload: true, enableGDriveUpload: true }) => {
   const travellerCount = Math.max(1, Number(application?.travellerCount || 1));
   const requiredDocuments = resolveVisibleRequiredDocuments(
-    Array.isArray(settings?.customRequiredDocs) && settings.customRequiredDocs.length
-      ? settings.customRequiredDocs
-      : Array.isArray(application?.requiredDocuments) && application.requiredDocuments.length
-        ? application.requiredDocuments
+    Array.isArray(application?.requiredDocuments) && application.requiredDocuments.length
+      ? application.requiredDocuments
+      : Array.isArray(settings?.customRequiredDocs) && settings.customRequiredDocs.length
+        ? settings.customRequiredDocs
         : ["passport"],
     settings
   );
@@ -132,22 +132,10 @@ export const resolveApplicationStatus = (application, progress) => {
     application.status === "approved" ||
     application.status === "rejected" ||
     application.status === "cancelled" ||
-    application.status === "submitted"
+    application.status === "submitted" ||
+    application.status === "review"
   ) {
     return application.status;
-  }
-
-  if (application.status === "review") {
-    const normalizedPaymentStatus = String(
-      application.paymentStatus ||
-      application.payment?.status ||
-      application.razorpayPaymentStatus ||
-      ""
-    ).trim().toLowerCase();
-    const isPaid =
-      application.isPaid === true ||
-      ["paid", "completed", "success", "captured"].includes(normalizedPaymentStatus);
-    return isPaid ? "review" : "pending_payment";
   }
 
   const normalizedPaymentStatus = String(
@@ -161,12 +149,8 @@ export const resolveApplicationStatus = (application, progress) => {
     ["paid", "completed", "success", "captured"].includes(normalizedPaymentStatus);
 
   if (isPaymentCompleted) {
-    return progress?.allDocumentsUploaded ? "review" : "doc_pending";
+    return progress?.allDocumentsUploaded ? "review" : "pending";
   }
 
-  if (progress?.allDocumentsUploaded && progress?.gdriveEnabled && progress?.hasDriveLink === false) {
-    return "drive_link_pending";
-  }
-
-  return progress?.allDocumentsUploaded ? "pending_payment" : "pending";
+  return "pending";
 };

@@ -117,13 +117,31 @@ const resolveAssetUrl = (value) => {
   return `${SERVER_URL}/${url}`;
 };
 
+const FOOTER_CACHE_KEY = "vv_footer_config_cache_v1";
+
+const loadCachedFooter = () => {
+  if (typeof window === "undefined") return { content: FOOTER_CONTENT_FALLBACK, sections: FOOTER_CONTENT_FALLBACK.sections };
+  try {
+    const raw = window.localStorage.getItem(FOOTER_CACHE_KEY);
+    if (!raw) return { content: FOOTER_CONTENT_FALLBACK, sections: FOOTER_CONTENT_FALLBACK.sections };
+    const parsed = JSON.parse(raw);
+    return {
+      content: parsed.content || FOOTER_CONTENT_FALLBACK,
+      sections: parsed.sections || FOOTER_CONTENT_FALLBACK.sections,
+    };
+  } catch {
+    return { content: FOOTER_CONTENT_FALLBACK, sections: FOOTER_CONTENT_FALLBACK.sections };
+  }
+};
+
 const Footer = () => {
   const currentYear = new Date().getFullYear();
   const siteLogo = useSiteLogo();
   const [pages, setPages] = useState([]);
   const [socialIcons, setSocialIcons] = useState([]);
-  const [footerContent, setFooterContent] = useState(FOOTER_CONTENT_FALLBACK);
-  const [footerSections, setFooterSections] = useState(FOOTER_CONTENT_FALLBACK.sections);
+  const [cachedFooter] = useState(() => loadCachedFooter());
+  const [footerContent, setFooterContent] = useState(cachedFooter.content);
+  const [footerSections, setFooterSections] = useState(cachedFooter.sections);
   const [activeCountryCount, setActiveCountryCount] = useState(0);
   const [openSections, setOpenSections] = useState({});
 
@@ -159,7 +177,7 @@ const Footer = () => {
 
         if (footerConfigRes?.data?.success && footerConfigRes?.data?.config) {
           const config = footerConfigRes.data.config;
-          setFooterContent({
+          const nextContent = {
             logo: config.logo || "",
             brandPrimaryText:
               String(config.brandPrimaryText || "").trim() || FOOTER_CONTENT_FALLBACK.brandPrimaryText,
@@ -170,11 +188,15 @@ const Footer = () => {
             supportedByShow: config.supportedByShow !== undefined ? config.supportedByShow : FOOTER_CONTENT_FALLBACK.supportedByShow,
             supportedByText: config.supportedByText || FOOTER_CONTENT_FALLBACK.supportedByText,
             supportedByLink: config.supportedByLink !== undefined ? config.supportedByLink : FOOTER_CONTENT_FALLBACK.supportedByLink,
-          });
-          const sections = Array.isArray(config.sections)
+          };
+          const nextSections = Array.isArray(config.sections)
             ? config.sections.map((s) => ({ key: s.key, title: s.label }))
             : FOOTER_CONTENT_FALLBACK.sections;
-          setFooterSections(sections);
+          setFooterContent(nextContent);
+          setFooterSections(nextSections);
+          try {
+            window.localStorage.setItem(FOOTER_CACHE_KEY, JSON.stringify({ content: nextContent, sections: nextSections }));
+          } catch {}
         } else {
           setFooterContent(FOOTER_CONTENT_FALLBACK);
           setFooterSections(FOOTER_CONTENT_FALLBACK.sections);

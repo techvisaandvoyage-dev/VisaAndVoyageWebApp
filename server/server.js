@@ -186,6 +186,10 @@ app.use('/api/travelers', require('./routes/travelerRoutes'));
 app.use('/api/visa-types', require('./routes/visaTypeRoutes'));
 app.use('/api/google-sheets', require('./routes/googleSheetsRoutes'));
 app.use('/api/google', require('./routes/googleWebhookRoutes'));
+app.use('/api/blog', require('./routes/blogRoutes'));
+app.use('/api/comments', require('./routes/commentRoutes'));
+app.use('/api/testimonials', require('./routes/testimonialRoutes'));
+app.use('/api/analytics', require('./routes/analyticsRoutes'));
 
 // Public Config Routes
 const {
@@ -983,6 +987,27 @@ app.listen(port, host, () => {
 const bootstrap = async () => {
   // ── 4a. Connect to MongoDB (retries internally) ─────────────────────────────
   await connectDB();
+
+  // ── 4a.5. Start Google Sheets Polling Job ───────────────────────────────────
+  try {
+    const { pollSheetForStatusUpdates } = require('./services/googleSheetsService');
+    const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1llCFju33TnXTFwVQB8D5XDAcUQEeINXKyKgyoUCGh5o';
+    
+    // Run initial poll 10 seconds after boot
+    setTimeout(() => {
+      pollSheetForStatusUpdates(SPREADSHEET_ID).catch(err => {});
+    }, 10000);
+
+    // Then poll every 30 seconds for fast sync
+    setInterval(() => {
+      pollSheetForStatusUpdates(SPREADSHEET_ID).catch(err => {
+         logger.error('Error in Google Sheets polling job:', err);
+      });
+    }, 30 * 1000);
+    logger.startup('Google Sheets 2-way sync polling job started (interval: 30s).');
+  } catch (err) {
+    logger.error('Failed to start Google Sheets polling job:', err);
+  }
 
   // ── 4b. Admin seed ──────────────────────────────────────────────────────────
   try {

@@ -67,7 +67,7 @@ function buildDetailLabel(addr, countryName, primaryLabel) {
  */
 exports.searchPlaces = async (req, res) => {
   const q = String(req.query.q || '').trim();
-  if (q.length < 2) {
+  if (q.length < 1) {
     return res.json({ success: true, places: [], matches: [] });
   }
 
@@ -167,21 +167,25 @@ exports.searchPlaces = async (req, res) => {
       }
     }
 
-    if (!doc) continue;
+    const returnAll = req.query.all === 'true';
+    if (!doc && !returnAll) continue;
 
     const pk = String(p.item.place_id ?? `${p.item.lat},${p.item.lon}`);
     if (seenPlace.has(pk)) continue;
     seenPlace.add(pk);
 
+    const countryName = doc ? doc.name : (p.nominatimCountry || p.canonicalName || p.addr.country || p.addr.continent || '');
+    const countrySlug = doc ? doc.slug : countryName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
     const primaryLabel = buildPrimaryLabel(p.addr, p.item);
-    const detailLabel = buildDetailLabel(p.addr, doc.name, primaryLabel);
+    const detailLabel = buildDetailLabel(p.addr, countryName, primaryLabel).replace(/ · $/, '');
 
     places.push({
       placeKey: pk,
       primaryLabel,
       detailLabel,
-      countrySlug: doc.slug,
-      countryName: doc.name,
+      countrySlug: countrySlug,
+      countryName: countryName,
       displayName: p.item.display_name || '',
     });
   }
