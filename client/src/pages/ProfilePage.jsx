@@ -21,7 +21,7 @@ import {
   AlertTriangle,
   RefreshCw,
 } from "lucide-react";
-import { useAuthStore } from "../store/authStore";
+import { useAuthStore, api } from "../store/authStore";
 import { useUIStore } from "../store/uiStore";
 import Navbar from "../components/layout/Navbar";
 import Card from "../components/ui/Card";
@@ -48,6 +48,64 @@ const formatMemberSince = (value) => {
 };
 
 const createEmptyOtp = (length = 6) => Array.from({ length: length === 4 ? 4 : 6 }, () => "");
+
+const DEFAULT_PROFILE_PAGE_COPY = {
+  backToDashboardText: "Back to Dashboard",
+  profileActiveBadgeText: "Profile Active",
+  editProfileButtonText: "Edit Profile",
+  saveChangesButtonText: "Save Changes",
+  cancelButtonText: "Cancel",
+  noEmailText: "No email added",
+  notAddedPhoneText: "Not added",
+
+  personalInfoTitle: "Personal Information",
+  fullNameLabel: "Full Name",
+  fullNamePlaceholder: "Enter your full name",
+  emailAddressLabel: "Email Address",
+  emailPlaceholder: "Enter email address",
+  emailHelperText: "Email cannot be changed",
+  mobileNumberLabel: "Mobile Number",
+  phonePlaceholder: "Enter phone number",
+  phoneHelperText: "Use OTP verification to add or change your mobile number.",
+  phoneCountrySearchPlaceholder: "Search country",
+  ageLabel: "Age",
+  agePlaceholder: "Enter your age",
+  genderLabel: "Gender",
+  genderPlaceholder: "Select gender",
+  genderOptionMale: "Male",
+  genderOptionFemale: "Female",
+  genderOptionOther: "Other",
+  addPhoneButtonText: "Add mobile no.",
+  changePhoneButtonText: "Change mobile no.",
+  sendOtpButtonText: "Send OTP",
+  phoneResendOtpText: "Resend OTP",
+  phoneVerifySaveButtonText: "Verify & Save",
+
+  accountOverviewTitle: "Account Overview",
+  memberSinceLabel: "Member Since",
+  accountEmailLabel: "Email Address",
+  accountPhoneLabel: "Phone Number",
+  accountStatusLabel: "Account Status",
+  accountStatusValue: "Active",
+  badgeAddedText: "Added",
+  badgeAddEmailText: "Add email",
+  badgeAddPhoneText: "Add phone",
+
+  securityTitle: "Security",
+  securityDescription: "Keep your account secure with a strong password.",
+  createPasswordDescription: "Create a password so this account can also sign in with email and password.",
+  changePasswordButtonText: "Change Password",
+  createPasswordButtonText: "Create Password",
+
+  // Account Deletion Section
+  deletionTitle: "Account Deletion",
+  deletionDescription: "Permanently delete your account and all associated profile data.",
+  deleteAccountButtonText: "Delete Account",
+  deleteModalTitle: "Verify Your Identity",
+  deleteModalSubtitle: "For your security, please verify your identity before permanently deleting your account.",
+  deleteConfirmTitle: "Are you sure?",
+  deleteConfirmSubtitle: "This action cannot be undone. All your profile data, applications, and history will be permanently deleted.",
+};
 
 const StatusPill = ({ children, tone = "green" }) => {
   const tones = {
@@ -116,6 +174,30 @@ const ProfilePage = () => {
 
   const fileInputRef = useRef(null);
   const countryCodeDropdownRef = useRef(null);
+  const [profileCopy, setProfileCopy] = useState(DEFAULT_PROFILE_PAGE_COPY);
+
+  useEffect(() => {
+    let alive = true;
+    const fetchProfileCopy = async () => {
+      try {
+        const { data } = await api.get("/config/profile-copy");
+        if (alive && data?.success && data?.copy) {
+          setProfileCopy((prev) => ({ ...prev, ...data.copy }));
+        }
+      } catch {
+        try {
+          const { data } = await api.get("/config/destination-content");
+          if (alive && data?.config?.userProfilePageCopy) {
+            setProfileCopy((prev) => ({ ...prev, ...data.config.userProfilePageCopy }));
+          }
+        } catch {}
+      }
+    };
+    fetchProfileCopy();
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [countryCodeOpen, setCountryCodeOpen] = useState(false);
@@ -558,12 +640,14 @@ const ProfilePage = () => {
   const displayPhone =
     displayPhoneDigits.length === 10
       ? `${displayPhoneCountryCode} ${displayPhoneDigits.slice(0, 5)} ${displayPhoneDigits.slice(5)}`
-      : (user.phone || formData.phone || "Not added");
+      : (user.phone || formData.phone || profileCopy.notAddedPhoneText || "Not added");
 
   const filteredCountryOptions = filterPhoneCountryOptions(countryCodeSearch, phoneCountryOptions);
   const selectedCountryOption = findPhoneCountryOption(formData.phoneCountryCode, phoneCountryOptions);
   const phoneInputLocked = !phoneOtpActive || phoneOtpSent;
-  const phoneActionLabel = displayPhoneDigits ? "Change mobile no." : "Add mobile no.";
+  const phoneActionLabel = displayPhoneDigits
+    ? (profileCopy.changePhoneButtonText || "Change mobile no.")
+    : (profileCopy.addPhoneButtonText || "Add mobile no.");
 
   const memberSince = formatMemberSince(user.createdAt);
 
@@ -579,7 +663,7 @@ const ProfilePage = () => {
             className="inline-flex items-center gap-2 text-sm font-medium text-[#235BFF] transition-colors hover:text-[#1746D8]"
           >
             <ArrowLeft size={16} />
-            Back to Dashboard
+            {profileCopy.backToDashboardText || "Back to Dashboard"}
           </button>
         </div>
 
@@ -623,12 +707,12 @@ const ProfilePage = () => {
                   </span>
                 </h1>
 
-                <StatusPill tone="green">Profile Active</StatusPill>
+                <StatusPill tone="green">{profileCopy.profileActiveBadgeText || "Profile Active"}</StatusPill>
 
                 <div className="space-y-3 text-[1.02rem] text-slate-600">
                   <div className="flex items-center justify-center sm:justify-start gap-3">
                     <Mail size={18} className="text-slate-500" />
-                    <span>{user.email || "No email added"}</span>
+                    <span>{user.email || profileCopy.noEmailText || "No email added"}</span>
                   </div>
                   <div className="flex items-center justify-center sm:justify-start gap-3">
                     <Phone size={18} className="text-slate-500" />
@@ -647,7 +731,7 @@ const ProfilePage = () => {
                   onClick={() => setIsEditing(true)}
                   className="rounded-2xl bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)] px-7 py-4 text-white shadow-[0_20px_45px_rgba(37,99,235,0.26)] hover:bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)]"
                 >
-                  Edit Profile
+                  {profileCopy.editProfileButtonText || "Edit Profile"}
                 </Button>
               ) : (
                 <>
@@ -658,7 +742,7 @@ const ProfilePage = () => {
                     onClick={handleCancel}
                     className="rounded-2xl border border-slate-200 bg-white/85 px-6 py-4 text-slate-700 hover:bg-slate-50"
                   >
-                    Cancel
+                    {profileCopy.cancelButtonText || "Cancel"}
                   </Button>
                   <Button
                     variant="primary"
@@ -668,7 +752,7 @@ const ProfilePage = () => {
                     loading={isLoading}
                     className="rounded-2xl bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)] px-7 py-4 text-white shadow-[0_20px_45px_rgba(37,99,235,0.26)] hover:bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)]"
                   >
-                    Save Changes
+                    {profileCopy.saveChangesButtonText || "Save Changes"}
                   </Button>
                 </>
               )}
@@ -677,10 +761,11 @@ const ProfilePage = () => {
         </Card>
 
         <div className="grid grid-cols-1 gap-7 xl:grid-cols-[minmax(0,1.85fr)_360px]">
-          <SectionShell icon={User} title="Personal Information">
+          <SectionShell icon={User} title={profileCopy.personalInfoTitle || "Personal Information"}>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <Input
-                label="Full Name"
+                label={profileCopy.fullNameLabel || "Full Name"}
+                placeholder={profileCopy.fullNamePlaceholder || "Enter your full name"}
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
@@ -689,18 +774,19 @@ const ProfilePage = () => {
               />
 
               <Input
-                label="Email Address"
+                label={profileCopy.emailAddressLabel || "Email Address"}
+                placeholder={profileCopy.emailPlaceholder || "Enter email address"}
                 name="email"
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
                 disabled
-                helper="Email cannot be changed"
+                helper={profileCopy.emailHelperText || "Email cannot be changed"}
                 className="rounded-2xl border-slate-200 bg-slate-100 px-5 py-4 text-base opacity-80"
               />
 
               <div className="sm:col-span-2 flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-text-secondary">Mobile Number</label>
+                <label className="text-sm font-medium text-text-secondary">{profileCopy.mobileNumberLabel || "Mobile Number"}</label>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-[230px_minmax(0,1fr)]">
                   <div ref={countryCodeDropdownRef} className="relative">
                     <button
@@ -734,7 +820,7 @@ const ProfilePage = () => {
                             type="text"
                             value={countryCodeSearch}
                             onChange={(e) => setCountryCodeSearch(e.target.value)}
-                            placeholder="Search country"
+                            placeholder={profileCopy.phoneCountrySearchPlaceholder || "Search country"}
                             autoFocus
                             className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#235BFF] focus:outline-none focus:ring-2 focus:ring-[#235BFF]/15"
                           />
@@ -779,7 +865,7 @@ const ProfilePage = () => {
                     type="tel"
                     inputMode="numeric"
                     autoComplete="tel"
-                    placeholder="Enter phone number"
+                    placeholder={profileCopy.phonePlaceholder || "Enter phone number"}
                     value={formData.phone}
                     onChange={(e) => {
                       const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
@@ -795,9 +881,9 @@ const ProfilePage = () => {
                   <p className="mt-1 text-xs text-slate-500">
                     {phoneOtpActive
                       ? phoneOtpSent
-                        ? "Enter the OTP sent to this mobile number."
-                        : "Choose a country code and enter a 10-digit mobile number."
-                      : "Use OTP verification to add or change your mobile number."}
+                        ? (profileCopy.phoneOtpEnterHelperText || "Enter the OTP sent to this mobile number.")
+                        : (profileCopy.phoneOtpSelectHelperText || "Choose a country code and enter a 10-digit mobile number.")
+                      : (profileCopy.phoneHelperText || "Use OTP verification to add or change your mobile number.")}
                   </p>
                 )}
 
@@ -813,7 +899,9 @@ const ProfilePage = () => {
                   <div className="mt-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
                     {!phoneOtpSent ? (
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-slate-600">Send an OTP to confirm this mobile number.</p>
+                        <p className="text-sm text-slate-600">
+                          {profileCopy.phoneOtpConfirmPrompt || "Send an OTP to confirm this mobile number."}
+                        </p>
                         <div className="flex gap-2">
                           <Button
                             type="button"
@@ -830,7 +918,7 @@ const ProfilePage = () => {
                             onClick={handleSendPhoneOtp}
                             className="rounded-2xl bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)] text-white hover:bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)]"
                           >
-                            Send OTP
+                            {profileCopy.sendOtpButtonText || "Send OTP"}
                           </Button>
                         </div>
                       </div>
@@ -845,7 +933,7 @@ const ProfilePage = () => {
                             onClick={handleSendPhoneOtp}
                             className="w-fit text-sm font-semibold text-[#235BFF] hover:text-[#1746D8]"
                           >
-                            Resend OTP
+                            {profileCopy.phoneResendOtpText || "Resend OTP"}
                           </button>
                         </div>
                         {phoneDevOtp && (
@@ -880,7 +968,7 @@ const ProfilePage = () => {
                             onClick={handleVerifyPhoneOtp}
                             className="rounded-2xl bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)] text-white hover:bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)]"
                           >
-                            Verify & Save
+                            {profileCopy.phoneVerifySaveButtonText || "Verify & Save"}
                           </Button>
                         </div>
                       </div>
@@ -890,11 +978,11 @@ const ProfilePage = () => {
               </div>
 
               <Input
-                label="Age"
+                label={profileCopy.ageLabel || "Age"}
                 name="age"
                 type="number"
                 min="0"
-                placeholder="Enter your age"
+                placeholder={profileCopy.agePlaceholder || "Enter your age"}
                 value={formData.age}
                 onChange={handleChange}
                 disabled={!isEditing}
@@ -902,15 +990,15 @@ const ProfilePage = () => {
               />
 
               <Select
-                label="Gender"
+                label={profileCopy.genderLabel || "Gender"}
                 name="gender"
                 value={formData.gender}
                 onChange={handleChange}
                 disabled={!isEditing}
                 options={[
-                  { value: "Male", label: "Male" },
-                  { value: "Female", label: "Female" },
-                  { value: "Other", label: "Other" },
+                  { value: "Male", label: profileCopy.genderOptionMale || "Male" },
+                  { value: "Female", label: profileCopy.genderOptionFemale || "Female" },
+                  { value: "Other", label: profileCopy.genderOptionOther || "Other" },
                 ]}
                 className={`rounded-2xl border-slate-200 bg-white px-5 py-4 text-base ${!isEditing ? "cursor-default bg-slate-50 opacity-80" : ""}`}
               />
@@ -918,23 +1006,23 @@ const ProfilePage = () => {
           </SectionShell>
 
           <div className="space-y-7">
-            <SectionShell icon={BadgeCheck} title="Account Overview">
+            <SectionShell icon={BadgeCheck} title={profileCopy.accountOverviewTitle || "Account Overview"}>
               <div className="divide-y divide-slate-100">
-                <OverviewRow icon={CalendarDays} label="Member Since" value={memberSince} valueTone="zinc" />
-                <OverviewRow icon={Mail} label="Email Address" value={user.email ? "Added" : "Add email"} valueTone={user.email ? "green" : "amber"} />
-                <OverviewRow icon={Phone} label="Phone Number" value={displayPhoneDigits ? "Added" : "Add phone"} valueTone={displayPhoneDigits ? "green" : "amber"} />
-                <OverviewRow icon={Shield} label="Account Status" value="Active" valueTone="green" />
+                <OverviewRow icon={CalendarDays} label={profileCopy.memberSinceLabel || "Member Since"} value={memberSince} valueTone="zinc" />
+                <OverviewRow icon={Mail} label={profileCopy.accountEmailLabel || "Email Address"} value={user.email ? (profileCopy.badgeAddedText || "Added") : (profileCopy.badgeAddEmailText || "Add email")} valueTone={user.email ? "green" : "amber"} />
+                <OverviewRow icon={Phone} label={profileCopy.accountPhoneLabel || "Phone Number"} value={displayPhoneDigits ? (profileCopy.badgeAddedText || "Added") : (profileCopy.badgeAddPhoneText || "Add phone")} valueTone={displayPhoneDigits ? "green" : "amber"} />
+                <OverviewRow icon={Shield} label={profileCopy.accountStatusLabel || "Account Status"} value={profileCopy.accountStatusValue || "Active"} valueTone="green" />
               </div>
             </SectionShell>
 
             {authControls.passwordEnabled && (
-            <SectionShell icon={Shield} title="Security">
+            <SectionShell icon={Shield} title={profileCopy.securityTitle || "Security"}>
               <div className="space-y-5">
                 <div className="space-y-2">
                   <p className="text-sm text-slate-600">
                     {isCreatingPassword
-                      ? "Create a password so this account can also sign in with email and password."
-                      : "Keep your account secure with a strong password."}
+                      ? (profileCopy.createPasswordDescription || "Create a password so this account can also sign in with email and password.")
+                      : (profileCopy.securityDescription || "Keep your account secure with a strong password.")}
                   </p>
                 </div>
 
@@ -945,7 +1033,7 @@ const ProfilePage = () => {
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#235BFF]/20 bg-[#235BFF]/5 px-5 py-4 text-sm font-semibold text-[#235BFF] transition-colors hover:bg-[#235BFF]/10"
                   >
                     <KeyRound size={16} />
-                    {isCreatingPassword ? "Create Password" : "Change Password"}
+                    {isCreatingPassword ? (profileCopy.createPasswordButtonText || "Create Password") : (profileCopy.changePasswordButtonText || "Change Password")}
                   </button>
                 ) : (
                   <motion.div
@@ -1019,17 +1107,17 @@ const ProfilePage = () => {
             </SectionShell>
             )}
 
-            <SectionShell icon={AlertTriangle} title="Account Deletion" className="border-red-100 bg-red-50/30">
+            <SectionShell icon={AlertTriangle} title={profileCopy.deletionTitle || "Account Deletion"} className="border-red-100 bg-red-50/30">
               <div className="space-y-4">
                 <p className="text-sm text-slate-600">
-                  Permanently delete your account and all associated profile data.
+                  {profileCopy.deletionDescription || "Permanently delete your account and all associated profile data."}
                 </p>
                 <Button
                   variant="ghost"
                   onClick={() => setShowDeleteModal(true)}
                   className="rounded-2xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 w-full sm:w-auto"
                 >
-                  Delete Account
+                  {profileCopy.deleteAccountButtonText || "Delete Account"}
                 </Button>
               </div>
             </SectionShell>
@@ -1052,9 +1140,11 @@ const ProfilePage = () => {
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
                     <AlertTriangle size={24} />
                   </div>
-                  <h3 className="mb-2 text-center text-xl font-bold text-slate-900">Verify Your Identity</h3>
+                  <h3 className="mb-2 text-center text-xl font-bold text-slate-900">
+                    {profileCopy.deleteModalTitle || "Verify Your Identity"}
+                  </h3>
                   <p className="text-center text-sm text-slate-600 mb-6">
-                    For your security, please verify your identity before permanently deleting your account.
+                    {profileCopy.deleteModalSubtitle || "For your security, please verify your identity before permanently deleting your account."}
                   </p>
 
                   <div className="space-y-5 text-left">
@@ -1169,9 +1259,11 @@ const ProfilePage = () => {
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
                     <AlertTriangle size={24} />
                   </div>
-                  <h3 className="mb-2 text-center text-xl font-bold text-slate-900">Are you sure?</h3>
+                  <h3 className="mb-2 text-center text-xl font-bold text-slate-900">
+                    {profileCopy.deleteConfirmTitle || "Are you sure?"}
+                  </h3>
                   <p className="text-center text-sm text-slate-600 mb-6">
-                    This action cannot be undone. All your profile data, applications, and history will be permanently deleted.
+                    {profileCopy.deleteConfirmSubtitle || "This action cannot be undone. All your profile data, applications, and history will be permanently deleted."}
                   </p>
                   <div className="flex flex-col gap-3 sm:flex-row mt-8">
                     <Button

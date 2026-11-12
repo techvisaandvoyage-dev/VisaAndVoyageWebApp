@@ -124,6 +124,7 @@ const seoAssetUpload = multer({
 });
 const { protect, requireAdmin } = require('../middleware/authMiddleware');
 
+router.use('/auth', require('./adminAuthRoutes'));
 router.post('/login', loginAdmin);
 router.put('/change-password', protect, requireAdmin, changePassword);
 

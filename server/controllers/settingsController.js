@@ -214,6 +214,129 @@ const sanitizeStartApplicationPageCopy = (input = {}) => {
   return sanitized;
 };
 
+const USER_PROFILE_PAGE_COPY_FALLBACK = {
+  backToDashboardText: 'Back to Dashboard',
+  profileActiveBadgeText: 'Profile Active',
+  editProfileButtonText: 'Edit Profile',
+  saveChangesButtonText: 'Save Changes',
+  cancelButtonText: 'Cancel',
+  noEmailText: 'No email added',
+  notAddedPhoneText: 'Not added',
+
+  personalInfoTitle: 'Personal Information',
+  fullNameLabel: 'Full Name',
+  fullNamePlaceholder: 'Enter your full name',
+  emailAddressLabel: 'Email Address',
+  emailPlaceholder: 'Enter email address',
+  emailHelperText: 'Email cannot be changed',
+  mobileNumberLabel: 'Mobile Number',
+  phonePlaceholder: 'Enter phone number',
+  phoneHelperText: 'Use OTP verification to add or change your mobile number.',
+  phoneCountrySearchPlaceholder: 'Search country',
+  ageLabel: 'Age',
+  agePlaceholder: 'Enter your age',
+  genderLabel: 'Gender',
+  genderPlaceholder: 'Select gender',
+  genderOptionMale: 'Male',
+  genderOptionFemale: 'Female',
+  genderOptionOther: 'Other',
+  addPhoneButtonText: 'Add mobile no.',
+  changePhoneButtonText: 'Change mobile no.',
+  sendOtpButtonText: 'Send OTP',
+  phoneResendOtpText: 'Resend OTP',
+  phoneVerifySaveButtonText: 'Verify & Save',
+
+  accountOverviewTitle: 'Account Overview',
+  memberSinceLabel: 'Member Since',
+  accountEmailLabel: 'Email Address',
+  accountPhoneLabel: 'Phone Number',
+  accountStatusLabel: 'Account Status',
+  accountStatusValue: 'Active',
+  badgeAddedText: 'Added',
+  badgeAddEmailText: 'Add email',
+  badgeAddPhoneText: 'Add phone',
+
+  securityTitle: 'Security',
+  securityDescription: 'Keep your account secure with a strong password.',
+  createPasswordDescription: 'Create a password so this account can also sign in with email and password.',
+  changePasswordButtonText: 'Change Password',
+  createPasswordButtonText: 'Create Password',
+
+  deletionTitle: 'Account Deletion',
+  deletionDescription: 'Permanently delete your account and all associated profile data.',
+  deleteAccountButtonText: 'Delete Account',
+  deleteModalTitle: 'Verify Your Identity',
+  deleteModalSubtitle: 'For your security, please verify your identity before permanently deleting your account.',
+  deleteConfirmTitle: 'Are you sure?',
+  deleteConfirmSubtitle: 'This action cannot be undone. All your profile data, applications, and history will be permanently deleted.',
+};
+
+const sanitizeUserProfilePageCopy = (input = {}) => {
+  const sanitized = {};
+  for (const [key, defaultVal] of Object.entries(USER_PROFILE_PAGE_COPY_FALLBACK)) {
+    if (typeof input[key] === 'string') {
+      sanitized[key] = input[key].trim();
+    } else if (input[key] !== undefined) {
+      sanitized[key] = String(input[key] || '').trim();
+    } else {
+      sanitized[key] = defaultVal;
+    }
+  }
+  return sanitized;
+};
+
+const USER_DASHBOARD_PAGE_COPY_FALLBACK = {
+  // Header & Actions
+  backToHomepageText: 'Back to Homepage',
+  overviewSubtitle: "Here's an overview of your visa applications.",
+  myProfileButtonText: 'My Profile',
+  newApplicationButtonText: 'New Application',
+  signOutButtonText: 'Sign Out',
+
+  // Your Account Card
+  yourAccountTitle: 'YOUR ACCOUNT',
+  emailLabel: 'Email',
+  phoneLabel: 'Phone',
+  emptyAccountPlaceholder: '—',
+
+  // Summary Statistics Cards
+  totalApplicationsLabel: 'Total Applications',
+  approvedLabel: 'Approved',
+  underReviewLabel: 'Under Review',
+  pendingActionLabel: 'Pending Action',
+
+  // Received Visa Files Section
+  receivedVisaFilesTitle: 'Received Visa Files',
+  receivedVisaFilesEmptyText: 'Approved visa files sent by admin will appear here.',
+  openFileButtonText: 'Open File',
+
+  // My Applications Section & Filters
+  myApplicationsTitle: 'My Applications',
+  searchCountryPlaceholder: 'Search country...',
+  allStatusFilterLabel: 'All Status',
+  docPendingFilterLabel: 'Doc Pending',
+  uploadDriveLinkFilterLabel: 'Upload Drive Link',
+  underReviewFilterLabel: 'Under Review',
+  approvedFilterLabel: 'Approved',
+  rejectedFilterLabel: 'Rejected',
+  noApplicationsFoundText: 'No applications found.',
+  startNewApplicationButtonText: 'Start New Application',
+};
+
+const sanitizeUserDashboardPageCopy = (input = {}) => {
+  const sanitized = {};
+  for (const [key, defaultVal] of Object.entries(USER_DASHBOARD_PAGE_COPY_FALLBACK)) {
+    if (typeof input[key] === 'string') {
+      sanitized[key] = input[key].trim();
+    } else if (input[key] !== undefined) {
+      sanitized[key] = String(input[key] || '').trim();
+    } else {
+      sanitized[key] = defaultVal;
+    }
+  }
+  return sanitized;
+};
+
 const SEO_UPLOADS_DIR = path.join(__dirname, '..', 'uploads', 'seo');
 if (!fs.existsSync(SEO_UPLOADS_DIR)) {
   fs.mkdirSync(SEO_UPLOADS_DIR, { recursive: true });
@@ -466,6 +589,14 @@ const normalizeSettingsUpdatePayload = (body = {}) => ({
     body.startApplicationPageCopy === undefined
       ? undefined
       : sanitizeStartApplicationPageCopy(body.startApplicationPageCopy),
+  userProfilePageCopy:
+    body.userProfilePageCopy === undefined
+      ? undefined
+      : sanitizeUserProfilePageCopy(body.userProfilePageCopy),
+  userDashboardPageCopy:
+    body.userDashboardPageCopy === undefined
+      ? undefined
+      : sanitizeUserDashboardPageCopy(body.userDashboardPageCopy),
   showPopularCountries:
     body.showPopularCountries === undefined
       ? undefined
@@ -633,6 +764,8 @@ const updateSettings = async (req, res) => {
       destinationVisaInfo,
       destinationSectionHeadings,
       startApplicationPageCopy,
+      userProfilePageCopy,
+      userDashboardPageCopy,
     } = safePayload;
     console.log('Admin updating settings:', {
       razorpayKeyId,
@@ -800,6 +933,34 @@ const updateSettings = async (req, res) => {
       if (startApplicationPageCopy.showGDriveUpload !== undefined) {
         settings.enableGDriveUpload = Boolean(startApplicationPageCopy.showGDriveUpload);
       }
+    }
+    if (userProfilePageCopy !== undefined) {
+      const current = settings.userProfilePageCopy
+        ? settings.userProfilePageCopy.toObject
+          ? settings.userProfilePageCopy.toObject()
+          : settings.userProfilePageCopy
+        : {};
+      const merged = { ...USER_PROFILE_PAGE_COPY_FALLBACK, ...current };
+      for (const [k, v] of Object.entries(userProfilePageCopy)) {
+        if (v !== undefined) {
+          merged[k] = v;
+        }
+      }
+      settings.userProfilePageCopy = merged;
+    }
+    if (userDashboardPageCopy !== undefined) {
+      const current = settings.userDashboardPageCopy
+        ? settings.userDashboardPageCopy.toObject
+          ? settings.userDashboardPageCopy.toObject()
+          : settings.userDashboardPageCopy
+        : {};
+      const merged = { ...USER_DASHBOARD_PAGE_COPY_FALLBACK, ...current };
+      for (const [k, v] of Object.entries(userDashboardPageCopy)) {
+        if (v !== undefined) {
+          merged[k] = v;
+        }
+      }
+      settings.userDashboardPageCopy = merged;
     }
 
     await settings.save();
@@ -1011,6 +1172,14 @@ const getDestinationPageContent = async (req, res) => {
           ...START_APPLICATION_PAGE_COPY_FALLBACK,
           ...(settings?.startApplicationPageCopy ? (settings.startApplicationPageCopy.toObject ? settings.startApplicationPageCopy.toObject() : settings.startApplicationPageCopy) : {}),
         },
+        userProfilePageCopy: {
+          ...USER_PROFILE_PAGE_COPY_FALLBACK,
+          ...(settings?.userProfilePageCopy ? (settings.userProfilePageCopy.toObject ? settings.userProfilePageCopy.toObject() : settings.userProfilePageCopy) : {}),
+        },
+        userDashboardPageCopy: {
+          ...USER_DASHBOARD_PAGE_COPY_FALLBACK,
+          ...(settings?.userDashboardPageCopy ? (settings.userDashboardPageCopy.toObject ? settings.userDashboardPageCopy.toObject() : settings.userDashboardPageCopy) : {}),
+        },
       },
     });
   } catch (error) {
@@ -1150,6 +1319,40 @@ module.exports = {
   getFooterConfig,
   getSeoConfig,
   uploadSeoAssets,
+  getUserProfilePageCopy: async (req, res) => {
+    try {
+      const settings = await loadSettingsDocument();
+      const userProfilePageCopy = {
+        ...USER_PROFILE_PAGE_COPY_FALLBACK,
+        ...(settings?.userProfilePageCopy
+          ? settings.userProfilePageCopy.toObject
+            ? settings.userProfilePageCopy.toObject()
+            : settings.userProfilePageCopy
+          : {}),
+      };
+      res.json({ success: true, copy: userProfilePageCopy });
+    } catch (error) {
+      console.error('getUserProfilePageCopy:', error);
+      res.status(500).json({ success: false, message: 'Server error' });
+    }
+  },
+  getUserDashboardPageCopy: async (req, res) => {
+    try {
+      const settings = await loadSettingsDocument();
+      const userDashboardPageCopy = {
+        ...USER_DASHBOARD_PAGE_COPY_FALLBACK,
+        ...(settings?.userDashboardPageCopy
+          ? settings.userDashboardPageCopy.toObject
+            ? settings.userDashboardPageCopy.toObject()
+            : settings.userDashboardPageCopy
+          : {}),
+      };
+      res.json({ success: true, copy: userDashboardPageCopy });
+    } catch (error) {
+      console.error('getUserDashboardPageCopy:', error);
+      res.status(500).json({ success: false, message: 'Server error' });
+    }
+  },
   getFooterSections: async (req, res) => {
     try {
       const settings = await loadSettingsDocument();

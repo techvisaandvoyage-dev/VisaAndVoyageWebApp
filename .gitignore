@@ -28,6 +28,7 @@ Thumbs.db
 # Firebase Admin keys downloaded from Google Cloud (use FIREBASE_SERVICE_ACCOUNT_PATH locally)
 firebase-adminsdk*.json
 *-firebase-adminsdk*.json
+firebase-key*.json
 server/firebase-key*.json
 
 # Project specific

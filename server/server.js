@@ -179,6 +179,7 @@ app.post('/api/admin/control/custom-documents', protect, requireAdmin, manageCus
 app.post('/api/admin/control/display-toggles', protect, requireAdmin, updateCountryDisplayToggles);
 
 // Routes
+app.use('/api/admin/auth', require('./routes/adminAuthRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
@@ -202,6 +203,8 @@ const {
   getCustomerChatConfig,
   getFooterConfig,
   getSeoConfig,
+  getUserProfilePageCopy,
+  getUserDashboardPageCopy,
 } = require('./controllers/settingsController');
 const { getPublicCountryCodeSettings } = require('./controllers/authSettingsController');
 app.get('/api/config/razorpay', getRazorpayKeyId);
@@ -209,6 +212,8 @@ app.get('/api/config/payment', getPaymentConfig);
 app.get('/api/config/firebase', getFirebaseConfig);
 app.get('/api/config/upload-settings', getUploadSettings);
 app.get('/api/config/destination-content', getDestinationPageContent);
+app.get('/api/config/profile-copy', getUserProfilePageCopy);
+app.get('/api/config/dashboard-copy', getUserDashboardPageCopy);
 app.get('/api/config/site-state', getSiteState);
 app.get('/api/config/customer-chat', getCustomerChatConfig);
 app.get('/api/config/footer', getFooterConfig);

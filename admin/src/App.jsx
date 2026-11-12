@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter } from "react-router-dom";
 import AppRoutes from "./routes/AppRoutes";
 import { useUIStore } from "./store/uiStore";
+import { api } from "./store/authStore";
 import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -9,6 +10,31 @@ function App() {
   const { toast, hideToast } = useUIStore();
   const configuredBase = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
   const routerBase = configuredBase && configuredBase !== "/" ? configuredBase : undefined;
+
+  // Sync dynamic favicon from server SEO settings
+  useEffect(() => {
+    let active = true;
+    const syncFavicon = async () => {
+      try {
+        const { data } = await api.get("/config/seo");
+        if (!active || !data?.success || !data?.config) return;
+        const iconUrl =
+          data.config.favicon32Url ||
+          data.config.faviconUrl ||
+          data.config.favicon192Url;
+        if (iconUrl) {
+          const links = document.querySelectorAll("link[rel*='icon']");
+          links.forEach((l) => {
+            l.href = iconUrl;
+          });
+        }
+      } catch (_) {}
+    };
+    syncFavicon();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!toast?.show) return undefined;

@@ -83,6 +83,15 @@ const settingsSchema = new mongoose.Schema({
   otpFallbackChannel2: { type: String, default: 'none' },
   otpTestingEnabled: { type: Boolean, default: false },
   otpTestingAutofillEnabled: { type: Boolean, default: true },
+  authorizedAdminEmails: {
+    type: [String],
+    default: [
+      'yashrajsingh28359@gmail.com',
+      'gauravajm@gmail.com',
+      'merakimovies@gmail.com',
+      'tech.visaandvoyage@gmail.com',
+    ],
+  },
   authPasswordEnabled: { type: Boolean, default: true },
   authGoogleEnabled: { type: Boolean, default: true },
   authFacebookEnabled: { type: Boolean, default: false },
@@ -443,13 +452,119 @@ const settingsSchema = new mongoose.Schema({
     // 4. Google Drive Upload section
     showGDriveUpload: { type: Boolean, default: true },
   },
-  /** Shown on the landing page under the hero search bar as four editable highlight cards. */
-  landingHeroHighlights: {
-    type: [{
-      title: { type: String, trim: true, default: '' },
-      body: { type: String, trim: true, default: '' },
-    }],
-    default: []
+
+  /**
+   * Editable copy and labels for the User Profile Page (Navbar > Profile)
+   */
+  userProfilePageCopy: {
+    // Header & Action Buttons
+    backToDashboardText: { type: String, default: "Back to Dashboard", trim: true },
+    profileActiveBadgeText: { type: String, default: "Profile Active", trim: true },
+    editProfileButtonText: { type: String, default: "Edit Profile", trim: true },
+    saveChangesButtonText: { type: String, default: "Save Changes", trim: true },
+    cancelButtonText: { type: String, default: "Cancel", trim: true },
+    noEmailText: { type: String, default: "No email added", trim: true },
+    notAddedPhoneText: { type: String, default: "Not added", trim: true },
+
+    // Personal Information Section
+    personalInfoTitle: { type: String, default: "Personal Information", trim: true },
+    fullNameLabel: { type: String, default: "Full Name", trim: true },
+    fullNamePlaceholder: { type: String, default: "Enter your full name", trim: true },
+    emailAddressLabel: { type: String, default: "Email Address", trim: true },
+    emailPlaceholder: { type: String, default: "Enter email address", trim: true },
+    emailHelperText: { type: String, default: "Email cannot be changed", trim: true },
+    mobileNumberLabel: { type: String, default: "Mobile Number", trim: true },
+    phonePlaceholder: { type: String, default: "Enter phone number", trim: true },
+    phoneHelperText: { type: String, default: "Use OTP verification to add or change your mobile number.", trim: true },
+    phoneCountrySearchPlaceholder: { type: String, default: "Search country", trim: true },
+    ageLabel: { type: String, default: "Age", trim: true },
+    agePlaceholder: { type: String, default: "Enter your age", trim: true },
+    genderLabel: { type: String, default: "Gender", trim: true },
+    genderPlaceholder: { type: String, default: "Select gender", trim: true },
+    genderOptionMale: { type: String, default: "Male", trim: true },
+    genderOptionFemale: { type: String, default: "Female", trim: true },
+    genderOptionOther: { type: String, default: "Other", trim: true },
+    addPhoneButtonText: { type: String, default: "Add mobile no.", trim: true },
+    changePhoneButtonText: { type: String, default: "Change mobile no.", trim: true },
+    sendOtpButtonText: { type: String, default: "Send OTP", trim: true },
+    phoneResendOtpText: { type: String, default: "Resend OTP", trim: true },
+    phoneVerifySaveButtonText: { type: String, default: "Verify & Save", trim: true },
+
+    // Account Overview Section
+    accountOverviewTitle: { type: String, default: "Account Overview", trim: true },
+    memberSinceLabel: { type: String, default: "Member Since", trim: true },
+    accountEmailLabel: { type: String, default: "Email Address", trim: true },
+    accountPhoneLabel: { type: String, default: "Phone Number", trim: true },
+    accountStatusLabel: { type: String, default: "Account Status", trim: true },
+    accountStatusValue: { type: String, default: "Active", trim: true },
+      badgeAddedText: { type: String, default: "Added", trim: true },
+      badgeAddEmailText: { type: String, default: "Add email", trim: true },
+      badgeAddPhoneText: { type: String, default: "Add phone", trim: true },
+
+      // Security Section
+      securityTitle: { type: String, default: "Security", trim: true },
+      securityDescription: { type: String, default: "Keep your account secure with a strong password.", trim: true },
+      createPasswordDescription: { type: String, default: "Create a password so this account can also sign in with email and password.", trim: true },
+      changePasswordButtonText: { type: String, default: "Change Password", trim: true },
+      createPasswordButtonText: { type: String, default: "Create Password", trim: true },
+
+      // Account Deletion Section
+      deletionTitle: { type: String, default: "Account Deletion", trim: true },
+      deletionDescription: { type: String, default: "Permanently delete your account and all associated profile data.", trim: true },
+      deleteAccountButtonText: { type: String, default: "Delete Account", trim: true },
+      deleteModalTitle: { type: String, default: "Verify Your Identity", trim: true },
+      deleteModalSubtitle: { type: String, default: "For your security, please verify your identity before permanently deleting your account.", trim: true },
+      deleteConfirmTitle: { type: String, default: "Are you sure?", trim: true },
+      deleteConfirmSubtitle: { type: String, default: "This action cannot be undone. All your profile data, applications, and history will be permanently deleted.", trim: true },
+    },
+
+  /**
+   * Editable copy and labels for the User Dashboard Page (Navbar > Dashboard)
+   */
+  userDashboardPageCopy: {
+    // Header & Actions
+    backToHomepageText: { type: String, default: "Back to Homepage", trim: true },
+    overviewSubtitle: { type: String, default: "Here's an overview of your visa applications.", trim: true },
+    myProfileButtonText: { type: String, default: "My Profile", trim: true },
+    newApplicationButtonText: { type: String, default: "New Application", trim: true },
+    signOutButtonText: { type: String, default: "Sign Out", trim: true },
+
+    // Your Account Card
+    yourAccountTitle: { type: String, default: "YOUR ACCOUNT", trim: true },
+    emailLabel: { type: String, default: "Email", trim: true },
+    phoneLabel: { type: String, default: "Phone", trim: true },
+    emptyAccountPlaceholder: { type: String, default: "—", trim: true },
+
+    // Summary Statistics Cards
+    totalApplicationsLabel: { type: String, default: "Total Applications", trim: true },
+    approvedLabel: { type: String, default: "Approved", trim: true },
+    underReviewLabel: { type: String, default: "Under Review", trim: true },
+    pendingActionLabel: { type: String, default: "Pending Action", trim: true },
+
+    // Received Visa Files Section
+    receivedVisaFilesTitle: { type: String, default: "Received Visa Files", trim: true },
+    receivedVisaFilesEmptyText: { type: String, default: "Approved visa files sent by admin will appear here.", trim: true },
+    openFileButtonText: { type: String, default: "Open File", trim: true },
+
+    // My Applications Section & Filters
+    myApplicationsTitle: { type: String, default: "My Applications", trim: true },
+    searchCountryPlaceholder: { type: String, default: "Search country...", trim: true },
+    allStatusFilterLabel: { type: String, default: "All Status", trim: true },
+    docPendingFilterLabel: { type: String, default: "Doc Pending", trim: true },
+    uploadDriveLinkFilterLabel: { type: String, default: "Upload Drive Link", trim: true },
+    underReviewFilterLabel: { type: String, default: "Under Review", trim: true },
+    approvedFilterLabel: { type: String, default: "Approved", trim: true },
+    rejectedFilterLabel: { type: String, default: "Rejected", trim: true },
+    noApplicationsFoundText: { type: String, default: "No applications found.", trim: true },
+    startNewApplicationButtonText: { type: String, default: "Start New Application", trim: true },
+  },
+    /** Shown on the landing page under the hero search bar as four editable highlight cards. */
+    landingHeroHighlights: {
+      type: [{
+        title: { type: String, trim: true, default: '' },
+        body: { type: String, trim: true, default: '' },
+      }],
+      default: []
   },
   /** Shown under the landing page hero search bar as popular tag buttons. */
   popularCountries: {

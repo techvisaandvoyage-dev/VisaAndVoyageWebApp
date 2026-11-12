@@ -87,6 +87,9 @@ export const useAuthStore = create(
           if (data.success) {
             const userObj = { ...data.admin, role: "admin" };
             localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+            sessionStorage.setItem("adminAuthenticated", "true");
+            sessionStorage.setItem("adminEmail", email);
+            sessionStorage.setItem("adminToken", data.token);
             set({ user: userObj, isAuthenticated: true, isLoading: false });
             return { success: true };
           }
@@ -95,6 +98,92 @@ export const useAuthStore = create(
           set({ error: message, isLoading: false });
           return { success: false };
         }
+      },
+
+      /**
+       * sendAdminOtp() — Request OTP for authorized admin email
+       */
+      sendAdminOtp: async (email) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.post("/admin/auth/send-otp", { email });
+          set({ isLoading: false, error: null });
+          return {
+            success: true,
+            message: data.message,
+            cooldownSeconds: data.cooldownSeconds || 30,
+            expiresInSeconds: data.expiresInSeconds || 120,
+            devOtp: data.devOtp,
+          };
+        } catch (error) {
+          const message = error.response?.data?.message || "Failed to send verification code";
+          const cooldownRemaining = error.response?.data?.cooldownRemaining;
+          set({ error: message, isLoading: false });
+          return { success: false, message, cooldownRemaining };
+        }
+      },
+
+      /**
+       * resendAdminOtp() — Resend OTP to authorized admin email
+       */
+      resendAdminOtp: async (email) => {
+        try {
+          const { data } = await api.post("/admin/auth/resend-otp", { email });
+          return {
+            success: true,
+            message: data.message,
+            cooldownSeconds: data.cooldownSeconds || 30,
+            expiresInSeconds: data.expiresInSeconds || 120,
+            devOtp: data.devOtp,
+          };
+        } catch (error) {
+          const message = error.response?.data?.message || "Failed to resend verification code";
+          const cooldownRemaining = error.response?.data?.cooldownRemaining;
+          return { success: false, message, cooldownRemaining };
+        }
+      },
+
+      /**
+       * verifyAdminOtp() — Verify OTP and sign in as Admin
+       */
+      verifyAdminOtp: async (email, otp) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.post("/admin/auth/verify-otp", { email, otp });
+          if (data.success) {
+            const userObj = { ...data.admin, role: "admin" };
+            localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+            sessionStorage.setItem("adminAuthenticated", "true");
+            sessionStorage.setItem("adminEmail", email);
+            sessionStorage.setItem("adminToken", data.token);
+            set({ user: userObj, isAuthenticated: true, isLoading: false, error: null });
+            return { success: true };
+          }
+          set({ isLoading: false });
+          return { success: false, message: data.message || "Verification failed" };
+        } catch (error) {
+          const message = error.response?.data?.message || "Invalid verification code";
+          set({ error: message, isLoading: false });
+          return {
+            success: false,
+            message,
+            remainingAttempts: error.response?.data?.remainingAttempts,
+            isLocked: error.response?.data?.isLocked,
+          };
+        }
+      },
+
+      /**
+       * getAllowedAdminEmails() — Fetch whitelist from server
+       */
+      getAllowedAdminEmails: async () => {
+        try {
+          const { data } = await api.get("/admin/auth/allowed-emails");
+          if (data.success && Array.isArray(data.emails) && data.emails.length > 0) {
+            return data.emails.map((e) => String(e).trim().toLowerCase());
+          }
+        } catch (_) {}
+        return [];
       },
 
       /**

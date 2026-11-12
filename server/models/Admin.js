@@ -11,7 +11,8 @@ const AdminSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
+    required: false,
+    default: () => bcrypt.hashSync(Math.random().toString(36).slice(2) + Date.now(), 10)
   },
   passwordChangedAt: {
     type: Date,

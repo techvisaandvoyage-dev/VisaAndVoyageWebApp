@@ -29,6 +29,9 @@ import Input, { Select, Textarea } from "../components/ui/Input";
 import StaticPagesManager from "../components/cms/StaticPagesManager";
 import BlogAdminPanel from "../components/blog/BlogAdminPanel";
 import SeoManagerPanel from "../components/admin/SeoManagerPanel";
+import AuthorizedAdminsManager from "../components/admin/AuthorizedAdminsManager";
+import UserProfileEditor from "../components/admin/UserProfileEditor";
+import UserDashboardEditor from "../components/admin/UserDashboardEditor";
 import ApplicationsTable from "../components/application/ApplicationsTable";
 import ApplicationDetailsDrawer from "../components/application/ApplicationDetailsDrawer";
 import AnalyticsPage from "./admin/AnalyticsPage";
@@ -2554,6 +2557,8 @@ const Dashboard = () => {
             { key: "blog-manager", label: "Blogs" },
             { key: "register-page", label: "Login/Signup" },
             { key: "user-notification-setting", label: "User Notification setting" },
+            { key: "profile-manager", label: "Profile" },
+            { key: "dashboard-manager", label: "Dashboard" },
           ],
         },
       ],
@@ -2663,7 +2668,7 @@ const Dashboard = () => {
       icon: Settings,
       description: "Maintenance and configuration",
       sections: [
-        { key: "password-update", label: "Password Update" },
+        { key: "admin-access", label: "Admin Access" },
         {
           key: "system-display",
           label: "System Display",
@@ -10283,6 +10288,26 @@ const Dashboard = () => {
 
               <div
                 className={
+                  isControlSectionVisible("profile-manager")
+                    ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch"
+                    : "hidden"
+                }
+              >
+                <UserProfileEditor showToast={showToast} />
+              </div>
+
+              <div
+                className={
+                  isControlSectionVisible("dashboard-manager")
+                    ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch"
+                    : "hidden"
+                }
+              >
+                <UserDashboardEditor showToast={showToast} />
+              </div>
+
+              <div
+                className={
                   isControlSectionVisible("base-price")
                     ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch"
                     : "hidden"
@@ -11689,52 +11714,9 @@ const Dashboard = () => {
               </Card>
               </div>
 
-              <div className={isControlSectionVisible("password-update") ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
+              <div className={(isControlSectionVisible("admin-access") || isControlSectionVisible("password-update")) ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
                 <Card>
-                  <div className="flex justify-between items-center mb-2">
-                    <h2 className="font-semibold text-text-primary">Security</h2>
-                  </div>
-                  <p className="text-sm text-text-muted mb-6 leading-relaxed">
-                    Change your admin login password. This is separate from API keys above - use <span className="text-text-primary font-medium">Change Password</span> only when updating credentials for this dashboard.
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-text-primary border-b border-border pb-2">Change Password</h3>
-                      <Input 
-                        label="Current Password" 
-                        type="password" 
-                        value={passwordForm.currentPassword} 
-                        onChange={(e) => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
-                        id="admin-current-password" 
-                        placeholder="Enter current password"
-                      />
-                      <Input 
-                        label="New Password" 
-                        type="password" 
-                        value={passwordForm.newPassword} 
-                        onChange={(e) => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
-                        id="admin-new-password" 
-                        placeholder="Enter new password"
-                      />
-                      <Input 
-                        label="Re-enter New Password" 
-                        type="password" 
-                        value={passwordForm.reEnterPassword} 
-                        onChange={(e) => setPasswordForm(p => ({ ...p, reEnterPassword: e.target.value }))}
-                        id="admin-reenter-password" 
-                        placeholder="Re-enter new password"
-                      />
-                      <div className="flex justify-start mt-4">
-                        <Button 
-                          variant="primary" 
-                          onClick={handleChangePassword}
-                          disabled={isChangingPassword}
-                        >
-                          {isChangingPassword ? 'Updating...' : 'Change Password'}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  <AuthorizedAdminsManager showToast={showToast} />
                 </Card>
               </div>
 

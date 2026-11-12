@@ -66,12 +66,70 @@ const getStoredUploadSuccesses = (booking) => {
   }
 };
 
+const DEFAULT_DASHBOARD_PAGE_COPY = {
+  backToHomepageText: "Back to Homepage",
+  overviewSubtitle: "Here's an overview of your visa applications.",
+  myProfileButtonText: "My Profile",
+  newApplicationButtonText: "New Application",
+  signOutButtonText: "Sign Out",
+
+  yourAccountTitle: "YOUR ACCOUNT",
+  emailLabel: "Email",
+  phoneLabel: "Phone",
+  emptyAccountPlaceholder: "—",
+
+  totalApplicationsLabel: "Total Applications",
+  approvedLabel: "Approved",
+  underReviewLabel: "Under Review",
+  pendingActionLabel: "Pending Action",
+
+  receivedVisaFilesTitle: "Received Visa Files",
+  receivedVisaFilesEmptyText: "Approved visa files sent by admin will appear here.",
+  openFileButtonText: "Open File",
+
+  myApplicationsTitle: "My Applications",
+  searchCountryPlaceholder: "Search country...",
+  allStatusFilterLabel: "All Status",
+  docPendingFilterLabel: "Doc Pending",
+  uploadDriveLinkFilterLabel: "Upload Drive Link",
+  underReviewFilterLabel: "Under Review",
+  approvedFilterLabel: "Approved",
+  rejectedFilterLabel: "Rejected",
+  noApplicationsFoundText: "No applications found.",
+  startNewApplicationButtonText: "Start New Application",
+};
+
 const UserDashboard = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, sessionAuthMethod, logout } = useAuthStore();
   const { bookings, fetchUserApplications } = useDataStore();
   const { showToast } = useUIStore();
+
+  const [dashCopy, setDashCopy] = useState(DEFAULT_DASHBOARD_PAGE_COPY);
+
+  useEffect(() => {
+    let alive = true;
+    const fetchDashCopy = async () => {
+      try {
+        const { data } = await api.get("/config/dashboard-copy");
+        if (alive && data?.success && data?.copy) {
+          setDashCopy((prev) => ({ ...prev, ...data.copy }));
+        }
+      } catch {
+        try {
+          const { data } = await api.get("/config/destination-content");
+          if (alive && data?.config?.userDashboardPageCopy) {
+            setDashCopy((prev) => ({ ...prev, ...data.config.userDashboardPageCopy }));
+          }
+        } catch {}
+      }
+    };
+    fetchDashCopy();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -417,10 +475,10 @@ const UserDashboard = () => {
             navigate("/", { replace: true });
           }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-surface shadow-lg border border-border text-red-400 hover:bg-red-500/10 transition-colors"
-          title="Sign Out"
+          title={dashCopy.signOutButtonText || "Sign Out"}
         >
           <LogOut size={18} />
-          Sign Out
+          {dashCopy.signOutButtonText || "Sign Out"}
         </button>
       </div>
       <main className="flex-1 min-w-0">
@@ -438,12 +496,12 @@ const UserDashboard = () => {
               <span className="p-1.5 rounded-lg bg-surface-2 border border-border group-hover:border-cyan/50 transition-colors">
                 <ArrowLeft size={14} />
               </span>
-              Back to Homepage
+              {dashCopy.backToHomepageText || "Back to Homepage"}
             </button>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-text-secondary mt-1">
-                  Here&apos;s an overview of your visa applications.
+                  {dashCopy.overviewSubtitle || "Here's an overview of your visa applications."}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -452,7 +510,7 @@ const UserDashboard = () => {
                   leftIcon={<User size={16} />}
                   onClick={() => navigate("/dashboard/profile")}
                 >
-                  My Profile
+                  {dashCopy.myProfileButtonText || "My Profile"}
                 </Button>
                 <Button
                   variant="primary"
@@ -460,7 +518,7 @@ const UserDashboard = () => {
                   onClick={() => navigate("/", { replace: true })}
                   id="new-application-btn"
                 >
-                  New Application
+                  {dashCopy.newApplicationButtonText || "New Application"}
                 </Button>
               </div>
             </div>
@@ -473,24 +531,24 @@ const UserDashboard = () => {
             className="mb-8 rounded-2xl border border-border bg-surface p-5 sm:p-6"
           >
             <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">
-              Your account
+              {dashCopy.yourAccountTitle || "YOUR ACCOUNT"}
             </h2>
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="flex gap-3 min-w-0">
                 <Mail className="text-cyan shrink-0 mt-0.5" size={18} aria-hidden />
                 <div className="min-w-0">
-                  <p className="text-xs text-text-muted">Email</p>
+                  <p className="text-xs text-text-muted">{dashCopy.emailLabel || "Email"}</p>
                   <p className="text-sm font-medium text-text-primary break-all">
-                    {user?.email || "—"}
+                    {user?.email || dashCopy.emptyAccountPlaceholder || "—"}
                   </p>
                 </div>
               </div>
               <div className="flex gap-3 min-w-0">
                 <Smartphone className="text-cyan shrink-0 mt-0.5" size={18} aria-hidden />
                 <div className="min-w-0">
-                  <p className="text-xs text-text-muted">Phone</p>
+                  <p className="text-xs text-text-muted">{dashCopy.phoneLabel || "Phone"}</p>
                   <p className="text-sm font-medium text-text-primary">
-                    {user?.phone || "—"}
+                    {user?.phone || dashCopy.emptyAccountPlaceholder || "—"}
                   </p>
                 </div>
               </div>
@@ -600,10 +658,10 @@ const UserDashboard = () => {
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
-              { label: "Total Applications", value: stats.total, icon: FileText, color: "text-cyan", bg: "bg-cyan/10" },
-              { label: "Approved", value: stats.approved, icon: CheckCircle, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-              { label: "Under Review", value: stats.review, icon: TrendingUp, color: "text-blue-400", bg: "bg-blue-500/10" },
-              { label: "Pending Action", value: stats.pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
+              { label: dashCopy.totalApplicationsLabel || "Total Applications", value: stats.total, icon: FileText, color: "text-cyan", bg: "bg-cyan/10" },
+              { label: dashCopy.approvedLabel || "Approved", value: stats.approved, icon: CheckCircle, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+              { label: dashCopy.underReviewLabel || "Under Review", value: stats.review, icon: TrendingUp, color: "text-blue-400", bg: "bg-blue-500/10" },
+              { label: dashCopy.pendingActionLabel || "Pending Action", value: stats.pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
             ].map(({ label, value, icon: Icon, color, bg }, i) => (
               <motion.div
                 key={label}
@@ -619,20 +677,22 @@ const UserDashboard = () => {
                     <div className="text-2xl font-bold text-text-primary">{value}</div>
                     <div className="text-xs text-text-muted">{label}</div>
                   </div>
-                          </Card>
-                        </motion.div>
+                </Card>
+              </motion.div>
             ))}
           </div>
 
           <div>
             <div className="mb-8">
               <div className="flex flex-wrap items-center gap-3 mb-5">
-                <h2 className="text-lg font-semibold text-text-primary flex-1">Received Visa Files</h2>
+                <h2 className="text-lg font-semibold text-text-primary flex-1">
+                  {dashCopy.receivedVisaFilesTitle || "Received Visa Files"}
+                </h2>
               </div>
               <div className="space-y-3">
                 {safeBookings.filter((booking) => booking.visaFilePath).length === 0 ? (
                   <Card className="text-sm text-text-muted">
-                    Approved visa files sent by admin will appear here.
+                    {dashCopy.receivedVisaFilesEmptyText || "Approved visa files sent by admin will appear here."}
                   </Card>
                 ) : (
                   safeBookings
@@ -661,7 +721,7 @@ const UserDashboard = () => {
                           leftIcon={<Download size={14} />}
                           onClick={() => setDocumentPreview({ url: getFileUrl(booking.visaFilePath), fileName: "Visa File", type: "application/pdf" })}
                         >
-                          Open File
+                          {dashCopy.openFileButtonText || "Open File"}
                         </Button>
                       </Card>
                     ))
@@ -671,7 +731,9 @@ const UserDashboard = () => {
 
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-                <h2 className="text-lg font-semibold text-text-primary">My Applications</h2>
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {dashCopy.myApplicationsTitle || "My Applications"}
+                </h2>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <div className="flex items-center gap-2 bg-surface-2 border border-border rounded-xl px-3 py-2 flex-1 sm:flex-none">
@@ -679,7 +741,7 @@ const UserDashboard = () => {
                     <input
                       type="text"
                       autoComplete="off"
-                      placeholder="Search country..."
+                      placeholder={dashCopy.searchCountryPlaceholder || "Search country..."}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="bg-transparent text-sm text-text-primary placeholder-text-muted focus:outline-none w-full sm:w-32 min-w-0"
@@ -698,12 +760,14 @@ const UserDashboard = () => {
                       aria-label="Filter by status"
                       id="status-filter"
                     >
-                      <option value="all">All Status</option>
-                      <option value="doc_pending">Doc Pending</option>
-                      {uploadSettings.enableGDriveUpload && <option value="drive_link_pending">Upload Drive Link</option>}
-                      <option value="review">Under Review</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
+                      <option value="all">{dashCopy.allStatusFilterLabel || "All Status"}</option>
+                      <option value="doc_pending">{dashCopy.docPendingFilterLabel || "Doc Pending"}</option>
+                      {uploadSettings.enableGDriveUpload && (
+                        <option value="drive_link_pending">{dashCopy.uploadDriveLinkFilterLabel || "Upload Drive Link"}</option>
+                      )}
+                      <option value="review">{dashCopy.underReviewFilterLabel || "Under Review"}</option>
+                      <option value="approved">{dashCopy.approvedFilterLabel || "Approved"}</option>
+                      <option value="rejected">{dashCopy.rejectedFilterLabel || "Rejected"}</option>
                     </select>
                   </div>
                 </div>
@@ -713,14 +777,16 @@ const UserDashboard = () => {
                 {filteredBookings.length === 0 ? (
                   <Card className="text-center py-12">
                     <Globe size={40} className="text-text-muted mx-auto mb-3" />
-                    <p className="text-text-secondary">No applications found.</p>
+                    <p className="text-text-secondary">
+                      {dashCopy.noApplicationsFoundText || "No applications found."}
+                    </p>
                     <Button
                       variant="primary"
                       size="sm"
                       className="mt-4"
                       onClick={() => navigate("/", { replace: true })}
                     >
-                      Start New Application
+                      {dashCopy.startNewApplicationButtonText || "Start New Application"}
                     </Button>
                   </Card>
                 ) : (

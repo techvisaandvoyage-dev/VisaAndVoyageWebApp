@@ -75,8 +75,8 @@ const buildOtpBoxes = (otp) =>
     .split('')
     .map(
       (digit) => `
-        <td style="padding: 0 6px 12px 6px;">
-          <div style="width: 56px; height: 64px; line-height: 64px; text-align: center; border-radius: 12px; border: 1px solid #38558f; background: #13203d; color: #f8fbff; font-size: 34px; font-weight: 700; box-shadow: 0 12px 28px rgba(6, 15, 36, 0.35); font-family: Arial, sans-serif;">
+        <td style="padding: 0 5px;">
+          <div style="width: 52px; height: 62px; line-height: 62px; text-align: center; border-radius: 12px; border: 2px solid #0252D5; background: #eff6ff; color: #0252D5; font-size: 32px; font-weight: 800; box-shadow: 0 4px 12px rgba(2, 82, 213, 0.12); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             ${digit}
           </div>
         </td>`
@@ -84,69 +84,77 @@ const buildOtpBoxes = (otp) =>
     .join('');
 
 const buildOtpEmailTemplate = ({
-  preheader = 'Your VisaAndVoyage verification code is inside.',
+  preheader = 'Your Visa & Voyage verification code is inside.',
   title = 'Your OTP Code',
   subtitle = 'Use the code below to continue.',
   otp,
   note = 'This OTP is valid for 10 minutes only. Do not share it with anyone.',
-  accentLabel = 'VisaAndVoyage',
+  accentLabel = 'Visa & Voyage',
 }) => `
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
     ${preheader}
   </div>
-  <div style="margin:0; padding:24px 12px; background:#081120; font-family: Arial, Helvetica, sans-serif; color:#e7f1ff;">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:720px; margin:0 auto; background:#0d1730; border:1px solid #243a67; border-radius:24px; overflow:hidden; box-shadow:0 18px 42px rgba(3, 8, 20, 0.45);">
+  <div style="margin:0; padding:32px 12px; background:#f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#0f172a;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:580px; margin:0 auto; background:#ffffff; border:1px solid #e2e8f0; border-radius:24px; overflow:hidden; box-shadow:0 18px 45px rgba(15, 23, 42, 0.08);">
+      
+      <!-- Top Brand Accent Bar -->
       <tr>
-        <td style="padding:28px 32px 20px 32px; background:linear-gradient(180deg, #13203d 0%, #0d1730 100%);">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-            <tr>
-              <td align="left" style="font-size:14px; color:#7cb6ff; font-weight:600; padding-bottom:20px;">
-                <span style="display:inline-block; width:42px; height:42px; line-height:42px; text-align:center; border-radius:50%; background:#1f3d73; color:#e7f1ff; font-size:22px; margin-right:10px;">V</span>
-                <span style="font-size:18px; font-weight:700; color:#f8fbff; vertical-align:top; line-height:42px;">${accentLabel}</span>
-              </td>
-              <td align="right" style="font-size:15px; color:#8ec5ff; font-weight:500; padding-bottom:20px;">
-                Your Journey, Our Priority
-              </td>
-            </tr>
-          </table>
+        <td style="height: 5px; background: linear-gradient(90deg, #0252D5 0%, #38bdf8 50%, #d97706 100%); line-height: 5px; font-size: 5px;">&nbsp;</td>
+      </tr>
 
-          <div style="text-align:center; padding:12px 0 6px 0;">
-            <div style="font-size:18px; font-weight:600; color:#7cb6ff; letter-spacing:0.04em; text-transform:uppercase;">Secure Verification</div>
-            <h1 style="margin:14px 0 10px 0; font-size:42px; line-height:1.1; color:#f8fbff;">${title}</h1>
-            <p style="margin:0 auto; max-width:460px; font-size:22px; line-height:1.5; color:#bfd5f6;">
-              ${subtitle}
-            </p>
+      <tr>
+        <td style="padding:32px 32px 20px 32px; background:#ffffff; text-align:center;">
+          <div style="margin-bottom: 12px;">
+            <img src="https://visavo.in/images/visa-voyage-logo.webp" alt="Visa &amp; Voyage" height="42" style="height: 42px; max-width: 200px; width: auto; border: 0; display: block; margin: 0 auto;" />
+          </div>
+          <div style="font-size: 22px; font-weight: 800; color: #0252D5; letter-spacing: -0.5px; margin: 0;">
+            Visa &amp; <span style="color: #d97706;">Voyage</span>
+          </div>
+          <div style="font-size: 12px; font-weight: 600; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase; margin-top: 3px;">
+            Your Journey, Our Priority
           </div>
 
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:32px auto 16px auto;">
+          <div style="margin-top: 16px;">
+            <span style="display: inline-block; padding: 6px 16px; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 9999px; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
+              🔒 Secure Verification
+            </span>
+          </div>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="padding: 10px 36px 28px 36px; background-color: #ffffff; text-align: center;">
+          <h1 style="margin:12px 0 8px 0; font-size:26px; font-weight: 700; line-height:1.2; color:#0f172a;">${title}</h1>
+          <p style="margin:0 auto 20px auto; max-width:440px; font-size:14px; line-height:1.6; color:#475569;">
+            ${subtitle}
+          </p>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:20px auto 16px auto;">
             <tr>
               ${buildOtpBoxes(otp)}
             </tr>
           </table>
 
-          <div style="text-align:center; padding:8px 0 10px 0;">
-            <div style="display:inline-block; padding:14px 20px; border-radius:16px; background:#162748; color:#dbe7ff; font-size:18px; line-height:1.6; border:1px solid #2a467c;">
-              ${note}
-            </div>
+          <div style="margin: 16px 0 24px 0;">
+            <span style="display:inline-block; padding:8px 16px; border-radius:10px; background:#f8fafc; color:#475569; font-size:12px; font-weight: 600; line-height:1.5; border:1px solid #e2e8f0;">
+              ⏱️ ${note}
+            </span>
           </div>
-        </td>
-      </tr>
 
-      <tr>
-        <td style="background:linear-gradient(180deg, #183c79 0%, #0f2451 100%); padding:22px 28px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+          <!-- Trust Badges Bar -->
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
             <tr>
-              <td width="33.33%" valign="top" style="padding-right:12px; color:#ffffff;">
-                <div style="font-size:18px; font-weight:700; margin-bottom:6px;">Secure</div>
-                <div style="font-size:15px; line-height:1.6; color:#d9e7ff;">Your verification code is protected and time-bound.</div>
+              <td align="center" width="33.33%" style="padding: 4px;">
+                <div style="font-size: 12px; font-weight: 700; color: #0252D5;">🔒 Secure</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Encrypted OTP</div>
               </td>
-              <td width="33.33%" valign="top" style="padding:0 12px; color:#ffffff;">
-                <div style="font-size:18px; font-weight:700; margin-bottom:6px;">Fast</div>
-                <div style="font-size:15px; line-height:1.6; color:#d9e7ff;">Use this OTP to complete your action without delay.</div>
+              <td align="center" width="33.33%" style="padding: 4px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+                <div style="font-size: 12px; font-weight: 700; color: #d97706;">⚡ Fast</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Instant access</div>
               </td>
-              <td width="33.33%" valign="top" style="padding-left:12px; color:#ffffff;">
-                <div style="font-size:18px; font-weight:700; margin-bottom:6px;">Support</div>
-                <div style="font-size:15px; line-height:1.6; color:#d9e7ff;">If this was not you, you can safely ignore this email.</div>
+              <td align="center" width="33.33%" style="padding: 4px;">
+                <div style="font-size: 12px; font-weight: 700; color: #0252D5;">🤝 Support</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">visavo.in/contact</div>
               </td>
             </tr>
           </table>
@@ -154,9 +162,9 @@ const buildOtpEmailTemplate = ({
       </tr>
 
       <tr>
-        <td style="padding:22px 32px 28px 32px; text-align:center; background:#0d1730; color:#9eb6d9; font-size:15px; line-height:1.7; border-top:1px solid #20355d;">
-          If you did not request this code, no action is needed.<br />
-          &copy; 2026 VisaAndVoyage. All rights reserved.
+        <td style="padding:20px 32px 24px 32px; text-align:center; background:#f8fafc; color:#94a3b8; font-size:12px; line-height:1.6; border-top:1px solid #f1f5f9;">
+          &copy; ${new Date().getFullYear()} <strong style="color: #0f172a;">Visa &amp; Voyage</strong> (<a href="https://visavo.in" style="color: #0252D5; text-decoration: none; font-weight: 600;">visavo.in</a>). All rights reserved.<br />
+          If you did not request this verification code, please ignore this email.
         </td>
       </tr>
     </table>
