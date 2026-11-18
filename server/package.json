@@ -22,7 +22,7 @@
   "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "compression": "^1.8.1",
+    "compression": "^1.8.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -32,12 +32,12 @@
     "googleapis": "^173.0.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.5.0",
-    "multer": "^2.1.1",
-    "nodemailer": "^9.0.1",
+    "mongoose": "^9.11.4",
+    "multer": "^2.5.0",
+    "nodemailer": "^9.1.1",
     "pdf-lib": "^1.17.1",
     "razorpay": "^2.9.6",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.5",
     "svg-captcha": "^1.4.0"
   },
   "overrides": {
