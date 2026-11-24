@@ -275,7 +275,7 @@ const DateRangePicker = ({
       {/* Calendar panel */}
       {open && (
         <div
-          className="mt-3 rounded-2xl border border-border bg-surface shadow-modal p-4 sm:p-5 relative z-30"
+          className="drp-dialog mt-3 rounded-2xl border border-border bg-surface shadow-modal p-4 sm:p-5 relative z-30"
           role="dialog"
           aria-label="Select travel dates"
         >
@@ -284,7 +284,7 @@ const DateRangePicker = ({
             <button
               type="button"
               onClick={() => setAnchor((a) => stepMonth(a, -1))}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border bg-surface-2 text-text-primary hover:text-cyan hover:border-cyan/40 transition-colors"
+              className="drp-nav-btn h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border bg-surface-2 text-text-primary hover:text-cyan hover:border-cyan/40 transition-colors"
               aria-label="Previous month"
             >
               <ChevronLeft size={16} />
@@ -295,7 +295,7 @@ const DateRangePicker = ({
             <button
               type="button"
               onClick={() => setAnchor((a) => stepMonth(a, 1))}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border bg-surface-2 text-text-primary hover:text-cyan hover:border-cyan/40 transition-colors"
+              className="drp-nav-btn h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border bg-surface-2 text-text-primary hover:text-cyan hover:border-cyan/40 transition-colors"
               aria-label="Next month"
             >
               <ChevronRight size={16} />
@@ -331,19 +331,19 @@ const DateRangePicker = ({
                       ymd >= startDate;
 
                     let classes =
-                      "aspect-square w-full inline-flex items-center justify-center text-sm rounded-lg transition-colors select-none";
+                      "drp-cell aspect-square w-full inline-flex items-center justify-center text-sm rounded-lg transition-colors select-none";
                     if (isOutside) {
-                      classes += " text-transparent pointer-events-none";
+                      classes += " drp-cell-outside text-transparent pointer-events-none";
                     } else if (isDisabled) {
-                      classes += " text-text-muted/30 cursor-not-allowed";
+                      classes += " drp-cell-disabled text-text-muted/30 cursor-not-allowed";
                     } else if (isEndpoint) {
-                      classes += " bg-cyan text-background font-bold shadow-sm";
+                      classes += " drp-cell-selected bg-cyan text-background font-bold shadow-sm";
                     } else if (inRange) {
-                      classes += " bg-cyan/15 text-text-primary";
+                      classes += " drp-cell-in-range bg-cyan/15 text-text-primary";
                     } else if (isHoverPreviewEnd) {
-                      classes += " bg-cyan/10 text-text-primary";
+                      classes += " drp-cell-hover bg-cyan/10 text-text-primary";
                     } else {
-                      classes += " text-text-primary hover:bg-surface-2 hover:text-cyan";
+                      classes += " drp-cell-normal text-text-primary hover:bg-surface-2 hover:text-cyan";
                     }
 
                     return (
@@ -392,7 +392,7 @@ const DateRangePicker = ({
               <button
                 type="button"
                 onClick={() => onOpenChange?.(false)}
-                className="text-[11px] font-semibold text-cyan hover:underline"
+                className="drp-done-btn text-[11px] font-semibold text-cyan hover:underline"
               >
                 Done
               </button>

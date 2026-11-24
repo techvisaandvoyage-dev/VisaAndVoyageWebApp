@@ -1,11 +1,15 @@
-import { lazy, Suspense, useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { User, LayoutDashboard, LogOut, Menu, X, BookOpen, Search } from "lucide-react";
+import { User, LayoutDashboard, LogOut, Menu, X, BookOpen, Search, ChevronRight } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { useUIStore } from "../../store/uiStore";
 import { getAdminAppUrl } from "../../utils/adminAppUrl";
 import { useSiteLogo } from "../../hooks/useSiteLogo";
+import { useCountries } from "../../hooks/useCountries";
+import { matchesCountrySearch, getCountryFlagEmoji } from "../../utils/countrySearch";
+import { getCountryRouteId } from "../../utils/countryRouting";
 import NotificationBell from "./NotificationBell";
+import brandLogo from "../../assets/visa-voyage-logo.webp";
 
 const AuthPageModal = lazy(() => import("../auth/AuthPageModal"));
 
@@ -21,19 +25,72 @@ const Navbar = () => {
   const mobileMenuOpen = useUIStore((state) => state.mobileMenuOpen);
   const toggleMobileMenu = useUIStore((state) => state.toggleMobileMenu);
   const closeMobileMenu = useUIStore((state) => state.closeMobileMenu);
+  const searchQuery = useUIStore((state) => state.searchQuery);
+  const setSearchQuery = useUIStore((state) => state.setSearchQuery);
+  const clearSearchQuery = useUIStore((state) => state.clearSearchQuery);
 
   const [scrolled, setScrolled] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const searchContainerRef = useRef(null);
+  const centerSearchContainerRef = useRef(null);
+  const mobileSearchContainerRef = useRef(null);
   const siteLogo = useSiteLogo();
+  const { countries = [] } = useCountries();
+
+  const matchingCountries = useMemo(() => {
+    const query = searchQuery.trim();
+    if (!query || !countries.length) return [];
+    return countries
+      .filter((country) => matchesCountrySearch(country, query))
+      .slice(0, 8);
+  }, [searchQuery, countries]);
+
+  const handleSelectCountry = (country) => {
+    const routeId = getCountryRouteId(country);
+    if (!routeId) return;
+    setShowSearchDropdown(false);
+    clearSearchQuery();
+    closeMobileMenu();
+    navigate(`/destination/${encodeURIComponent(routeId)}`);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const inCompact = searchContainerRef.current && searchContainerRef.current.contains(event.target);
+      const inCenter = centerSearchContainerRef.current && centerSearchContainerRef.current.contains(event.target);
+      const inMobile = mobileSearchContainerRef.current && mobileSearchContainerRef.current.contains(event.target);
+      if (!inCompact && !inCenter && !inMobile) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
 
   // ── Detect scroll to toggle navbar style ─────────────────
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    const heroSbx = document.querySelector("#hero .sbx");
+    if (!heroSbx) {
+      const onScroll = () => setScrolled(window.scrollY > 40);
+      window.addEventListener("scroll", onScroll, { passive: true });
+      return () => window.removeEventListener("scroll", onScroll);
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setScrolled(!entries[0].isIntersecting);
+      },
+      { threshold: 0 }
+    );
+    observer.observe(heroSbx);
+    return () => observer.disconnect();
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -46,10 +103,9 @@ const Navbar = () => {
   }, []);
 
   useEffect(() => {
+    setShowSearchDropdown(false);
     closeMobileMenu();
   }, [location.pathname, closeMobileMenu]);
-
-
 
   const handleLogout = () => {
     logout();
@@ -83,6 +139,8 @@ const Navbar = () => {
   const handleLogoClick = (event) => {
     event.preventDefault();
     closeMobileMenu();
+    clearSearchQuery();
+    setShowSearchDropdown(false);
 
     if (location.pathname === "/") {
       window.dispatchEvent(new CustomEvent("vb:reset-home-search"));
@@ -96,106 +154,258 @@ const Navbar = () => {
     });
   };
 
+  const handleNavbarSearchSubmit = (e) => {
+    e.preventDefault();
+    const term = searchQuery.trim();
+    if (!term) return;
+
+    if (matchingCountries.length > 0) {
+      handleSelectCountry(matchingCountries[0]);
+      return;
+    }
+
+    setShowSearchDropdown(false);
+    if (location.pathname !== "/") {
+      navigate(`/?q=${encodeURIComponent(term)}`);
+    } else {
+      window.dispatchEvent(new CustomEvent("vb:submit-search", { detail: term }));
+    }
+  };
+
+  const renderCountryDropdown = (placement = "compact") => {
+    if (!showSearchDropdown || !searchQuery.trim()) return null;
+
+    let positionClasses = "";
+    if (placement === "compact") {
+      positionClasses = "right-0 w-72 sm:w-80";
+    } else if (placement === "center") {
+      positionClasses = "left-0 right-0 w-full";
+    } else if (placement === "mobile") {
+      positionClasses = "left-0 right-0 w-full";
+    }
+
+    return (
+      <div
+        className={`nv-search-dropdown ${positionClasses}`}
+        role="listbox"
+        aria-label="Country suggestions"
+      >
+        <div className="nv-search-list">
+          {matchingCountries.length > 0 ? (
+            matchingCountries.map((country) => {
+              const flag = getCountryFlagEmoji(country.name, country.flagEmoji);
+              const routeId = getCountryRouteId(country);
+              const visaInfo = country.visaType || country.continent || "Visa Available";
+              return (
+                <button
+                  key={country.id || routeId || country.name}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectCountry(country)}
+                  className="nv-search-item"
+                  role="option"
+                >
+                  <span className="nv-search-flag" aria-hidden="true">
+                    {flag || "🌐"}
+                  </span>
+                  <span className="nv-search-info">
+                    <span className="nv-search-name">{country.name}</span>
+                    <span className="nv-search-meta">{visaInfo}</span>
+                  </span>
+                  <ChevronRight size={15} className="nv-search-arrow" aria-hidden="true" />
+                </button>
+              );
+            })
+          ) : (
+            <div className="nv-search-empty">
+              <span>No countries found</span>
+              <small>No destinations match &ldquo;{searchQuery.trim()}&rdquo;</small>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
-      <header
-        className={`
-          fixed top-0 left-0 right-0 z-[999] transition-all duration-300
-          ${!isLanding
-            ? "bg-white border-b border-border shadow-card"
-            : "bg-white"
-          }
-        `}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-[72px]">
-            {/* ── Logo ── */}
-            <Link
-              to="/"
-              replace
-              onClick={handleLogoClick}
-              className="flex h-[72px] items-center"
-              aria-label="VISAANDVOYAGE Home"
-            >
-              <img
-                src={siteLogo}
-                alt="Visa &amp; Voyage"
-                width="240"
-                height="64"
-                loading="eager"
-                fetchPriority="high"
-                decoding="async"
-                className="block h-[63px] w-auto object-contain sm:h-[68px]"
-              />
-            </Link>
+      <header className={`nh ${scrolled ? "sc" : ""}`}>
+        <nav className="nv w">
+          {/* ── Logo ── */}
+          <Link
+            to="/"
+            replace
+            onClick={handleLogoClick}
+            className="flex items-center shrink-0"
+            aria-label="VISAANDVOYAGE Home"
+          >
+            <img
+              src={brandLogo}
+              alt="Visa &amp; Voyage"
+              className="h-10 sm:h-11 w-auto object-contain"
+              loading="eager"
+            />
+          </Link>
 
-            {/* ── Right side: public links + profile icon ── */}
-            <div className="hidden md:flex items-center gap-2">
-              <Link
-                to="/blog"
-                replace={isTransientPage}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  location.pathname.startsWith("/blog")
-                    ? "text-black"
-                    : "text-black hover:text-black/80"
-                }`}
+          {/* ── Center search box (ONLY on homepage, fades in on scroll, synced with hero search) ── */}
+          {isLanding && (
+            <div className="ns relative" ref={centerSearchContainerRef}>
+              <form
+                onSubmit={handleNavbarSearchSubmit}
+                className="sbx"
+                role="search"
+                autoComplete="off"
               >
-                <BookOpen size={15} />
-                Blog
-              </Link>
-              {!isLanding && (
-                <button
-                  onClick={() => navigate("/")}
-                  className="w-10 h-10 rounded-full bg-cyan/10 border border-cyan/20 flex items-center justify-center text-cyan hover:bg-cyan/20 transition-all duration-200"
-                  aria-label="Search"
-                >
+                <input
+                  name="countrySearch"
+                  type="search"
+                  placeholder="Search country"
+                  aria-label="Search country"
+                  value={searchQuery}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-lpignore="true"
+                  data-form-type="other"
+                  onFocus={() => setShowSearchDropdown(true)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSearchDropdown(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setShowSearchDropdown(false);
+                  }}
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearSearchQuery();
+                      setShowSearchDropdown(false);
+                    }}
+                    className="sbx-clear"
+                    aria-label="Clear search"
+                  >
+                    <X size={16} />
+                  </button>
+                ) : null}
+                <button type="submit" className="b rb sm" aria-label="Search">
                   <Search size={18} />
                 </button>
-              )}
-              <NotificationBell className="ml-2" />
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  id="user-dashboard-btn"
-                  onClick={handleProfileIconClick}
-                  className="w-10 h-10 rounded-full bg-cyan/15 border border-cyan/30 flex items-center justify-center text-cyan hover:bg-cyan/20 hover:shadow-cyan-glow transition-all duration-200"
-                  aria-label={isAuthenticated ? "Open account menu" : "Open login"}
-                  aria-haspopup={isAuthenticated ? "menu" : undefined}
-                >
-                  <User size={18} />
-                </button>
+              </form>
+              {renderCountryDropdown("center")}
+            </div>
+          )}
 
-                {isAuthenticated && (
+          {/* ── Right side: Blog + Notifications + Account ── */}
+          <div className="nr">
+            {!isLanding && (
+              <div className="relative hidden sm:block" ref={searchContainerRef}>
+                <form
+                  onSubmit={handleNavbarSearchSubmit}
+                  className="sbx sbx-compact"
+                  role="search"
+                  autoComplete="off"
+                >
+                  <input
+                    name="countrySearch"
+                    type="search"
+                    placeholder="Search country"
+                    aria-label="Search country"
+                    value={searchQuery}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    data-lpignore="true"
+                    data-form-type="other"
+                    onFocus={() => setShowSearchDropdown(true)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowSearchDropdown(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setShowSearchDropdown(false);
+                    }}
+                  />
+                  {searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearSearchQuery();
+                        setShowSearchDropdown(false);
+                      }}
+                      className="sbx-clear"
+                      aria-label="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : null}
+                  <button type="submit" className="b rb sm" aria-label="Search">
+                    <Search size={15} />
+                  </button>
+                </form>
+                {renderCountryDropdown("compact")}
+              </div>
+            )}
+
+            <Link
+              to="/blog"
+              replace={isTransientPage}
+              className="nv-blog-btn"
+            >
+              <BookOpen size={18} />
+              <span>Blog</span>
+            </Link>
+
+            {isAuthenticated ? (
+              <div className="flex items-center gap-3">
+                <NotificationBell />
+
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    id="user-dashboard-btn"
+                    onClick={handleProfileIconClick}
+                    className="ib"
+                    aria-label="Open account menu"
+                    aria-haspopup="menu"
+                  >
+                    <User size={20} />
+                  </button>
+
                   <div
-                    className={`absolute right-0 top-full z-50 w-64 rounded-xl border border-border bg-white shadow-card transition-all duration-150 overflow-hidden ${
+                    className={`absolute right-0 top-full z-50 w-64 cd transition-all duration-150 overflow-hidden border-none ${
                       profileDropdownOpen
-                        ? "visible translate-y-2 opacity-100"
-                        : "invisible translate-y-3 opacity-0"
+                        ? "visible translate-y-3 opacity-100"
+                        : "invisible translate-y-4 opacity-0"
                     }`}
                     role="menu"
+                    style={{ background: "var(--bg)", borderRadius: "var(--rb)", boxShadow: "var(--cs)" }}
                   >
-                    <div className="px-4 py-3 border-b border-border bg-white">
-                      <p className="text-sm font-semibold text-text-primary truncate">
+                    <div className="px-4 py-3 border-b border-[#2D2B22]/10">
+                      <p className="text-sm font-semibold truncate text-[var(--ink)]">
                         {user?.name || "User"}
                       </p>
                       {user?.email && (
-                        <p className="text-xs text-text-secondary truncate mt-1">
+                        <p className="text-xs truncate mt-0.5 text-[var(--mu)]">
                           {user?.email}
                         </p>
                       )}
                       {user?.phone && (
-                        <p className="text-xs text-text-secondary truncate mt-0.5">
+                        <p className="text-xs truncate mt-0.5 text-[var(--mu)]">
                           {user?.phone}
                         </p>
                       )}
                     </div>
-                    <div className="py-2">
+                    <div className="p-2 space-y-1">
                       <button
                         type="button"
                         onClick={() => {
                           setProfileDropdownOpen(false);
                           navigate("/dashboard/profile", { replace: isTransientPage });
                         }}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-text-secondary transition-colors hover:bg-cyan/10 hover:text-cyan"
+                        className="flex w-full items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-sm font-semibold transition-all hover:bg-[#607938]/10 text-[var(--ink)]"
                         role="menuitem"
                       >
                         <User size={15} />
@@ -207,7 +417,7 @@ const Navbar = () => {
                           setProfileDropdownOpen(false);
                           handleDashboardOpen();
                         }}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-text-secondary transition-colors hover:bg-cyan/10 hover:text-cyan"
+                        className="flex w-full items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-sm font-semibold transition-all hover:bg-[#607938]/10 text-[var(--ink)]"
                         role="menuitem"
                       >
                         <LayoutDashboard size={15} />
@@ -219,7 +429,7 @@ const Navbar = () => {
                           setProfileDropdownOpen(false);
                           handleLogout();
                         }}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                        className="flex w-full items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-sm font-semibold text-red-700 transition-all hover:bg-red-500/10"
                         role="menuitem"
                       >
                         <LogOut size={15} />
@@ -227,123 +437,170 @@ const Navbar = () => {
                       </button>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-
-            {/* ── Mobile notification & hamburger ── */}
-            <div className="flex md:hidden items-center gap-1.5">
-              {!isLanding && (
-                <button
-                  onClick={() => navigate("/")}
-                  className="w-10 h-10 rounded-full bg-cyan/15 border border-cyan/30 flex items-center justify-center text-cyan hover:bg-cyan/20 hover:shadow-cyan-glow transition-all duration-200"
-                  aria-label="Search destinations"
-                >
-                  <Search size={18} />
-                </button>
-              )}
-              {isAuthenticated && <NotificationBell />}
+            ) : (
               <button
-                id="mobile-menu-btn"
-                onClick={toggleMobileMenu}
-                className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-white transition-colors"
-                aria-label="Toggle mobile menu"
+                type="button"
+                onClick={() => {
+                  closeMobileMenu();
+                  setAuthModalOpen(true);
+                }}
+                className="nv-login-btn"
+                aria-label="Log in"
               >
-                {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+                Log in
               </button>
-            </div>
+            )}
+
+            {/* Mobile menu trigger */}
+            <button
+              id="mobile-menu-btn"
+              onClick={toggleMobileMenu}
+              className="ib md:hidden"
+              aria-label="Toggle mobile menu"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
-        </div>
+        </nav>
 
         {/* ── Mobile menu drawer ── */}
         {mobileMenuOpen && (
-            <div className="md:hidden border-t border-border bg-white overflow-hidden animate-mobile-menu-in">
-              {isAuthenticated && (
-                <div className="px-4 py-3 border-b border-border bg-white text-center">
-                  <p className="text-sm font-semibold text-text-primary truncate">
+          <div className="md:hidden border-t border-[#2D2B22]/10 bg-[var(--nb)] p-4 space-y-3 animate-mobile-menu-in">
+            <div className="relative w-full" ref={mobileSearchContainerRef}>
+              <form
+                onSubmit={(e) => {
+                  closeMobileMenu();
+                  handleNavbarSearchSubmit(e);
+                }}
+                className="sbx w-full"
+                role="search"
+                autoComplete="off"
+              >
+                <input
+                  type="search"
+                  placeholder="Search country"
+                  aria-label="Search country"
+                  value={searchQuery}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-lpignore="true"
+                  data-form-type="other"
+                  onFocus={() => setShowSearchDropdown(true)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSearchDropdown(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setShowSearchDropdown(false);
+                  }}
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearSearchQuery();
+                      setShowSearchDropdown(false);
+                    }}
+                    className="sbx-clear"
+                    aria-label="Clear search"
+                  >
+                    <X size={16} />
+                  </button>
+                ) : null}
+                <button type="submit" className="b rb sm" aria-label="Search">
+                  <Search size={18} />
+                </button>
+              </form>
+              {renderCountryDropdown("mobile")}
+            </div>
+            {isAuthenticated ? (
+              <>
+                <div className="px-2 py-2 border-b border-[#2D2B22]/10 text-center">
+                  <p className="text-sm font-bold text-[var(--ink)] truncate">
                     {user?.name || "User"}
                   </p>
                   {user?.email && (
-                    <p className="text-xs text-text-secondary truncate mt-1">
+                    <p className="text-xs text-[var(--mu)] truncate mt-0.5">
                       {user?.email}
                     </p>
                   )}
-                  {user?.phone && (
-                    <p className="text-xs text-text-secondary truncate mt-0.5">
-                      {user?.phone}
-                    </p>
-                  )}
                 </div>
-              )}
-              
-              <div className="py-2">
                 <Link
                   to="/blog"
                   replace={isTransientPage}
                   onClick={closeMobileMenu}
-                  className="flex w-full justify-center items-center gap-2 px-4 py-2.5 text-center text-sm font-medium text-text-secondary transition-colors hover:bg-cyan/10 hover:text-cyan"
+                  className="flex items-center gap-2 text-[var(--ink)] font-semibold p-2 rounded-xl hover:bg-[#607938]/10"
                 >
-                  <BookOpen size={15} />
+                  <BookOpen size={16} />
                   Blog
                 </Link>
-
-                {isAuthenticated ? (
-                  <>
-                    <button
-                      onClick={() => {
-                        closeMobileMenu();
-                        navigate("/dashboard/profile", { replace: isTransientPage });
-                      }}
-                      className="flex w-full justify-center items-center gap-2 px-4 py-2.5 text-center text-sm font-medium text-text-secondary transition-colors hover:bg-cyan/10 hover:text-cyan"
-                    >
-                      <User size={15} />
-                      Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        closeMobileMenu();
-                        if (user?.role === "admin") {
-                          window.location.href = getAdminAppUrl("/");
-                        } else {
-                          navigate("/dashboard", { replace: isTransientPage });
-                        }
-                      }}
-                      className="flex w-full justify-center items-center gap-2 px-4 py-2.5 text-center text-sm font-medium text-text-secondary transition-colors hover:bg-cyan/10 hover:text-cyan"
-                    >
-                      <LayoutDashboard size={15} />
-                      Dashboard
-                    </button>
-                    <button
-                      onClick={() => {
-                        closeMobileMenu();
-                        handleLogout();
-                      }}
-                      className="flex w-full justify-center items-center gap-2 px-4 py-2.5 text-center text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
-                    >
-                      <LogOut size={15} />
-                      Sign Out
-                    </button>
-                  </>
-                ) : (
-                  <div className="px-4 pt-2 border-t border-border mt-2">
-                    <button
-                      onClick={() => {
-                        closeMobileMenu();
-                        setAuthModalOpen(true);
-                      }}
-                      className="w-full px-4 py-2.5 bg-cyan text-background text-sm font-bold rounded-xl hover:bg-cyan/90 transition-all text-center shadow-lg shadow-cyan/20"
-                    >
-                      Sign In
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+                <button
+                  onClick={() => {
+                    closeMobileMenu();
+                    navigate("/dashboard/profile", { replace: isTransientPage });
+                  }}
+                  className="flex w-full items-center gap-2 text-[var(--ink)] font-semibold p-2 rounded-xl hover:bg-[#607938]/10"
+                >
+                  <User size={16} />
+                  Profile
+                </button>
+                <button
+                  onClick={() => {
+                    closeMobileMenu();
+                    if (user?.role === "admin") {
+                      window.location.href = getAdminAppUrl("/");
+                    } else {
+                      navigate("/dashboard", { replace: isTransientPage });
+                    }
+                  }}
+                  className="flex w-full items-center gap-2 text-[var(--ink)] font-semibold p-2 rounded-xl hover:bg-[#607938]/10"
+                >
+                  <LayoutDashboard size={16} />
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => {
+                    closeMobileMenu();
+                    handleLogout();
+                  }}
+                  className="flex w-full items-center gap-2 text-red-700 font-semibold p-2 rounded-xl hover:bg-red-500/10"
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/blog"
+                  replace={isTransientPage}
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-2 text-[var(--ink)] font-semibold p-2 rounded-xl hover:bg-[#607938]/10"
+                >
+                  <BookOpen size={16} />
+                  Blog
+                </Link>
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      closeMobileMenu();
+                      setAuthModalOpen(true);
+                    }}
+                    className="b rb w-full"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </header>
 
-      {/* Spacer so content doesn't hide behind fixed navbar */}
-      <div className="h-16" aria-hidden="true" />
       <Suspense fallback={null}>
         <AuthPageModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
       </Suspense>

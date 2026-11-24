@@ -30,8 +30,6 @@ import {
   Car,
   MapPin,
   HeartHandshake,
-  FileEdit,
-  Headphones,
   Info,
   Link2,
   Users,
@@ -62,6 +60,9 @@ import {
 import { getFileValidationRules } from "../utils/fileValidation";
 import VisaInformationSection from "../components/country/VisaInformationSection";
 import CountryFeeSummaryCard from "../components/country/CountryFeeSummaryCard";
+import DeepPressCountryDetails from "../components/country/DeepPressCountryDetails";
+import CompactApplication from "../components/application/CompactApplication";
+import "../components/country/deepPressCountryDetails.css";
 import {
   needsPhoneContactGate,
   needsEmailContactGate,
@@ -477,9 +478,13 @@ const CountryDetails = () => {
   const { fetchUserApplications, bookings } = useDataStore();
   const { isAuthenticated, user, sessionAuthMethod } = useAuthStore();
   const { showToast } = useUIStore();
-  const { countries: allCountries, display: countryDisplay, documentCatalog } = useCountries();
+  const { countries: allCountries, display: countryDisplay, documentCatalog, loading: countriesLoading } = useCountries();
   const listCountry = allCountries.find((c) => matchesCountryRouteId(c, countryId));
   const country = useMergedCountry(countryId, listCountry);
+
+  useEffect(() => {
+    if (country?.name) document.title = `${country.name} Visa`;
+  }, [country?.name]);
 
   /**
    * Map document key → label using the universal catalog (built-in + admin's
@@ -516,8 +521,11 @@ const CountryDetails = () => {
   // ── All hooks must be called before any conditional return (Rules of Hooks) ──
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [showTravelDetails, setShowTravelDetails] = useState(() => {
-    const draft = getInitialDraft();
-    return Boolean(draft?.showTravelDetails);
+    if (typeof window !== "undefined") {
+      const hash = (window.location.hash || "").replace(/^#/, "");
+      return hash === "travel-details";
+    }
+    return false;
   });
   const [visaOption, setVisaOption] = useState(() => {
     const draft = getInitialDraft();
@@ -826,6 +834,8 @@ const CountryDetails = () => {
   const governmentFeeTotal = governmentFeePerTraveler * travellerCount;
   const totalServiceFeeTotal = totalServiceFeePerTraveler * travellerCount;
   const finalTotal = (governmentFeePerTraveler + totalServiceFeePerTraveler) * travellerCount;
+  const serviceFeeTotal = serviceFeePerTraveler * travellerCount;
+  const gstTotal = gstPerTraveler * travellerCount;
 
   /**
    * Destination-page copy:
@@ -864,7 +874,7 @@ const CountryDetails = () => {
       const key = normKey(question);
       if (seen.has(key)) return;
       seen.add(key);
-      out.push({ question, answer });
+      out.push({ _id: raw?._id, question, answer });
     };
     (Array.isArray(globalList) ? globalList : []).forEach(pushUnique);
     (Array.isArray(countryList) ? countryList : []).forEach(pushUnique);
@@ -881,7 +891,7 @@ const CountryDetails = () => {
       const key = normKey(title);
       if (seen.has(key)) return;
       seen.add(key);
-      out.push({ title, description });
+      out.push({ _id: raw?._id, title, description });
     };
     (Array.isArray(globalList) ? globalList : []).forEach(pushUnique);
     (Array.isArray(countryList) ? countryList : []).forEach(pushUnique);
@@ -897,6 +907,7 @@ const CountryDetails = () => {
         item = { title: raw.trim(), description: "", icon: "", color: "blue" };
       } else {
         item = {
+          _id: raw?._id,
           title: String(raw?.title ?? "").trim(),
           description: String(raw?.description ?? "").trim(),
           icon: String(raw?.icon ?? "").trim(),
@@ -924,12 +935,7 @@ const CountryDetails = () => {
           .filter((line) => line && !ex.has(normKey(line)))
       : [];
     const merged = mergeStringLists(g, country?.whyBookNow);
-    if (merged.length) return merged;
-    return [
-      "Fast document pre-check by visa specialists",
-      "Transparent pricing and status updates",
-      "Dedicated support throughout your application",
-    ];
+    return merged;
   }, [country, destinationPageContent]);
 
   const includedItems = useMemo(() => {
@@ -943,53 +949,14 @@ const CountryDetails = () => {
     
     const merged = mergeIncludedItems(g, country?.includedItems ?? country?.included);
 
-    const defaultData = [
-      {
-        title: "Application Form Guidance",
-        description: "Step-by-step guidance to fill your visa application form accurately and confidently.",
-        Icon: FileEdit,
-        color: "blue",
-      },
-      {
-        title: "Document Checklist & Validation",
-        description: "We provide a complete checklist and verify your documents to ensure everything is in order.",
-        Icon: ListChecks,
-        color: "green",
-      },
-      {
-        title: "End-to-end Support till Submission",
-        description: "Our experts assist you at every step until your application is successfully submitted.",
-        Icon: Headphones,
-        color: "purple",
-      },
-    ];
+    if (merged.length === 0) return [];
 
-    if (merged.length === 0) return defaultData;
-
-    return merged.map((item, idx) => {
-      const found = defaultData.find((d) => d.title.toLowerCase() === item.title.toLowerCase());
-      
-      // Fallback description/icon for legacy strings that were auto-converted to objects
-      let desc = item.description;
-      let icon = item.icon;
-      let col = item.color;
-
-      if (!desc && !icon) {
-        // This was likely a legacy string like "Title: Description"
-        const split = item.title.split(/[:\-]\s/);
-        if (split.length > 1) {
-          item.title = split[0];
-          desc = split.slice(1).join(": ");
-        } else {
-          desc = "Professional assistance for your visa application process.";
-        }
-      }
-
+    return merged.map((item) => {
       return {
         ...item,
-        description: desc,
-        Icon: found ? found.Icon : null,
-        color: col || (idx === 0 ? "blue" : idx === 1 ? "green" : "purple"),
+        description: item.description,
+        Icon: null,
+        color: item.color,
       };
     });
   }, [country, destinationPageContent]);
@@ -1003,12 +970,7 @@ const CountryDetails = () => {
           .filter((f) => !ex.has(normKey(f?.question)))
       : [];
     const merged = mergeFaqLists(g, country?.faqs);
-    if (merged.length) return merged;
-    return [
-      { question: "How long does processing take?", answer: `Typical processing is ${country?.processingDays ?? ""} based on current embassy timelines.` },
-      { question: "Can I track my application?", answer: "Yes, you can track status updates from your user dashboard after applying." },
-      { question: "Is this fee refundable?", answer: "Government and service fees depend on visa policy and review stage." },
-    ];
+    return merged;
   }, [country, destinationPageContent]);
 
   const howItWorks = useMemo(() => {
@@ -1020,15 +982,7 @@ const CountryDetails = () => {
           .filter((s) => !ex.has(normKey(s?.title)))
       : [];
     const merged = mergeHowItWorksLists(g, country?.howItWorks);
-    if (merged.length) return merged;
-    return [
-      { title: "Apply with VisaAndVoyage", description: "Upload your documents on VisaAndVoyage or share over WhatsApp with our visa expert." },
-      { title: "Experts review the documents", description: "Our visa experts will verify your documents." },
-      { title: "Prepare the application", description: "Our visa expert will help you create the application for document submission." },
-      { title: "Visit the Visa Application Center", description: "Traveller visits their nearest Visa Application Center for document submission." },
-      { title: "Get your visa", description: "Traveller will collect their passport from VAC or via courier with a stamped visa." },
-      { title: "Enjoy your vacation", description: "Thanks for choosing VisaAndVoyage and we wish you an amazing journey." },
-    ];
+    return merged;
   }, [country, destinationPageContent]);
 
   /**
@@ -1235,12 +1189,14 @@ const CountryDetails = () => {
 
   useEffect(() => {
     if (!countryId) return;
+    const isExplicitHash = typeof window !== "undefined" && (window.location.hash || "").replace(/^#/, "") === "travel-details";
+    const isExplicitRestore = Boolean(location.state?.restoreTravelDetails || location.state?.openApplication);
+    setShowTravelDetails(Boolean(isExplicitHash || isExplicitRestore));
+
     const draft = loadTravelDraft(countryId);
     if (!draft) {
-      setShowTravelDetails(false);
       return;
     }
-    setShowTravelDetails(Boolean(draft.showTravelDetails));
     const today = getLocalDateYmd();
     let from = draft.travelDateFrom != null && String(draft.travelDateFrom).length
       ? String(draft.travelDateFrom).trim()
@@ -1432,7 +1388,7 @@ const CountryDetails = () => {
           hiddenPassportTravelerNos,
           uploadedDocSuccesses,
           uploadedDocDetails,
-          showTravelDetails: true,
+          showTravelDetails: false,
         });
       } catch {
         /* non-blocking background refresh */
@@ -1537,6 +1493,14 @@ const CountryDetails = () => {
   }, [pendingPostLoginAction]);
 
   // ── Safe to early-return after all hooks ──
+  if (!country && countriesLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center" aria-label="Loading country details">
+        <div className="h-10 w-10 rounded-full border-4 border-cyan/25 border-t-cyan animate-spin" />
+      </div>
+    );
+  }
+
   if (!country) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center">
@@ -1721,6 +1685,11 @@ const CountryDetails = () => {
   const handleBack = () => {
     if (showTravelDetails) {
       setShowTravelDetails(false);
+      try {
+        if (typeof window !== "undefined" && window.location.hash === "#travel-details") {
+          window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+        }
+      } catch {}
       saveTravelDraft(countryId, {
         applicationId: currentApplicationId,
         travelDateFrom,
@@ -1798,11 +1767,9 @@ const CountryDetails = () => {
   };
 
   const handleTravelerPassportFile = async (index, rawFile) => {
-    if (!isAuthenticated) {
-      requireAuth(() => handleTravelerPassportFile(index, rawFile));
-      return;
-    }
     const travelerNo = index + 1;
+    const zoneKey = `${travelerNo}-passport`;
+
     if (!rawFile) {
       updateTravelerPassportFile(index, null);
       setPassportErrors((prev) => {
@@ -1810,6 +1777,47 @@ const CountryDetails = () => {
         delete next[travelerNo];
         return next;
       });
+      setPassportSuccesses((prev) => {
+        const next = { ...prev };
+        delete next[travelerNo];
+        return next;
+      });
+      setPassportDetails((prev) => {
+        const next = { ...prev };
+        delete next[travelerNo];
+        return next;
+      });
+      setUploadedDocSuccesses((prev) => {
+        const next = { ...prev };
+        delete next[zoneKey];
+        return next;
+      });
+      setUploadedDocDetails((prev) => {
+        const next = { ...prev };
+        delete next[zoneKey];
+        return next;
+      });
+      try {
+        saveTravelDraft(countryId, {
+          passportSuccesses: Object.fromEntries(
+            Object.entries(passportSuccesses || {}).filter(([k]) => Number(k) !== Number(travelerNo))
+          ),
+          passportDetails: Object.fromEntries(
+            Object.entries(passportDetails || {}).filter(([k]) => Number(k) !== Number(travelerNo))
+          ),
+          uploadedDocSuccesses: Object.fromEntries(
+            Object.entries(uploadedDocSuccesses || {}).filter(([k]) => k !== zoneKey)
+          ),
+          uploadedDocDetails: Object.fromEntries(
+            Object.entries(uploadedDocDetails || {}).filter(([k]) => k !== zoneKey)
+          ),
+        });
+      } catch {}
+      return;
+    }
+
+    if (!isAuthenticated) {
+      requireAuth(() => handleTravelerPassportFile(index, rawFile));
       return;
     }
     const rules = getFileValidationRules(uploadSettings?.allowedFileFormats);
@@ -1918,7 +1926,7 @@ const CountryDetails = () => {
         },
         uploadedDocSuccesses: nextDocSuccesses,
         uploadedDocDetails: nextDocDetails,
-        showTravelDetails: true,
+        showTravelDetails: false,
       });
       // Sync to application doc successes local storage key used by summary page
       try {
@@ -1985,6 +1993,8 @@ const CountryDetails = () => {
         prev.map((t, i) => (i === index ? { ...t, documents: { ...(t.documents || {}), [docKey]: null } } : t))
       );
       setDocErrors((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
+      setUploadedDocSuccesses((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
+      setUploadedDocDetails((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
       return;
     }
     const rules = getFileValidationRules(uploadSettings?.allowedFileFormats);
@@ -2088,7 +2098,7 @@ const CountryDetails = () => {
         hiddenPassportTravelerNos,
         uploadedDocSuccesses: nextDocSuccesses,
         uploadedDocDetails: nextDocDetails,
-        showTravelDetails: true,
+        showTravelDetails: false,
       });
       await fetchUserApplications();
       showToast("Document uploaded successfully.", "success");
@@ -2290,6 +2300,14 @@ const CountryDetails = () => {
     setContactModalOpen(false);
   };
 
+  const skipContactGate = () => {
+    const fn = pendingContactAction.current;
+    pendingContactAction.current = null;
+    setContactGateDismissed(true);
+    setContactModalOpen(false);
+    fn?.();
+  };
+
   const openContactGate = (mode, after) => {
     pendingContactAction.current = after;
     setContactModalMode(mode);
@@ -2329,7 +2347,11 @@ const CountryDetails = () => {
   const openTravelDetails = () => {
     setShowTravelDetails(true);
     trackEvent('start_application', { country: country?.name });
-    // Auto-save draft so a page refresh doesn't hide the form
+    try {
+      if (typeof window !== "undefined" && window.location.hash !== "#travel-details") {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#travel-details`);
+      }
+    } catch {}
     persistCurrentTravelDraft();
     setTimeout(() => scrollToSection("travel-details"), 100);
   };
@@ -2357,7 +2379,7 @@ const CountryDetails = () => {
       hiddenPassportTravelerNos,
       uploadedDocSuccesses,
       uploadedDocDetails,
-      showTravelDetails: true,
+      showTravelDetails: false,
     });
     localStorage.setItem("lastActiveCountryId", countryId);
     if (country?.name) {
@@ -2620,7 +2642,7 @@ const CountryDetails = () => {
           hiddenPassportTravelerNos: Object.fromEntries(
             Object.entries(hiddenPassportTravelerNos || {}).filter(([key]) => Number(key) !== Number(travelerNo))
           ),
-          showTravelDetails: true,
+          showTravelDetails: false,
         });
         if (passportPreview) {
           closePassportPreview();
@@ -3211,10 +3233,77 @@ const CountryDetails = () => {
     </>
   );
 
+  if (!showTravelDetails) {
+    return (
+      <>
+        {pendingPostLoginAction && (
+          <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center px-6">
+            <div className="h-12 w-12 rounded-full border-2 border-cyan/30 border-t-cyan animate-spin mb-5" />
+            <h2 className="text-lg font-semibold text-text-primary text-center">
+              Resuming your {country.name} application
+            </h2>
+            <p className="mt-2 text-sm text-text-muted text-center max-w-md">
+              {pendingPostLoginAction === "upload-now"
+                ? "Taking you to the document upload page…"
+                : "Preparing your application summary…"}
+            </p>
+            <button
+              type="button"
+              onClick={() => setPendingPostLoginAction(null)}
+              className="mt-6 text-sm text-text-muted hover:text-text-primary underline underline-offset-2 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        <DeepPressCountryDetails
+          key={countryId}
+          country={country}
+          display={countryDisplay}
+          requiredDocuments={requiredDocumentFields}
+          howItWorks={howItWorks}
+          whyBookNow={whyBookNow}
+          includedItems={includedItems}
+          faqs={faqs}
+          visaRequirements={parsedVisaRequirements}
+          isVisaRequirementsVisible={isVisaRequirementsVisible}
+          sectionHeadings={destinationPageContent?.destinationSectionHeadings}
+          travelerCount={travellerCount}
+          onIncrementTraveler={incrementTravelerCount}
+          onDecrementTraveler={decrementTravelerCount}
+          governmentFeeTotal={governmentFeeTotal}
+          serviceFeeTotal={serviceFeeTotal}
+          gstTotal={gstTotal}
+          effectiveGstEnabled={effectiveGstEnabled}
+          totalServiceFeeTotal={totalServiceFeeTotal}
+          finalTotal={finalTotal}
+          onStartApplication={handleStartApplication}
+        />
+
+        <ContactVerificationModal
+          isOpen={contactModalOpen}
+          mode={contactModalMode}
+          allowSkip
+          skipLabel="Add it later"
+          onSkip={skipContactGate}
+          onClose={clearContactGate}
+          onCompleted={completeContactGate}
+        />
+
+        <AuthModal 
+          isOpen={authModalOpen} 
+          onClose={() => setAuthModalOpen(false)} 
+          onComplete={handleAuthComplete} 
+        />
+      </>
+    );
+  }
+
   return (
-    <div className="relative isolate min-h-screen bg-background flex flex-col font-sans">
+    <div className="compact-application relative isolate min-h-screen flex flex-col">
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-white" />
+        <div className="absolute inset-0 bg-transparent" />
       </div>
       {/* Post-login resume splash — full-screen overlay shown when we're about
           to forward the user to /apply/:id or the summary page. Sits on top of
@@ -3373,706 +3462,56 @@ const CountryDetails = () => {
       </div>
       )}
 
-      <main className="flex-1 w-full px-3 sm:px-6 py-8 sm:py-12">
-        {showTravelDetails && (
-          <button
-            type="button"
-            onClick={handleBack}
-            className="group flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-cyan transition-colors mb-10 w-fit"
-          >
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            Back
-          </button>
-        )}
-
-        <div className="mx-auto w-full max-w-[1400px]">
-          <div className={`grid grid-cols-1 lg:grid-cols-12 lg:items-start ${showTravelDetails ? "gap-12 lg:gap-8 xl:gap-12" : "gap-5 lg:gap-1 xl:gap-2"}`}>
-            {!showTravelDetails && (
-              <motion.section
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0, transition: { duration: 0.5, ease } }}
-                className="order-1 w-full lg:col-span-8 lg:self-stretch lg:pl-4 xl:pl-6"
-              >
-                <div className="lg:sticky lg:top-24">
-                  <VisaInformationSection
-                    visaInformation={country?.visaInformation}
-                    display={countryDisplay}
-                    globalVisaInfo={destinationPageContent?.destinationVisaInfo}
-                  />
-                </div>
-      </motion.section>
-      )}
-
-            <div
-              className={
-                showTravelDetails
-                  ? "lg:col-span-8 space-y-8 lg:pl-4 xl:pl-6"
-                  : "hidden"
-              }
-            >
-            {false && (
-              <motion.div initial="initial" animate="animate" variants={fadeUp} className="w-full">
-                <div className="relative mx-auto w-full max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-3xl border border-border sm:max-w-[calc(100vw-3rem)] lg:max-w-[calc(100vw-4rem)]">
-                      <ImageWithShimmer
-                        src={country.imageUrl}
-                        alt={country.name}
-                        className="h-64 w-full object-cover object-center sm:h-72 md:h-[79vh]"
-                        priority
-                        width={1600}
-                      >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-8">
-                      <div className="mb-3">
-                        <CountryHeroFlag country={country} sizeClass="h-9 w-9 sm:h-10 sm:w-10" />
-                      </div>
-                      <h1 className="text-3xl sm:text-5xl font-bold text-white leading-tight">{country.name} Visa</h1>
-
-                      <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-3xl bg-black/40 border border-white/10 p-4 backdrop-blur-sm">
-                          <p className="text-xs text-white/60 uppercase tracking-[0.18em] mb-2">Type</p>
-                          <p className="text-sm font-semibold text-white">{getCardVisaTypeLabel(country.visaType)}</p>
-                        </div>
-                        <div className="rounded-3xl bg-black/40 border border-white/10 p-4 backdrop-blur-sm">
-                          <p className="text-xs text-white/60 uppercase tracking-[0.18em] mb-2">Validity</p>
-                          <p className="text-sm font-semibold text-white">{country.validity || "—"}</p>
-                        </div>
-                        <div className="rounded-3xl bg-black/40 border border-white/10 p-4 backdrop-blur-sm">
-                          <p className="text-xs text-white/60 uppercase tracking-[0.18em] mb-2">Processing</p>
-                          <p className="text-sm font-semibold text-white">
-                            {country.processingDays
-                              ? /^\d+(\s*-\s*\d+)?$/.test(String(country.processingDays).trim())
-                                ? `${String(country.processingDays).trim()} days`
-                                : String(country.processingDays).trim()
-                              : "—"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 sm:max-w-md">
-                        <Button
-                          variant="primary"
-                          fullWidth
-                          size="lg"
-                          onClick={handleStartApplication}
-                        >
-                          Start Application
-                        </Button>
-                      </div>
-                    </div>
-                  </ImageWithShimmer>
-                </div>
-              </motion.div>
-            )}
-
-            {showTravelDetails ? (
-              <motion.section
-                id="travel-details"
-                initial="initial"
-                animate="animate"
-                variants={fadeUp}
-                className="bg-surface border border-border rounded-2xl p-4 sm:p-6 space-y-6"
-              >
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-cyan font-semibold mb-2">{startAppCopy.badgeText || "Travel Details"}</p>
-                  <h2 className="text-2xl font-bold text-text-primary">{startAppCopy.title || "Start your application"}</h2>
-                  <p className="text-sm text-text-secondary mt-1">
-                    {(startAppCopy.subtitle || "Fill travel details below to continue with your {country} visa process.").replace("{country}", country.name)}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-border bg-white p-4">
-                  <label className="text-xs text-text-muted block mb-2">{startAppCopy.visaTypeLabel || "Type of Visa"}</label>
-                  <select
-                    value={visaOption}
-                    onChange={(e) => setVisaOption(e.target.value)}
-                    className="w-full bg-white border border-border rounded-xl px-3 py-2 text-sm text-text-primary outline-none focus:border-cyan/50"
-                  >
-                    {activeVisaTypes.length > 0 ? (
-                      activeVisaTypes.map((vt) => (
-                        <option key={vt._id} value={vt.name}>{vt.name}</option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="e-Visa">e-Visa</option>
-                        <option value="Sticker Visa">Sticker Visa</option>
-                      </>
-                    )}
-                  </select>
-                </div>
-
-                <div className="rounded-2xl border border-border bg-white p-4">
-                  <div className="flex items-center gap-2 mb-3 text-sm font-medium text-text-primary">
-                    <CalendarDays size={16} className="text-cyan" />
-                    {startAppCopy.calendarHeading || "Select Travel Date"}
-                  </div>
-                  <DateRangePicker
-                    startDate={travelDateFrom}
-                    endDate={travelDateTo}
-                    minDate={minDepartureYmd}
-                    startLabel={startAppCopy.departureLabel || "DEPARTURE"}
-                    endLabel={startAppCopy.returnLabel || "RETURN"}
-                    startPlaceholder={startAppCopy.departurePlaceholder || "Select start date"}
-                    endPlaceholder={startAppCopy.returnPlaceholder || "Select end date"}
-                    open={calendarOpen}
-                    onOpenChange={(isOpen) => {
-                      setCalendarOpen(isOpen);
-                      if (!isOpen) {
-                        setTimeout(() => {
-                          const firstEmptyIndex = travelers.findIndex((t) => !String(t?.name || "").trim());
-                          const targetIndex = firstEmptyIndex >= 0 ? firstEmptyIndex : 0;
-                          const targetInput = travelerNameInputRefs.current[targetIndex];
-                          if (targetInput) targetInput.focus({ preventScroll: true });
-                        }, 50);
-                      }
-                    }}
-                    invalid={dateWarning}
-                    onChange={({ startDate, endDate }) => {
-                      setTravelDateFrom(startDate);
-                      setTravelDateTo(endDate);
-                    }}
-                  />
-                  {dateWarning && (
-                    <p className="text-xs text-red-400 mt-2">{startAppCopy.dateWarningText || "Select both travel dates to continue."}</p>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  {travelers.map((traveler, index) => (
-                    <div
-                      key={traveler.id}
-                      className="rounded-2xl border border-border bg-white p-4 space-y-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-text-primary">
-                          {(startAppCopy.travelerPrefix || "Traveler")} {index + 1}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-text-muted">{startAppCopy.nameOnlyTag || "Name only"}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeTravelerAt(index)}
-                            disabled={travelers.length <= 1}
-                            aria-label={`Remove traveler ${index + 1}`}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-white text-text-muted transition-colors hover:border-red-500/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label htmlFor={`traveler-name-${index}`} className="text-xs text-text-muted block mb-1.5">
-                          {startAppCopy.fullNameLabel || "Full name (as on passport)"}
-                        </label>
-                        <input
-                          id={`traveler-name-${index}`}
-                          ref={(el) => {
-                            travelerNameInputRefs.current[index] = el;
-                          }}
-                          type="text"
-                          autoComplete="off"
-                          // First input gets the browser-native blinking cursor
-                          // on initial paint; subsequent inputs receive focus
-                          // programmatically via the Enter handler below.
-                          autoFocus={index === 0}
-                          value={traveler.name}
-                          onFocus={(e) => {
-                            // Auth gate removed
-                          }}
-                          onChange={(e) => updateTravelerName(index, e.target.value)}
-                          onKeyDown={(e) => {
-                            // Press Enter → jump to the next traveler row. On
-                            // the last row Enter blurs the input so the user
-                            // can immediately Tab to the Upload buttons.
-                            if (e.key !== "Enter") return;
-                            e.preventDefault();
-                            const nextIndex = index + 1;
-                            const nextNode = travelerNameInputRefs.current[nextIndex];
-                            if (nextNode) {
-                              try {
-                                nextNode.focus({ preventScroll: true });
-                                const len = nextNode.value?.length || 0;
-                                if (len) nextNode.setSelectionRange(len, len);
-                              } catch {
-                                /* ignore */
-                              }
-                            } else {
-                              // Last traveler — drop focus so the global typing
-                              // capture stops, and let the user proceed.
-                              sharedDriveLinkInputRef.current?.focus();
-                            }
-                          }}
-                          placeholder={startAppCopy.fullNamePlaceholder || "Enter name"}
-                          className={`w-full bg-white border rounded-xl px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted transition-colors ${
-                            travelValidationAttempted && !String(traveler.name || "").trim()
-                              ? "border-red-500 focus:border-red-400"
-                              : "border-border focus:border-cyan/50"
-                          }`}
-                        />
-                        {travelValidationAttempted && !String(traveler.name || "").trim() && (
-                          <p className="text-xs text-red-400 mt-1.5">{startAppCopy.nameRequiredError || "Traveler name is required."}</p>
-                        )}
-                      </div>
-
-                      {startAppCopy?.showPassportUpload !== false && (
-                        <PassportUploadRow
-                          inputId={`traveler-passport-${index}`}
-                          label={startAppCopy.passportUploadLabel || "Passport Upload"}
-                          file={traveler.passportFile}
-                          error={passportErrors[index + 1]}
-                          uploading={Boolean(passportUploading[index + 1])}
-                          optimizing={Boolean(passportOptimizing[index + 1])}
-                          saved={Boolean(passportSuccesses[index + 1] && !traveler.passportFile)}
-                          previewEnabled={Boolean(passportDetails[index + 1]?.url)}
-                          accept={getFileValidationRules(uploadSettings?.allowedFileFormats).acceptString}
-                          helperText={
-                            traveler.passportFile
-                              ? `${traveler.passportFile.name} - ${formatFileSize(traveler.passportFile.size)}`
-                              : passportDetails[index + 1]?.fileName
-                                ? `${passportDetails[index + 1].fileName} - ${formatFileSize(passportDetails[index + 1].fileSize)}`
-                                : `${getFileValidationRules(uploadSettings?.allowedFileFormats).displayLabel} - max 300 KB`
-                          }
-                          uploadLabel={startAppCopy.uploadButtonText || "Upload"}
-                          savedText={startAppCopy.passportUploadedText || "Passport uploaded"}
-                          reuploadLabel={startAppCopy.replaceButtonText || "Replace File"}
-                          removeLabel={startAppCopy.removeButtonText || "Remove"}
-                          onChange={(file) => handleTravelerPassportFile(index, file)}
-                          onPreview={() => openPassportPreview(index + 1)}
-                          onRemove={() => hideTravelerPassportLocally(index + 1, index)}
-                          onReupload={() => {
-                            setPassportErrors((prev) => {
-                              const next = { ...prev };
-                              delete next[index + 1];
-                              return next;
-                            });
-                            setHiddenPassportTravelerNos((prev) => {
-                              const next = { ...prev };
-                              delete next[index + 1];
-                              return next;
-                            });
-                          }}
-                        />
-                      )}
-
-                      {startAppCopy?.showPassportUpload !== false && (uploadSettings.enableFileUpload ? requiredDocumentFields : requiredDocumentFields.filter((f) => f.key === "passport")).filter((f) => f.key !== "passport").map((field) => {
-                        const docKey = field.key;
-                        const travelerNo = index + 1;
-                        const zoneKey = `${travelerNo}-${docKey}`;
-                        const file = (traveler.documents || {})[docKey] || null;
-                        const isUploading = Boolean(docUploading[zoneKey]);
-                        const isOptimizing = Boolean(docOptimizing[zoneKey]);
-                        const isSaved = Boolean(uploadedDocSuccesses[zoneKey] && !file) || Boolean(uploadedDocDetails[zoneKey]?.url);
-                        const error = docErrors[zoneKey];
-                        const detail = uploadedDocDetails[zoneKey];
-                        const displayName = field.label ? field.label.replace(/\s*Upload\s*$/i, "").trim() : docKey;
-
-                        return (
-                          <div key={`${index}-${docKey}`}>
-                            <PassportUploadRow
-                              inputId={`traveler-${docKey}-${index}`}
-                              label={field.label}
-                              file={file}
-                              error={error}
-                              uploading={isUploading}
-                              optimizing={isOptimizing}
-                              saved={isSaved}
-                              previewEnabled={Boolean(detail?.url)}
-                              accept={getFileValidationRules(uploadSettings?.allowedFileFormats).acceptString}
-                              helperText={
-                                file
-                                  ? `${file.name} - ${formatFileSize(file.size)}`
-                                  : detail?.fileName
-                                    ? `${detail.fileName} - ${formatFileSize(detail.fileSize)}`
-                                    : `${getFileValidationRules(uploadSettings?.allowedFileFormats).displayLabel} - max 300 KB`
-                              }
-                              uploadLabel={startAppCopy.uploadButtonText || "Upload"}
-                              savedText={`${displayName} uploaded`}
-                              reuploadLabel={startAppCopy.replaceButtonText || "Replace File"}
-                              removeLabel={startAppCopy.removeButtonText || "Remove"}
-                              onChange={(newFile) => handleTravelerDocumentFile(index, docKey, newFile)}
-                              onPreview={() => openDocumentPreview(travelerNo, docKey)}
-                              onRemove={() => {
-                                if (file) {
-                                  handleTravelerDocumentFile(index, docKey, null);
-                                } else if (isSaved) {
-                                  setDocErrors((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
-                                  setUploadedDocSuccesses((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
-                                  setUploadedDocDetails((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
-                                  try {
-                                    const key = getApplicationDocSuccessStorageKey(currentApplicationId);
-                                    if (key) {
-                                      const raw = localStorage.getItem(key);
-                                      const parsed = raw ? JSON.parse(raw) : {};
-                                      delete parsed[zoneKey];
-                                      localStorage.setItem(key, JSON.stringify(parsed));
-                                    }
-                                    if (currentApplicationId) {
-                                      const detailsKey = `application-doc-details:${currentApplicationId}`;
-                                      const raw = localStorage.getItem(detailsKey);
-                                      if (raw) {
-                                        const parsed = JSON.parse(raw);
-                                        delete parsed[zoneKey];
-                                        localStorage.setItem(detailsKey, JSON.stringify(parsed));
-                                      }
-                                    }
-                                  } catch { /* ignore */ }
-                                }
-                              }}
-                              onReupload={() => {
-                                setDocErrors((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
-                                setUploadedDocSuccesses((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
-                                setUploadedDocDetails((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
-                                try {
-                                  const key = getApplicationDocSuccessStorageKey(currentApplicationId);
-                                  if (key) {
-                                    const raw = localStorage.getItem(key);
-                                    const parsed = raw ? JSON.parse(raw) : {};
-                                    delete parsed[zoneKey];
-                                    localStorage.setItem(key, JSON.stringify(parsed));
-                                  }
-                                  if (currentApplicationId) {
-                                    const detailsKey = `application-doc-details:${currentApplicationId}`;
-                                    const raw = localStorage.getItem(detailsKey);
-                                    if (raw) {
-                                      const parsed = JSON.parse(raw);
-                                      delete parsed[zoneKey];
-                                      localStorage.setItem(detailsKey, JSON.stringify(parsed));
-                                    }
-                                  }
-                                } catch { /* ignore */ }
-                              }}
-                            />
-                          </div>
-                        );
-                      })}
-
-                    </div>
-                  ))}
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={addTraveler}
-                      className="inline-flex items-center gap-2 rounded-xl border border-cyan/30 bg-cyan/10 px-4 py-2.5 text-sm font-semibold text-cyan transition-colors hover:bg-cyan/15"
-                    >
-                      <Plus size={16} />
-                      {startAppCopy.addTravelerButtonText || "Add traveler"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-[0_18px_45px_-35px_rgba(15,23,42,0.45)]">
-                  {(uploadSettings.enableGDriveUpload && startAppCopy?.showGDriveUpload !== false) && (
-                    <>
-                      <div className="flex items-start gap-4">
-                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-[#4285F4] shadow-inner">
-                          <Link2 size={22} />
-                        </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="text-lg font-semibold text-slate-950">
-                          {startAppCopy.driveCardTitle || "Document Drive Link (for all travelers)"}
-                        </h4>
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                          {startAppCopy.driveCardBadge || "Optional"}
-                        </span>
-                        <span className="group relative inline-flex align-middle">
-                          <span
-                            className="inline-flex rounded-full p-0.5 text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-cyan"
-                            aria-label="Optional Google Drive link info"
-                          >
-                            <Info size={14} />
-                          </span>
-                          <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-normal leading-relaxed text-slate-500 shadow-lg group-hover:block">
-                            {startAppCopy.driveCardTooltip || "You can continue to payment now and share the Google Drive link later from your application dashboard."}
-                          </span>
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm leading-6 text-slate-500">
-                        {startAppCopy.driveCardDescription || "Upload all required and optional documents to Google Drive and share the folder link here. This link will be applicable for all travelers."}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <label className="text-sm font-medium text-slate-900">
-                        {startAppCopy.driveInputLabel || "Google Drive Link"}
-                      </label>
-                      <div className="group relative inline-flex items-center">
-                        <button
-                          type="button"
-                          className="inline-flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-0.5 transition-colors focus:outline-none"
-                          aria-label="Google Drive sharing guide"
-                        >
-                          <Info size={15} />
-                        </button>
-                        <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-0 bottom-full z-30 mb-2 hidden w-[260px] sm:w-80 rounded-2xl border border-slate-200 bg-white p-4 text-xs font-normal leading-relaxed text-slate-600 shadow-xl group-hover:block transition-all duration-200">
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-50 text-blue-600 font-semibold text-[10px]">GD</span>
-                              <h5 className="font-bold text-slate-800 text-sm">{startAppCopy.driveGuideTitle || "How to Share Folder Link"}</h5>
-                            </div>
-                            <ol className="list-decimal pl-4 space-y-2 text-slate-600">
-                              <li>{startAppCopy.driveGuideStep1 || "Upload all required documents to your Google Drive folder."}</li>
-                              <li>{startAppCopy.driveGuideStep2 || <>Right-click the folder and select <span className="font-semibold text-slate-800">Share &gt; Share</span>.</>}</li>
-                              <li>{startAppCopy.driveGuideStep3 || <>Under <span className="font-semibold text-slate-800">General access</span>, change <span className="font-semibold text-slate-800">Restricted</span> to <span className="font-semibold text-slate-800">Anyone with the link</span>.</>}</li>
-                              <li>{startAppCopy.driveGuideStep4 || <>Make sure the role is set to <span className="font-semibold text-slate-800">Viewer</span>.</>}</li>
-                              <li>{startAppCopy.driveGuideStep5 || <>Click <span className="font-semibold text-slate-800">Copy link</span> and paste it in the field below.</>}</li>
-                            </ol>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="relative min-w-0">
-                      <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-                        <Link2 size={18} />
-                      </span>
-                      <input
-                        ref={sharedDriveLinkInputRef}
-                        type="url"
-                        autoComplete="off"
-                        value={sharedDriveLink}
-                        onFocus={(e) => {
-                          if (!isAuthenticated) {
-                            e.target.blur();
-                            requireAuth(() => {
-                              setTimeout(() => sharedDriveLinkInputRef.current?.focus(), 100);
-                            });
-                          }
-                        }}
-                        onChange={(e) => handleSharedDriveLinkChange(e.target.value)}
-                        placeholder={startAppCopy.driveInputPlaceholder || "https://drive.google.com/your-folder-link"}
-                        className={`w-full rounded-2xl border bg-white py-3 pl-12 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 ${
-                          sharedDriveLinkVerified
-                            ? "border-emerald-300 focus:border-emerald-400"
-                            : "border-slate-200 focus:border-cyan"
-                        }`}
-                      />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                  <div className={(uploadSettings.enableGDriveUpload && startAppCopy?.showGDriveUpload !== false) ? "mt-4" : ""}>
-                    {renderTravelDetailsDocumentSections()}
-                  </div>
-
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  onClick={handleUploadDocsLater}
-                  loading={draftCreating}
-                  disabled={draftCreating}
-                >
-                  {startAppCopy.proceedButtonText || "Proceed to Summary"}
-                </Button>
-              </motion.section>
-            ) : null}
-
-          </div>
-
-          <div
-              className={
-                showTravelDetails
-                ? "lg:col-span-4 lg:pr-4 xl:pr-6"
-                : "order-2 w-full lg:col-span-4 lg:pr-4 xl:pr-6"
-              }
-          >
-            <motion.div
-              ref={showTravelDetails ? undefined : startApplicationCardRef}
-              className="w-full bg-surface border border-border rounded-2xl p-4 sm:p-6 lg:sticky lg:top-24 lg:ml-auto lg:max-w-[32rem] xl:max-w-[34rem]"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, ease } }}
-            >
-              {showTravelDetails ? (
-                <>
-                  <div className="mb-3">
-                    <div className="max-w-xl">
-                      <h3 className="text-3xl font-bold tracking-tight text-slate-950">
-                        {(startAppCopy.applyForTitle || "Apply for {country}").replace("{country}", country.name)}
-                      </h3>
-                    </div>
-                  </div>
-                  <div className="mb-7 overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-[0_30px_80px_-36px_rgba(14,116,144,0.32)]">
-                    <div className="relative overflow-hidden bg-[linear-gradient(135deg,#0f3ecf_0%,#214cf2_38%,#3d7bff_100%)] px-5 pb-5 pt-5 text-white sm:px-6 sm:pb-6">
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.26),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.18),transparent_30%)]" />
-                      <div className="relative flex items-start justify-between gap-4">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/16 ring-1 ring-white/18 backdrop-blur">
-                            <FileText className="h-5 w-5" />
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-[0.95rem] font-semibold">{startAppCopy.travelSummaryBadge || "Travel Summary"}</p>
-                            <p className="text-[0.72rem] uppercase tracking-[0.3em] text-white/72">{startAppCopy.travellerDetailsSubtitle || "Traveller details"}</p>
-                          </div>
-                        </div>
-                        <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-center backdrop-blur">
-                          <p className="text-[0.62rem] uppercase tracking-[0.26em] text-white/70">{startAppCopy.travellersCountLabel || "Travellers"}</p>
-                          <p className="mt-1 text-xl font-bold leading-none">{travellerCount}</p>
-                        </div>
-                      </div>
-                      <div className="relative mt-5 text-center">
-                        <p className="text-[0.7rem] uppercase tracking-[0.34em] text-white/72">{startAppCopy.amountToPayLabel || "Amount to be paid now"}</p>
-                        <p className="mt-2 text-4xl font-extrabold tracking-tight sm:text-[2.8rem]">₹{finalTotal.toLocaleString("en-IN")}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 px-5 py-5 sm:px-6 sm:py-6">
-                      <div className="rounded-[1.35rem] border border-slate-200 bg-white px-4 py-3.5 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sky-600 shadow-sm">
-                            <Receipt className="h-4 w-4" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500">{startAppCopy.summaryVisaTypeLabel || "Visa Type"}</p>
-                            <p className="mt-1 text-[0.95rem] font-semibold text-slate-900">{visaOption || "Tourist Visa"}</p>
-                          </div>
-                        </div>
-                        <div className="border-t border-slate-200 pt-3">
-                          <div className="flex items-start gap-3">
-                            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sky-600 shadow-sm">
-                              <CalendarDays className="h-4 w-4" />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500">{startAppCopy.summaryTravelDatesLabel || "Travel Dates"}</p>
-                              <p className="mt-1 text-[0.95rem] font-semibold text-slate-900">{formatTravelRange()}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-[1.35rem] border border-slate-200 bg-white px-4 py-3.5 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sky-600 shadow-sm">
-                            <Users className="h-4 w-4" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500">{startAppCopy.summaryTravelerNamesLabel || "Traveler Names"}</p>
-                                <p className="mt-1 text-[0.95rem] font-semibold text-slate-900">{startAppCopy.summaryAddedInFormBadge || "Added in form"}</p>
-                              </div>
-                              <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
-                                {travellerCount} total
-                              </span>
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {travelers.map((traveler, idx) => (
-                                <span
-                                  key={`travel-summary-name-${idx}`}
-                                  className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 text-xs font-medium text-slate-700"
-                                >
-                                  {traveler.name?.trim() || `Traveler ${idx + 1}`}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4">
-                        <div className="space-y-3 text-sm">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="font-semibold text-slate-900">{startAppCopy.summaryGovFeeLabel || "Government Fee"}</p>
-                              {travellerCount > 1 && (
-                                <p className="text-xs text-slate-500">
-                                  x{travellerCount}
-                                </p>
-                              )}
-                            </div>
-                            <span className="text-base font-bold text-slate-900">₹{governmentFeeTotal.toLocaleString("en-IN")}</span>
-                          </div>
-                          <div className="group relative flex items-center justify-between gap-3">
-                            <div>
-                              <p className="font-semibold text-slate-900">{startAppCopy.summaryServiceFeeLabel || "Our Service Fee"}</p>
-                              {travellerCount > 1 && (
-                                <p className="text-xs text-slate-500">
-                                  x{travellerCount}
-                                </p>
-                              )}
-                            </div>
-                            <span className="text-base font-bold text-slate-900">
-                              ₹{(isGstResolved && effectiveGstEnabled ? payableToUs : serviceAmount).toLocaleString("en-IN")}
-                            </span>
-                            {isGstResolved && effectiveGstEnabled && (
-                              <div className="pointer-events-none absolute right-0 top-full z-10 mt-2 w-64 rounded-2xl border border-sky-100 bg-white p-3 opacity-0 shadow-[0_18px_40px_-24px_rgba(14,116,144,0.45)] transition duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-                                <div className="space-y-2 text-xs">
-                                  <div className="flex items-center justify-between gap-3 text-slate-600">
-                                    <span>Our Service Fee</span>
-                                    <span className="font-semibold text-slate-900">₹{serviceAmount.toLocaleString("en-IN")}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between gap-3 text-slate-600">
-                                    <span>GST</span>
-                                    <span className="font-semibold text-slate-900">₹{gstAmount.toLocaleString("en-IN")}</span>
-                                  </div>
-                                  <div className="border-t border-slate-200 pt-2">
-                                    <div className="flex items-center justify-between gap-3">
-                                      <span className="font-semibold text-slate-900">Total</span>
-                                      <span className="font-bold text-sky-700">₹{payableToUs.toLocaleString("en-IN")}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-4 border-t border-slate-200 pt-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-500">Total Amount</p>
-                            <span className="text-2xl font-extrabold tracking-tight text-sky-700">₹{finalTotal.toLocaleString("en-IN")}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 rounded-[1.35rem] border border-sky-100 bg-sky-50 px-4 py-3.5 text-slate-700">
-                        <ShieldCheck className="h-5 w-5 shrink-0 text-sky-600" />
-                        <div className="text-sm leading-tight">
-                          Secure & trusted payment. Your payment is 100% encrypted.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-3">
-                  <div>
-                    <div className="max-w-xl">
-                      <h3 className="text-3xl font-bold tracking-tight text-slate-950">Apply for {country.name}</h3>
-                    </div>
-                  </div>
-                  <CountryFeeSummaryCard
-                    travelerCount={travellerCount}
-                    onIncrementTraveler={incrementTravelerCount}
-                    onDecrementTraveler={decrementTravelerCount}
-                    governmentFeePerTraveler={governmentFeePerTraveler}
-                    serviceFeePerTraveler={serviceFeePerTraveler}
-                    gstEnabled={effectiveGstEnabled}
-                    gstRate={feeCardGstRate}
-                    governmentFeeTotal={governmentFeeTotal}
-                    gstPerTraveler={gstPerTraveler}
-                    totalServiceFeePerTraveler={totalServiceFeePerTraveler}
-                    totalServiceFeeTotal={totalServiceFeeTotal}
-                    finalTotal={finalTotal}
-                    onStartApplication={handleStartApplication}
-                    startButtonId="country-details-start-application-btn"
-                  />
-                </div>
-              )}
-            </motion.div>
-          </div>
-        </div>
-      </div>
-        { !showTravelDetails && (
-          <div className="mt-10 w-full max-w-[calc(100vw-1.5rem)] xl:max-w-[1440px] mx-auto">
-            <div className="w-full space-y-8">
-              {destinationInfoSections}
-            </div>
-          </div>
-        )}
-      </main>
+      <CompactApplication
+        startAppCopy={startAppCopy}
+        country={country}
+        travelers={travelers.map((traveler) => ({ ...traveler, documents: { ...traveler.documents, passport: traveler.passportFile } }))}
+        enabledDocs={[
+          ...(requiredDocumentFields.some((field) => field.key === "passport") ? [] : [{ key: "passport", label: getDocumentLabel("passport"), description: getDocumentDescription("passport"), Icon: getDocumentIcon("passport") }]),
+          ...requiredDocumentFields,
+        ]}
+        requiredDocs={travelDetailsRequiredDocumentFields.filter((doc) => doc.key !== "passport")}
+        uploadSettings={{ ...uploadSettings, enableGDriveUpload: uploadSettings.enableGDriveUpload && startAppCopy?.showGDriveUpload !== false }}
+        uploadedDocSuccesses={{ ...uploadedDocSuccesses, ...Object.fromEntries(Object.entries(passportSuccesses).map(([number, value]) => [`${number}-passport`, value && !hiddenPassportTravelerNos[number]])) }}
+        uploadedDocDetails={{ ...uploadedDocDetails, ...Object.fromEntries(Object.entries(passportDetails).map(([number, value]) => [`${number}-passport`, hiddenPassportTravelerNos[number] ? null : value])) }}
+        docErrors={Object.fromEntries(travelers.flatMap((_, index) => [
+          [`${index}-passport`, passportErrors[index + 1]],
+          ...requiredDocumentFields.map((field) => [`${index}-${field.key}`, docErrors[`${index + 1}-${field.key}`]])
+        ]))}
+        docUploading={Object.fromEntries(travelers.flatMap((_, index) => [
+          [`${index}-passport`, Boolean(passportUploading[index + 1])],
+          ...requiredDocumentFields.map((field) => [`${index}-${field.key}`, Boolean(docUploading[`${index + 1}-${field.key}`])])
+        ]))}
+        docOptimizing={Object.fromEntries(travelers.flatMap((_, index) => [
+          [`${index}-passport`, Boolean(passportOptimizing[index + 1])],
+          ...requiredDocumentFields.map((field) => [`${index}-${field.key}`, Boolean(docOptimizing[`${index + 1}-${field.key}`])])
+        ]))}
+        onUpload={(index, key, file) => key === "passport" ? handleTravelerPassportFile(index, file) : handleTravelerDocumentFile(index, key, file)}
+        onPreview={(number, key) => key === "passport" ? openPassportPreview(number) : openDocumentPreview(number, key)}
+        onName={updateTravelerName} nameRefs={travelerNameInputRefs}
+        onAdd={addTraveler} onRemove={removeTravelerAt}
+        sharedDriveLink={sharedDriveLink} onDriveLink={handleSharedDriveLinkChange}
+        driveInputRef={sharedDriveLinkInputRef}
+        onDriveFocus={(event) => {
+          if (!isAuthenticated) {
+            event.target.blur();
+            requireAuth(() => setTimeout(() => sharedDriveLinkInputRef.current?.focus(), 100));
+          }
+        }}
+        optionalDocs={startAppCopy?.showOptionalDocs !== false && countryDisplay?.showDestinationOptionalDocs !== false ? travelDetailsOtherDocumentFields : []}
+        onBack={handleBack} onContinue={handleUploadDocsLater} checkoutStarting={draftCreating}
+        flowDateFrom={travelDateFrom} flowDateTo={travelDateTo} minDepartureDate={minDepartureYmd}
+        summaryVisaType={visaOption}
+        visaTypeOptions={activeVisaTypes.length ? activeVisaTypes.map((type) => type.name) : ["e-Visa", "Sticker Visa"]}
+        onFlowChange={(field, value) => {
+          if (field === "visaOption") setVisaOption(value);
+          else if (field === "travelDateFrom") setTravelDateFrom(value);
+          else if (field === "travelDateTo") setTravelDateTo(value);
+        }}
+        payableNowAmount={payableToUs} governmentFeeTotal={governmentFeeTotal}
+        serviceFeeTotal={serviceAmount} gstAmount={gstAmount} effectiveGstEnabled={effectiveGstEnabled}
+        overallTotal={finalTotal} summaryTravelRange={formatTravelRange()}
+      />
 
       {paymentSummaryOpen && (
         <div
@@ -4230,7 +3669,7 @@ const CountryDetails = () => {
         mode={contactModalMode}
         allowSkip
         skipLabel="Add it later"
-        onSkip={clearContactGate}
+        onSkip={skipContactGate}
         onClose={clearContactGate}
         onCompleted={completeContactGate}
       />

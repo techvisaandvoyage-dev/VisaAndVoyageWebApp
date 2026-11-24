@@ -42,4 +42,12 @@ export const useUIStore = create((set) => ({
   mobileMenuOpen: false,
   toggleMobileMenu: () => set((s) => ({ mobileMenuOpen: !s.mobileMenuOpen })),
   closeMobileMenu: () => set({ mobileMenuOpen: false }),
+
+  // ── Global Search Synchronization ─────────────────────────
+  searchQuery: "",
+  setSearchQuery: (queryOrFn) =>
+    set((state) => ({
+      searchQuery: typeof queryOrFn === "function" ? queryOrFn(state.searchQuery) : (queryOrFn ?? ""),
+    })),
+  clearSearchQuery: () => set({ searchQuery: "" }),
 }));

@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "../../store/authStore";
 import { useUIStore } from "../../store/uiStore";
 import { useSiteLogo } from "../../hooks/useSiteLogo";
+import brandLogo from "../../assets/visa-voyage-logo.webp";
 
 // ── Nav item groups per role ───────────────────────────────
 const USER_NAV = [
@@ -53,7 +54,7 @@ const Sidebar = () => {
         <div className="flex items-center h-16 px-4 border-b border-border flex-shrink-0">
           <Link to="/" replace className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity cursor-pointer group" title="Back to Home">
             <img
-              src={siteLogo}
+              src={brandLogo}
               alt="Visa &amp; Voyage"
               width="160"
               height="64"

@@ -995,16 +995,15 @@ export default function SupportChatWidget() {
         )}
       </AnimatePresence>
 
-      <motion.button
+      <button
         type="button"
         onClick={toggleOpen}
-        whileTap={{ scale: 0.96 }}
-        className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,#005BEA_0%,#0C79FF_100%)] text-white shadow-[0_18px_45px_rgba(2,82,213,0.32)] transition-transform hover:scale-[1.04]"
+        className="fab"
         aria-label="Open customer chat"
       >
-        <span className="absolute right-1 top-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-400" />
-        {isOpen ? <X className="h-6 w-6" /> : <MessageSquare className="h-7 w-7" />}
-      </motion.button>
+        {isOpen ? <X size={34} /> : <MessageSquare size={34} />}
+        <i aria-hidden="true" />
+      </button>
     </div>
   );
 }

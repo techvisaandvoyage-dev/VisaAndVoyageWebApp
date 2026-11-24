@@ -14,22 +14,22 @@ export default {
     extend: {
       // ── Custom Color Palette ──────────────────────────────
       colors: {
-        // Base backgrounds - Light theme
-        background: "#ffffff",     // Pure white background
-        surface:    "#ffffff",     // White card surfaces
-        "surface-2":"#f4f9ff",     // Very light blue for subtle backgrounds
-        "surface-3":"#e6f0fa",     // Light blue for hover states
+        // Base backgrounds - Powered by CSS Variables
+        background: "var(--bg, #EEDFC7)",
+        surface:    "var(--cd, var(--bg, #EEDFC7))",
+        "surface-2":"var(--surface-2, #e2d5bd)",
+        "surface-3":"var(--surface-3, #d6c8b0)",
 
-        // Primary accent — Royal Blue (Dark & Light theme)
+        // Primary accent — Powered by CSS Variables
         cyan: {
-          light:   "#dbeafe", // Soft light blue for backgrounds
-          DEFAULT: "#0252D5", // Royal blue
-          dim:     "#013b9e", // Darker blue for active/hover
-          glow:    "rgba(2, 82, 213, 0.15)",
-          border:  "rgba(2, 82, 213, 0.3)",
+          light:   "#e5edd9",
+          DEFAULT: "var(--bb, #607938)",
+          dim:     "#51662f",
+          glow:    "rgba(96, 121, 56, 0.25)",
+          border:  "rgba(96, 121, 56, 0.35)",
         },
 
-        // Secondary accent — Gold (pricing, badges, highlights)
+        // Secondary accent — Gold
         gold: {
           DEFAULT: "#d97706",
           dim:     "#b45309",
@@ -38,31 +38,32 @@ export default {
 
         // Status colors
         status: {
-          pending:  "#f59e0b",   // Amber
-          approved: "#10b981",   // Emerald
-          review:   "#3b82f6",   // Blue
-          rejected: "#ef4444",   // Red
+          pending:  "#f59e0b",
+          approved: "#10b981",
+          review:   "#3b82f6",
+          rejected: "#ef4444",
         },
 
-        // Text hierarchy - High Contrast
+        // Text hierarchy - Powered by CSS Variables
         text: {
-          primary:   "#000000",   // Pure black for maximum readability
-          secondary: "#334155",   // Dark slate for secondary text
-          muted:     "#64748b",   // Medium slate for disabled/muted (better contrast)
+          primary:   "var(--ink, #2D2B22)",
+          secondary: "var(--mu, #6E6A59)",
+          muted:     "var(--mu, #6E6A59)",
         },
 
         // Border
         border: {
-          DEFAULT: "#e5e7eb",
-          light:   "#f3f4f6",
+          DEFAULT: "transparent",
+          light:   "transparent",
         },
       },
 
       // ── Typography ────────────────────────────────────────
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        heading: ["SF Pro Display", "Inter", "system-ui", "sans-serif"],
-        playfair: ["SF Pro Display", "Inter", "system-ui", "sans-serif"],
+        sans: ["var(--f)", "Urbanist", "Inter", "system-ui", "sans-serif"],
+        heading: ["var(--fh, var(--f))", "Urbanist", "Inter", "system-ui", "sans-serif"],
+        newsreader: ["var(--na-font, 'Newsreader')", "serif"],
+        playfair: ["var(--na-font, 'Newsreader')", "serif"],
       },
       fontSize: {
         "2xs": "0.625rem",
@@ -79,11 +80,21 @@ export default {
 
       // ── Box Shadows ───────────────────────────────────────
       boxShadow: {
-        "cyan-glow":  "0 0 20px rgba(2, 82, 213, 0.2)",
-        "cyan-glow-lg":"0 0 40px rgba(2, 82, 213, 0.25)",
-        "gold-glow":  "0 0 20px rgba(217, 119, 6, 0.2)",
-        "card":       "0 2px 8px rgba(0, 0, 0, 0.08)",
-        "modal":      "0 4px 16px rgba(0, 0, 0, 0.12)",
+        "cyan-glow":  "0 0 20px rgba(96, 121, 56, 0.25)",
+        "cyan-glow-lg":"0 0 40px rgba(96, 121, 56, 0.35)",
+        "card":       "6.5px 6.5px 17.5px var(--lo), -6.5px -6.5px 17.5px var(--hi)",
+        "modal":      "0 20px 50px rgba(45, 43, 34, 0.35)",
+
+        // Neumorphic shadows from reference
+        "neu-flat":        "5px 5px 11px var(--lo), -5px -5px 11px var(--hi)",
+        "neu-raised":      "6.5px 6.5px 17.5px var(--lo), -6.5px -6.5px 17.5px var(--hi)",
+        "neu-card":        "6.5px 6.5px 17.5px var(--lo), -6.5px -6.5px 17.5px var(--hi)",
+        "neu-card-hover":  "6.5px 6.5px 17.5px var(--lo), -6.5px -6.5px 17.5px var(--hi), 0 20px 44px rgba(85, 104, 50, 0.38)",
+        "neu-inset":       "inset 3px 3px 7px var(--lo), inset -3px -3px 7px var(--hi)",
+        "neu-inset-sm":    "inset 2px 2px 5px var(--lo), inset -2px -2px 5px var(--hi)",
+        "neu-button":      "5px 5px 11px var(--lo), -5px -5px 11px var(--hi)",
+        "neu-pressed":     "inset 3px 3px 7px var(--lo), inset -3px -3px 7px var(--hi)",
+        "neu-accent":      "5px 5px 11px var(--lo), -5px -5px 11px var(--hi)",
       },
 
       // ── Animations ────────────────────────────────────────

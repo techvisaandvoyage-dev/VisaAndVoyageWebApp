@@ -179,12 +179,12 @@ const NotificationBell = ({ className = "" }) => {
         ref={buttonRef}
         type="button"
         onClick={() => setNotificationsOpen((prev) => !prev)}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full bg-cyan/15 border border-cyan/30 text-cyan hover:bg-cyan/20 hover:shadow-cyan-glow transition-all duration-200"
-        aria-label="Open notifications"
+        className="ib relative"
+        aria-label="Notifications"
       >
-        <Bell size={18} />
+        <Bell size={20} />
         {unreadNotifications.length > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white shadow-sm">
             {unreadNotifications.length}
           </span>
         )}
@@ -193,10 +193,10 @@ const NotificationBell = ({ className = "" }) => {
       {notificationsOpen && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[300] w-[min(360px,calc(100vw-32px))] overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/95 shadow-[0_24px_70px_rgba(15,23,42,0.14)] backdrop-blur-xl"
-          style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
+          className="fixed z-[300] w-[min(360px,calc(100vw-32px))] overflow-hidden cd"
+          style={{ top: dropdownPosition.top, right: dropdownPosition.right, background: "var(--bg)", borderRadius: "var(--rb)", boxShadow: "var(--cs)" }}
         >
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-slate-200/50 px-5 py-4">
             <div>
               <h3 className="text-base font-bold text-slate-900">Notifications</h3>
               <p className="text-xs text-slate-500">

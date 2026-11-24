@@ -350,6 +350,7 @@ export function normalizeCountryFromApi(c) {
       ? c.includedItems.map((x) => {
           if (typeof x === "string") return x.trim();
           return {
+            _id: x?._id,
             title: String(x?.title ?? "").trim(),
             description: String(x?.description ?? "").trim(),
             icon: String(x?.icon ?? "").trim(),
@@ -360,6 +361,7 @@ export function normalizeCountryFromApi(c) {
     faqs: Array.isArray(c.faqs)
       ? c.faqs
           .map((f) => ({
+            _id: f?._id,
             question: String(f?.question ?? "").trim(),
             answer: String(f?.answer ?? "").trim(),
           }))
@@ -368,6 +370,7 @@ export function normalizeCountryFromApi(c) {
     howItWorks: Array.isArray(c.howItWorks)
       ? c.howItWorks
           .map((s) => ({
+            _id: s?._id,
             title: String(s?.title ?? "").trim(),
             description: String(s?.description ?? "").trim(),
           }))

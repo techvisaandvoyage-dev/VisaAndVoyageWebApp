@@ -1,23 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
-  CalendarDays,
   Building2,
-  CheckCircle,
   CreditCard,
   FileText,
   Image as ImageIcon,
-  Landmark,
-  Minus,
   Plane,
-  Plus,
-  Tag,
-  X,
   ShieldCheck,
-  Upload,
   AlertCircle,
-  Info,
   Briefcase,
   Banknote,
   GraduationCap,
@@ -33,6 +23,7 @@ import {
   UserRoundPlus,
 } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import { getCountryById, COUNTRIES } from "../data/countries";
@@ -40,7 +31,7 @@ import { api, useAuthStore } from "../store/authStore";
 import { useUIStore } from "../store/uiStore";
 import { useCountries, useMergedCountry } from "../hooks/useCountries";
 import ContactVerificationModal from "../components/account/ContactVerificationModal";
-import SharedGoogleDriveLinkSection from "../components/application/SharedGoogleDriveLinkSection";
+import CompactApplication from "../components/application/CompactApplication";
 import {
   needsPhoneContactGate,
   needsEmailContactGate,
@@ -52,8 +43,6 @@ import {
   getUploadLimitForDocType,
 } from "../utils/optimizeUploadFile";
 import { getFileValidationRules } from "../utils/fileValidation";
-import CountryFlagBadge from "../components/ui/CountryFlagBadge";
-import PassportUploadRow from "../components/application/PassportUploadRow";
 import FilePreviewModal from "../components/ui/FilePreviewModal";
 import { getFileUrl } from "../utils/fileUrl";
 
@@ -227,15 +216,6 @@ const buildDocFields = (documentKeys = ["passport"], catalog = []) => {
     }];
 };
 
-const getDocumentDisplayName = (label = "") =>
-  String(label || "").replace(/\s*Upload\s*$/i, "").trim();
-
-const formatFileSize = (size = 0) => {
-  if (!size) return "0 KB";
-  if (size < 1024 * 1024) return `${Math.ceil(size / 1024)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-};
-
 const RELATIONSHIP_OPTIONS = ["Self", "Family member", "Friend/Other"];
 const GENDER_OPTIONS = ["Male", "Female", "Other"];
 
@@ -281,6 +261,7 @@ const ApplicationForm = () => {
   const { countries: allCountries, documentCatalog } = useCountries();
   const prefillApplied = useRef(false);
   const travelerNameInputRefs = useRef({});
+  const editedFlowRef = useRef({});
 
   const listCountry = allCountries.find((c) => c.id === countryId);
   const country =
@@ -314,6 +295,15 @@ const ApplicationForm = () => {
     enableGDriveUpload: true,
     enableFileUpload: true,
     allowedFileFormats: ["pdf", "jpg", "jpeg", "png"],
+  });
+  const [startAppCopy, setStartAppCopy] = useState(() => {
+    try {
+      const cached = localStorage.getItem("vb-destination-content");
+      const parsed = cached ? JSON.parse(cached) : null;
+      return parsed?.startApplicationPageCopy || {};
+    } catch {
+      return {};
+    }
   });
   const [checkoutStarting, setCheckoutStarting] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -349,6 +339,28 @@ const ApplicationForm = () => {
       try {
         const { data } = await api.get("/config/upload-settings");
         if (alive && data?.success && data.config) setUploadSettings(data.config);
+      } catch {
+        /* keep defaults */
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.get("/config/destination-content");
+        if (alive && data?.success && data.config) {
+          try {
+            localStorage.setItem("vb-destination-content", JSON.stringify(data.config));
+          } catch {
+            /* ignore */
+          }
+          if (data.config.startApplicationPageCopy) {
+            setStartAppCopy(data.config.startApplicationPageCopy);
+          }
+        }
       } catch {
         /* keep defaults */
       }
@@ -608,7 +620,33 @@ const ApplicationForm = () => {
   }, [travelers]);
 
   const addTraveler = () => setTravelers((prev) => [...prev, createTraveler()]);
-  const removeTraveler = () => setTravelers((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  const removeTraveler = (index = travelers.length - 1) => {
+    if (travelers.length <= 1) return false;
+    // The current checkout contract cannot renumber persisted document ownership.
+    // Do not associate another person's uploaded identity documents with a traveler.
+    const affectedUploads = [...Object.entries(uploadedDocSuccesses), ...Object.entries(uploadedDocDetails)]
+      .some(([key, value]) => value && Number(key.split("-")[0]) >= index + 1);
+    if (affectedUploads) {
+      showToast("This traveler cannot be removed after documents have been uploaded for them or a later traveler. Please contact support to update the traveler list.", "error");
+      return false;
+    }
+    // Upload state uses zero-based UI keys and one-based API traveler numbers.
+    const reindex = (values, base) => Object.fromEntries(Object.entries(values).flatMap(([key, value]) => {
+      const match = key.match(/^(\d+)-(.*)$/);
+      if (!match) return [[key, value]];
+      const number = Number(match[1]);
+      if (number === index + base) return [];
+      return [[`${number > index + base ? number - 1 : number}-${match[2]}`, value]];
+    }));
+    setTravelers((prev) => prev.filter((_, i) => i !== index));
+    setDocErrors((prev) => reindex(prev, 0));
+    setDocUploading((prev) => reindex(prev, 0));
+    setDocOptimizing((prev) => reindex(prev, 0));
+    setRejectedFiles((prev) => reindex(prev, 0));
+    setUploadedDocSuccesses((prev) => reindex(prev, 1));
+    setUploadedDocDetails((prev) => reindex(prev, 1));
+    return true;
+  };
 
   const updateTravelerName = (index, value) => {
     setTravelers((prev) =>
@@ -756,7 +794,7 @@ const ApplicationForm = () => {
     );
   };
 
-    const [rejectedFiles, setRejectedFiles] = React.useState({});
+    const [rejectedFiles, setRejectedFiles] = useState({});
 
     const updateTravelerDoc = async (index, key, file) => {
       const inputKey = `${index}-${key}`;
@@ -774,14 +812,45 @@ const ApplicationForm = () => {
         delete next[inputKey];
         return next;
       });
-      setDocErrors(prev => ({ ...prev, [inputKey]: null }));
-      setTravelers(prev =>
+      setDocOptimizing((prev) => {
+        const next = { ...prev };
+        delete next[inputKey];
+        return next;
+      });
+      setDocErrors((prev) => ({ ...prev, [inputKey]: null }));
+      setUploadedDocSuccesses((prev) => {
+        const next = { ...prev };
+        delete next[successKey];
+        return next;
+      });
+      setUploadedDocDetails((prev) => {
+        const next = { ...prev };
+        delete next[successKey];
+        return next;
+      });
+      setTravelers((prev) =>
         prev.map((t, i) =>
           i === index
-            ? { ...t, documents: { ...t.documents, [key]: null } }
+            ? { ...t, documents: { ...(t.documents || {}), [key]: null } }
             : t
         )
       );
+      try {
+        const docSuccessKey = getApplicationDocSuccessStorageKey(applicationDraftId);
+        const raw = localStorage.getItem(docSuccessKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          delete parsed[successKey];
+          localStorage.setItem(docSuccessKey, JSON.stringify(parsed));
+        }
+        const detailsKey = `application-doc-details:${applicationDraftId}`;
+        const detailsRaw = localStorage.getItem(detailsKey);
+        if (detailsRaw) {
+          const parsed = JSON.parse(detailsRaw);
+          delete parsed[successKey];
+          localStorage.setItem(detailsKey, JSON.stringify(parsed));
+        }
+      } catch {}
       return;
     }
     setDocUploading((prev) => ({ ...prev, [inputKey]: true }));
@@ -1320,7 +1389,7 @@ const ApplicationForm = () => {
     // Names are mandatory regardless of skip choice — block & toast for them.
     const missingNameIndex = travelers.findIndex((t) => !String(t?.name || "").trim());
     if (missingNameIndex >= 0) {
-      showToast(`Please enter Traveler ${missingNameIndex + 1}'s name to continue.`, "error");
+      showToast("Please add your dates and every traveler’s name", "error");
       return;
     }
     // If documents are still missing, ask the user whether they want to
@@ -1352,99 +1421,21 @@ const ApplicationForm = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-20">
+    <div className="compact-application">
       <Navbar />
-      <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-6 py-8">
-        <button
-          type="button"
-          onClick={() => {
-            const cid = country?.id || countryId;
-            if (!cid) {
-              navigate("/");
-              return;
-            }
-            const flow = location.state || {};
-            saveTravelDraft(cid, {
-              applicationId: applicationDraftId,
-              travelDateFrom: flow.travelDateFrom ?? "",
-              travelDateTo: flow.travelDateTo ?? "",
-              visaOption: flow.visaOption ?? country?.visaType ?? "e-Visa",
-              sharedDriveLink,
-              travelers: travelers.map((traveler) => ({
-                ...traveler,
-                name: String(traveler.name || traveler.fullName || ""),
-              })),
-              uploadedDocSuccesses,
-              uploadedDocDetails,
-              showTravelDetails: true,
-            });
-            // Replace so history is not […, destination, apply, destination]; Back on country won't return to apply.
-            navigate(`/destination/${cid}`, { replace: true });
-          }}
-          aria-label="Back"
-          title="Back"
-          className="group inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-surface text-text-muted shadow-sm transition-all duration-200 hover:-translate-x-0.5 hover:border-cyan/40 hover:bg-cyan/5 hover:text-cyan"
-        >
-          <ArrowLeft size={18} className="transition-transform duration-200 group-hover:-translate-x-0.5" />
-        </button>
-
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-5 xl:gap-6">
-          <div className="space-y-6 lg:col-span-8">
-            <div>
-              <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-cyan">
-                <CountryFlagBadge country={country} sizeClass="h-5 w-5" className="text-lg" />
-                <span>{country.name}</span>
-              </div>
-              <h1 className="text-2xl font-bold text-text-primary">Traveler Document Upload</h1>
-              <p className="text-sm text-text-secondary mt-1">
-                {uploadSettings.enableFileUpload && uploadSettings.enableGDriveUpload
-                  ? "Add each traveler and optionally share one Google Drive folder for all."
-                  : uploadSettings.enableFileUpload
-                    ? "Add each traveler and continue with the application."
-                    : uploadSettings.enableGDriveUpload
-                      ? "Add each traveler and share one Google Drive folder link for all travelers."
-                      : "Add each traveler and continue with the application."}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-surface p-4 flex items-center justify-between">
-              <p className="text-sm font-medium text-text-primary">No. of Travelers</p>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={removeTraveler}
-                  className="w-8 h-8 rounded-full border border-border bg-background text-text-primary flex items-center justify-center disabled:opacity-40"
-                  disabled={travelers.length <= 1}
-                >
-                  <Minus size={14} />
-                </button>
-                <span className="w-6 text-center font-semibold text-text-primary">{travelers.length}</span>
-                <button
-                  type="button"
-                  onClick={addTraveler}
-                  className="w-8 h-8 rounded-full border border-border bg-background text-text-primary flex items-center justify-center"
-                >
-                  <Plus size={14} />
-                </button>
-              </div>
-            </div>
-
-            <section id="document-upload-section" className="space-y-4 scroll-mt-28">
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-            {travelers.map((traveler, index) => (
-            <div key={`traveler-${index}`} className="rounded-2xl border border-border bg-surface p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-text-primary">Traveler {index + 1}</p>
-                {travelerComplete(traveler, index) ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-400 text-xs font-semibold">
-                    <CheckCircle size={14} /> Completed
-                  </span>
-                ) : (
-                  <span className="text-xs text-amber-400">Pending</span>
-                )}
-              </div>
-
+      <CompactApplication
+        startAppCopy={startAppCopy}
+        country={country} travelers={travelers} enabledDocs={requiredDocFields}
+        requiredDocs={requiredDocFields.filter((doc) => doc.key !== "passport")}
+        uploadSettings={uploadSettings} uploadedDocSuccesses={uploadedDocSuccesses}
+        uploadedDocDetails={uploadedDocDetails} docErrors={docErrors}
+        docUploading={docUploading} docOptimizing={docOptimizing}
+        onUpload={updateTravelerDoc} onPreview={openDocumentPreview}
+        onName={updateTravelerName} nameRefs={travelerNameInputRefs}
+        onAdd={addTraveler} onRemove={removeTraveler}
+        sharedDriveLink={sharedDriveLink} onDriveLink={setSharedDriveLink}
+        onOtherDocs={updateTravelerOtherDocs} onRemoveOtherDoc={removeTravelerOtherDoc}
+        renderProfileDetails={(traveler, index) => <>
               <div className="rounded-2xl border border-cyan/15 bg-cyan/5 p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-cyan">
@@ -1483,20 +1474,6 @@ const ApplicationForm = () => {
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label className="text-xs text-text-muted block mb-1.5">Full Name</label>
-                  <input
-                    ref={(el) => {
-                      travelerNameInputRefs.current[index] = el;
-                    }}
-                    type="text"
-                    autoComplete="off"
-                    value={traveler.fullName || traveler.name}
-                    onChange={(e) => updateTravelerName(index, e.target.value)}
-                    placeholder="Enter full name"
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-text-primary outline-none focus:border-cyan/50"
-                  />
-                </div>
 
                 <div>
                   <label className="text-xs text-text-muted block mb-1.5">Date of Birth</label>
@@ -1606,304 +1583,45 @@ const ApplicationForm = () => {
                 </label>
               )}
 
-              <div>
-                <label className="text-xs text-text-muted block mb-1.5">Traveler Name</label>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  value={traveler.name}
-                  onChange={(e) => updateTravelerName(index, e.target.value)}
-                  placeholder="Used in document labels"
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-text-primary outline-none focus:border-cyan/50"
-                />
-              </div>
-{(() => {
-  const visibleDocFields = uploadSettings.enableFileUpload
-    ? requiredDocFields
-    : requiredDocFields.filter((f) => f.key === "passport");
-  return visibleDocFields.length > 0 && (
-              <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
-                  Required Documents
-                </p>
-                {visibleDocFields.map((field) => {
-                  const file = (traveler.documents || {})[field.key];
-                  const zoneKey = `${index}-${field.key}`;
-                  const travelerNo = index + 1;
-                  const successKey = `${travelerNo}-${field.key}`;
-                  const isSaved = Boolean(uploadedDocSuccesses[successKey]) || Boolean(uploadedDocDetails[successKey]?.url);
-                  const displayName = getDocumentDisplayName(field.label);
-
-                  return (
-                    <div key={`${index}-${field.key}`}>
-                      <PassportUploadRow
-                        className="w-full"
-                      inputId={`traveler-${index}-${field.key}`}
-                      label={field.label}
-                      file={file}
-                      error={docErrors[zoneKey]}
-                      uploading={Boolean(docUploading[zoneKey])}
-                      optimizing={Boolean(docOptimizing[zoneKey])}
-                      saved={isSaved && !file}
-                      previewEnabled={Boolean(uploadedDocDetails[successKey]?.url)}
-                      accept={getFileValidationRules(uploadSettings?.allowedFileFormats).acceptString}
-                      helperText={
-                        file
-                          ? file.name
-                          : field.description || `${getFileValidationRules(uploadSettings?.allowedFileFormats).displayLabel} - max 300 KB`
-                      }
-                      fileSizeText={file ? formatFileSize(file.size) : ""}
-                      savedText={`${displayName} uploaded`}
-                      reuploadLabel="Replace File"
-                      removeLabel="Remove"
-                      onChange={(newFile) => updateTravelerDoc(index, field.key, newFile)}
-                      onPreview={() => openDocumentPreview(travelerNo, field.key)}
-                      onReupload={() => {
-                        setDocErrors((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
-                        setUploadedDocSuccesses((prev) => {
-                          const next = { ...prev };
-                          delete next[successKey];
-                          return next;
-                        });
-                      }}
-                      onRemove={() => {
-                        if (file) {
-                          updateTravelerDoc(index, field.key, null);
-                        } else if (isSaved) {
-                          setDocErrors((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
-                          setUploadedDocSuccesses((prev) => {
-                            const next = { ...prev };
-                            delete next[successKey];
-                            return next;
-                          });
-                          setUploadedDocDetails((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
-                          try {
-                            const detailsKey = `application-doc-details:${applicationDraftId}`;
-                            const raw = localStorage.getItem(detailsKey);
-                            if (raw) {
-                              const parsed = JSON.parse(raw);
-                              delete parsed[zoneKey];
-                              localStorage.setItem(detailsKey, JSON.stringify(parsed));
-                            }
-                          } catch { /* ignore */ }
-                        }
-                      }}
-                    />
-                    </div>
-                  );
-                })}
-              </div>
-  );
-})()}
-
-              {uploadSettings.enableFileUpload && (
-                <div className="w-full space-y-2">
-                  <div className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-border bg-background px-2.5 py-2">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-cyan/10 text-cyan">
-                      <FileText size={14} strokeWidth={2} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-text-primary">Other documents</p>
-                      <p className="text-[10px] text-text-muted">
-                        {traveler.otherDocuments?.length || 0}{" "}
-                        {(traveler.otherDocuments?.length || 0) === 1 ? "file" : "files"} selected Â· max 500 KB each
-                      </p>
-                    </div>
-                    <label
-                      htmlFor={`traveler-${index}-other-docs`}
-                      className="shrink-0 cursor-pointer rounded-md bg-cyan/15 px-2.5 py-1.5 text-[11px] font-semibold text-cyan hover:bg-cyan/25"
-                    >
-                      Upload
-                    </label>
-                    <input
-                      id={`traveler-${index}-other-docs`}
-                      type="file"
-                      multiple
-                      accept={getFileValidationRules(uploadSettings?.allowedFileFormats).acceptString}
-                      onChange={(e) => {
-                        updateTravelerOtherDocs(index, e.target.files || []);
-                        e.target.value = "";
-                      }}
-                      className="sr-only"
-                    />
-                  </div>
-                  {Array.isArray(traveler.otherDocuments) && traveler.otherDocuments.length > 0 && (
-                    <div className="flex flex-col gap-2">
-                      {traveler.otherDocuments.map((file, docIdx) => (
-                        <div
-                          key={`traveler-${index}-other-doc-${docIdx}`}
-                          className="relative rounded-lg border border-border bg-surface px-3 py-2"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => removeTravelerOtherDoc(index, docIdx)}
-                            className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"
-                            aria-label={`Remove ${file?.name || `file ${docIdx + 1}`}`}
-                          >
-                            <X size={12} />
-                          </button>
-                          <p className="text-xs text-text-primary truncate pr-3" title={file?.name || ""}>
-                            {file?.name || `File ${docIdx + 1}`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-            </div>
-
-            {uploadSettings.enableGDriveUpload && (
-              <SharedGoogleDriveLinkSection
-                value={sharedDriveLink}
-                onChange={setSharedDriveLink}
-                className="mt-4"
-              />
-            )}
-          </>
-            </section>
-
-            <Button
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={checkoutStarting}
-              disabled={checkoutStarting}
-              onClick={handleContinue}
-            >
-              Continue
-            </Button>
-          </div>
-
-          <aside className="lg:col-span-4">
-            <div className="rounded-[2rem] border border-border bg-surface p-4 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.16)] lg:sticky lg:top-24">
-              <div className="mb-4">
-                <h2 className="text-[2rem] font-bold tracking-tight text-text-primary">Apply for {country.name}</h2>
-              </div>
-
-              <div className="overflow-hidden rounded-[1.8rem] border border-white/65 bg-white shadow-[0_28px_80px_-46px_rgba(88,28,135,0.34)]">
-                <div className="relative overflow-hidden bg-[linear-gradient(135deg,#3b0764_0%,#6d28d9_48%,#7c3aed_78%,#8b5cf6_100%)] px-5 pb-6 pt-5 text-white">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.20),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.12),transparent_28%)]" />
-                  <div className="absolute -right-8 top-8 h-40 w-40 rounded-full border border-white/10" />
-                  <div className="absolute -right-2 top-16 h-28 w-28 rounded-full border border-white/10" />
-
-                  <div className="relative z-10">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/74">Amount To Be Paid Now</p>
-                    <p className="mt-3 text-[2.7rem] font-extrabold tracking-tight text-white">₹{payableNowAmount.toLocaleString("en-IN")}</p>
-
-                    <div className="mt-5 grid gap-3">
-                      <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-                        <div className="flex items-center gap-2 text-white/86">
-                          <Plane size={15} />
-                          <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">Visa Type</span>
-                        </div>
-                        <p className="mt-2 text-sm font-semibold text-white">{summaryVisaType}</p>
-                      </div>
-
-                      <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-                        <div className="flex items-center gap-2 text-white/86">
-                          <CalendarDays size={15} />
-                          <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">Travel Dates</span>
-                        </div>
-                        <p className="mt-2 text-sm font-semibold text-white">{summaryTravelRange}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3.5 bg-[linear-gradient(180deg,#ffffff_0%,#faf7ff_100%)] p-5">
-                  <div className="rounded-[1.3rem] border border-violet-100 bg-white/90 p-4 shadow-[0_18px_40px_-34px_rgba(88,28,135,0.22)]">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Travellers</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {travelers.map((traveler, index) => (
-                            <span
-                              key={`summary-traveler-${index}`}
-                              className="rounded-full border border-violet-100 bg-violet-50/80 px-3 py-1.5 text-xs font-medium text-slate-700"
-                            >
-                              {String(traveler.name || "").trim() || `Traveler ${index + 1}`}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <span className="rounded-full bg-violet-100 px-3 py-1.5 text-xs font-semibold text-violet-700">
-                        {summaryTravelerCount}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 rounded-[1.3rem] border border-violet-100 bg-white/90 p-4 shadow-[0_18px_40px_-34px_rgba(88,28,135,0.22)]">
-                    <div className="flex items-center gap-3 rounded-[1rem] bg-slate-50/85 px-2 py-2">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] bg-blue-50 text-blue-600">
-                        <Landmark size={20} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-base font-semibold tracking-tight text-slate-950">Government Fee</p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {summaryTravelerCount > 1
-                            ? `₹${governmentFeePerTraveler.toLocaleString("en-IN")} x ${summaryTravelerCount} travellers`
-                            : "Shown separately for destination rules"}
-                        </p>
-                      </div>
-                      <span className="text-lg font-extrabold tracking-tight text-slate-950">
-                        ₹{governmentFeeTotal.toLocaleString("en-IN")}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 rounded-[1rem] bg-slate-50/85 px-2 py-2">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] bg-violet-50 text-violet-600">
-                        <Tag size={20} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-base font-semibold tracking-tight text-slate-950">Our Service Fee</p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {summaryTravelerCount > 1
-                            ? `₹${serviceFeePerTraveler.toLocaleString("en-IN")} x ${summaryTravelerCount} travellers`
-                            : "Support, review and application handling"}
-                        </p>
-                      </div>
-                      <span className="text-lg font-extrabold tracking-tight text-slate-950">
-                        ₹{serviceFeeTotal.toLocaleString("en-IN")}
-                      </span>
-                    </div>
-
-                    {effectiveGstEnabled && (
-                      <div className="flex items-center justify-between gap-3 rounded-[1rem] bg-slate-50/85 px-4 py-3">
-                        <p className="text-sm font-medium text-slate-950">GST</p>
-                        <span className="text-base font-semibold text-slate-950">
-                          ₹{gstAmount.toLocaleString("en-IN")}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="rounded-[1rem] border border-violet-100 bg-[linear-gradient(180deg,#faf5ff_0%,#ffffff_100%)] px-4 py-3 shadow-[0_18px_30px_-28px_rgba(88,28,135,0.28)]">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-base font-semibold tracking-tight text-slate-950">Total Amount</p>
-                          <p className="mt-0.5 text-xs text-slate-500">Government fee + service fee + GST</p>
-                        </div>
-                        <span className="text-2xl font-extrabold tracking-tight text-violet-700">
-                          ₹{overallTotal.toLocaleString("en-IN")}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3 rounded-[1.1rem] border border-blue-100 bg-blue-50/70 px-4 py-3 text-slate-600">
-                      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-cyan" />
-                      <p className="text-sm leading-tight">
-                        Secure & trusted payment. Your payment is 100% secure and encrypted.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
-      </main>
+        </>}
+        onBack={() => {
+            const cid = country?.id || countryId;
+            if (!cid) {
+              navigate("/");
+              return;
+            }
+            const flow = location.state || {};
+            saveTravelDraft(cid, {
+              applicationId: applicationDraftId,
+              travelDateFrom: flow.travelDateFrom ?? "",
+              travelDateTo: flow.travelDateTo ?? "",
+              visaOption: flow.visaOption ?? country?.visaType ?? "e-Visa",
+              sharedDriveLink,
+              travelers: travelers.map((traveler) => ({
+                ...traveler,
+                name: String(traveler.name || traveler.fullName || ""),
+              })),
+              uploadedDocSuccesses,
+              uploadedDocDetails,
+              showTravelDetails: true,
+            });
+            // Replace so history is not […, destination, apply, destination]; Back on country won't return to apply.
+            navigate(`/destination/${cid}`, { replace: true });
+        }}
+        onContinue={handleContinue} checkoutStarting={checkoutStarting}
+        flowDateFrom={flowDateFrom} flowDateTo={flowDateTo} summaryVisaType={summaryVisaType}
+        onFlowChange={(field, value) => {
+          editedFlowRef.current = { ...editedFlowRef.current, [field]: value };
+          navigate(location.pathname, {
+            replace: true,
+            state: { ...location.state, ...editedFlowRef.current },
+          });
+        }}
+        payableNowAmount={payableNowAmount} governmentFeeTotal={governmentFeeTotal}
+        serviceFeeTotal={serviceFeeTotal} gstAmount={gstAmount}
+        effectiveGstEnabled={effectiveGstEnabled} overallTotal={overallTotal}
+        summaryTravelRange={summaryTravelRange}
+      />
 
       <ContactVerificationModal
         isOpen={contactModalOpen}
@@ -1992,6 +1710,7 @@ const ApplicationForm = () => {
           type: documentPreview.type || documentPreview.mimeType
         } : null}
       />
+      <Footer />
     </div>
   );
 };

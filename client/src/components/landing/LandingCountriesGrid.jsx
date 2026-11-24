@@ -44,47 +44,48 @@ const LandingCountriesGrid = memo(
     countryCardRefs,
     display,
     documentCatalog,
-    heading = "Countries",
+    heading = "",
     loading = false,
     showVisaRequirements = true,
     onNavigateDestination,
     hasMore = false,
     onLoadMore,
   }) {
-    const skeletonItems = Array.from({ length: 8 }, (_, index) => index);
+    const skeletonItems = Array.from({ length: 10 }, (_, index) => index);
     const showHeading = String(heading || "").trim().length > 0;
 
     return (
-      <section id="destinations" className="pt-8 pb-16 px-4 sm:px-6 max-w-7xl mx-auto">
+      <div id="destinations" className="pb-16">
         {showHeading ? (
-          <div className="mb-10">
-            <h2 className="text-3xl sm:text-4xl font-bold">{heading}</h2>
+          <div className="w mb-8 text-center">
+            <h2 className="text-3xl font-extrabold text-[var(--ink)]">{heading}</h2>
           </div>
         ) : null}
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <section className="grid w" id="grid">
             {skeletonItems.map((item) => (
               <div
                 key={item}
-                className="min-h-[400px] rounded-3xl border border-border bg-white overflow-hidden animate-pulse"
+                className="cc animate-pulse"
+                style={{ background: "rgba(0,0,0,0.06)" }}
               >
-                <div className="h-[58%] bg-slate-100" />
-                <div className="space-y-4 p-6">
-                  <div className="h-5 w-2/3 rounded-full bg-slate-100" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="h-14 rounded-2xl bg-slate-100" />
-                    <div className="h-14 rounded-2xl bg-slate-100" />
-                    <div className="h-14 rounded-2xl bg-slate-100" />
-                    <div className="h-14 rounded-2xl bg-slate-100" />
+                <div className="h-10 w-10 rounded-full bg-black/10" />
+                <div className="space-y-3">
+                  <div className="h-6 w-2/3 mx-auto rounded-full bg-black/10" />
+                  <div className="cs" style={{ background: "rgba(0,0,0,0.08)" }}>
+                    <div className="h-8 bg-black/10 rounded" />
+                    <div className="h-8 bg-black/10 rounded" />
+                    <div className="h-8 bg-black/10 rounded" />
                   </div>
-                  <div className="h-10 rounded-2xl bg-slate-100" />
                 </div>
               </div>
             ))}
-          </div>
+          </section>
+        ) : filteredCountries.length === 0 ? (
+          <p className="nores">No country found.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <section className="grid w" id="grid">
             {filteredCountries.map((country, i) => (
               <LandingCountryCardItem
                 key={getCountryRouteId(country)}
@@ -97,20 +98,21 @@ const LandingCountriesGrid = memo(
                 onNavigateDestination={onNavigateDestination}
               />
             ))}
-          </div>
+          </section>
         )}
-        
+
         {hasMore && !loading && (
-          <div className="mt-12 flex justify-center">
+          <div className="more">
             <button
+              id="more"
               onClick={onLoadMore}
-              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-white px-8 font-semibold text-text-primary shadow-[0_4px_16px_rgba(15,23,42,0.06)] transition-all hover:bg-white hover:text-cyan hover:shadow-[0_8px_24px_rgba(14,116,217,0.12)] active:scale-[0.98]"
+              className="b s"
             >
               Show More Destinations
             </button>
           </div>
         )}
-      </section>
+      </div>
     );
   },
   (prev, next) =>

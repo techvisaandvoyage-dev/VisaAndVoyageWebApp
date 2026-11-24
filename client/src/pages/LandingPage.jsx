@@ -28,12 +28,13 @@ import Navbar from "../components/layout/Navbar";
 import LandingCountriesGrid from "../components/landing/LandingCountriesGrid";
 import { normalizeCountryFromApi, useCountries } from "../hooks/useCountries";
 import { api, useAuthStore } from "../store/authStore";
+import { useUIStore } from "../store/uiStore";
 import { getCountryFlagEmoji, getCountrySearchHint, matchesCountrySearch } from "../utils/countrySearch";
 import { getCountryRouteId } from "../utils/countryRouting";
 
 const GEOCODE_DEBOUNCE_MS = 680;
 const GEOCODE_MIN_CHARS = 3;
-const INITIAL_COUNTRY_CARD_COUNT = 8;
+const INITIAL_COUNTRY_CARD_COUNT = 10;
 const Footer = lazy(() => import("../components/layout/Footer"));
 
 const scheduleAfterPaint = (callback) => {
@@ -138,6 +139,12 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const countryCardRefs = useRef({});
+  const scrollToCountry = useCallback((countryId) => {
+    const card = countryCardRefs.current[countryId];
+    if (card?.scrollIntoView) {
+      card.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    }
+  }, []);
   const searchInputRef = useRef(null);
   const searchAnchorRef = useRef(null);
   const filterAnchorRef = useRef(null);
@@ -326,8 +333,10 @@ const LandingPage = () => {
     };
   }, [allCountries, trendingCountries, popularCountryCards.length]);
 
-  // Search bar state
-  const [searchDestination, setSearchDestination] = useState("");
+  // Search bar state (synchronized globally with Navbar search via uiStore)
+  const searchDestination = useUIStore((state) => state.searchQuery);
+  const setSearchDestination = useUIStore((state) => state.setSearchQuery);
+  const clearSearchQuery = useUIStore((state) => state.clearSearchQuery);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   /** Full place list from Nominatim — updated in startTransition to keep typing smooth. */
   const [geocodePlaces, setGeocodePlaces] = useState([]);
@@ -339,20 +348,46 @@ const LandingPage = () => {
     setVisibleCount(INITIAL_COUNTRY_CARD_COUNT);
   }, [searchDestination]);
 
+  // Sync URL ?q= parameter on initial load or navigation
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get("q");
+    if (q) {
+      setSearchDestination(q);
+    }
+  }, [location.search, setSearchDestination]);
+
+  // Listen for search submissions triggered from Navbar
+  useEffect(() => {
+    const onNavbarSubmit = (e) => {
+      const term = (e.detail || searchDestination).trim();
+      if (!term) return;
+      const localMatches = allCountries.filter((country) => matchesCountrySearch(country, term));
+      if (localMatches.length >= 1) {
+        scrollToCountry(getCountryRouteId(localMatches[0]));
+      } else {
+        const grid = document.getElementById("grid");
+        if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+    window.addEventListener("vb:submit-search", onNavbarSubmit);
+    return () => window.removeEventListener("vb:submit-search", onNavbarSubmit);
+  }, [allCountries, searchDestination, scrollToCountry]);
+
   useEffect(() => {
     const resetHomeSearch = () => {
-      setSearchDestination("");
+      clearSearchQuery();
       setGeocodePlaces([]);
       setIsSearchFocused(false);
     };
 
     window.addEventListener("vb:reset-home-search", resetHomeSearch);
     return () => window.removeEventListener("vb:reset-home-search", resetHomeSearch);
-  }, []);
+  }, [clearSearchQuery]);
 
   useEffect(() => {
     if (!location.state?.resetSearch) return;
-    setSearchDestination("");
+    clearSearchQuery();
     setGeocodePlaces([]);
     setIsSearchFocused(false);
     window.history.replaceState(
@@ -505,13 +540,6 @@ const LandingPage = () => {
     [displayedCountries]
   );
 
-  const scrollToCountry = useCallback((countryId) => {
-    const card = countryCardRefs.current[countryId];
-    if (card?.scrollIntoView) {
-      card.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-    }
-  }, []);
-
   useEffect(() => {
     const term = searchDestination.trim();
     if (!term || allCountries.length === 0) return;
@@ -658,271 +686,140 @@ const LandingPage = () => {
   const effectiveMobileSearchExpanded = mobileSearchExpanded || searchDestination.trim().length > 0;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
       <Navbar />
 
-      <section id="hero" className="relative bg-white pt-8 sm:pt-10">
-        <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div
-            ref={searchAnchorRef}
-            className="relative mx-auto w-full max-w-[48rem] bg-white py-2 sm:py-3 animate-home-enter"
+      <section className="hero" id="hero">
+        <div ref={searchAnchorRef} className="relative w-full">
+          <form
+            onSubmit={handleSearch}
+            autoComplete="off"
+            className="sbx"
+            role="search"
+            aria-label="Search visa destinations"
           >
-              <form
-                onSubmit={handleSearch}
-                autoComplete="off"
-                className="relative rounded-full border border-slate-200 bg-white h-16 px-4 sm:px-5 w-full transition-shadow hover:shadow-md"
-                role="search"
-                aria-label="Search visa destinations"
-              >
-                <div className="flex h-full items-center gap-3">
-                  <input
-                    ref={!isSearchPinned ? searchInputRef : null}
-                    type="text"
-                    autoComplete="off"
-                    placeholder="Search country"
-                    value={searchDestination}
-                    onChange={(e) => setSearchDestination(e.target.value)}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={(e) => {
-                      const nextFocused = e.relatedTarget;
-                      if (searchFormRef.current?.contains(nextFocused)) return;
-                      window.setTimeout(() => setIsSearchFocused(false), 120);
-                    }}
-                    className="h-full min-w-0 flex-1 bg-transparent px-3 text-base leading-none text-text-primary placeholder:text-[#858da3] focus:outline-none sm:px-4 sm:text-lg"
-                    aria-label="Destination search"
-                    id="hero-destination-input"
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    className="flex h-11 w-11 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center rounded-full bg-cyan text-white shadow-[0_12px_28px_rgba(2,132,199,0.26)] transition-all hover:scale-[1.03] hover:bg-cyan-dim"
-                    aria-label="Search destinations"
-                  >
-                    <Search className="h-5 w-5" />
-                  </button>
-                </div>
-
-              {!isSearchPinned && searchTerm && isSearchFocused && (
-                <div className="absolute left-0 right-0 top-[calc(100%+14px)] z-30 text-left">
-                  <div
-                    ref={searchFormRef}
-                    className="max-h-[min(70vh,520px)] overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]"
-                  >
-                    {suggestionRows.length > 0 ? (
-                      <div className="overflow-y-auto overscroll-contain">
-                        {suggestionRows.map((row) => (
-                          <button
-                            type="button"
-                            key={row.key}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleSuggestionRowClick(row)}
-                            className="w-full flex items-start justify-between gap-3 px-4 py-3 text-sm text-text-primary hover:bg-white transition-colors text-left"
-                          >
-                            <span className="flex flex-col gap-0.5 min-w-0 flex-1">
-                              {row.kind === "country" ? (
-                                <>
-                                  <span className="font-medium truncate">{row.country.name}</span>
-                                  {row.hint ? (
-                                    <span className="text-xs text-text-muted">{row.hint}</span>
-                                  ) : null}
-                                </>
-                              ) : (
-                                <>
-                                  <span className="flex items-center gap-2 font-medium text-text-primary min-w-0">
-                                    <MapPin size={14} className="text-cyan flex-shrink-0 mt-0.5" />
-                                    <span className="truncate">{row.primaryLabel}</span>
-                                  </span>
-                                  <span className="text-xs text-text-muted pl-6 truncate">
-                                    {row.detailLabel}
-                                  </span>
-                                </>
-                              )}
-                            </span>
-                            <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-lg shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex-shrink-0">
-                              {getCountryFlagEmoji(row.country.name, row.country.flagEmoji)}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="px-4 py-3 text-sm text-text-muted">
-                        No matching destinations found.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </form>
-          </div>
-
-          {/* Pinned Navbar Search */}
-          <div
-            className={`fixed inset-x-0 top-0 z-[1000] flex h-[72px] items-center transition-all duration-300 ${
-              isSearchPinned ? "opacity-100" : "opacity-0 pointer-events-none"
-            } ${
-              effectiveMobileSearchExpanded 
-                ? "bg-white px-2 sm:px-4 pointer-events-auto" 
-                : `pointer-events-none justify-end md:justify-center px-4 sm:px-6 lg:px-8 ${isAuthenticated ? "pr-[104px]" : "pr-[62px]"} md:pr-4`
-            }`}
-          >
-            <div className={`pointer-events-auto transition-all duration-300 ${effectiveMobileSearchExpanded ? "w-full flex items-center gap-2" : "w-auto md:w-full md:max-w-[34rem] lg:max-w-[38rem]"}`}>
-              
-              {effectiveMobileSearchExpanded && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileSearchExpanded(false);
-                    setSearchDestination("");
-                  }}
-                  className="md:hidden flex-shrink-0 text-text-secondary p-2 ml-1 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              )}
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!effectiveMobileSearchExpanded && window.innerWidth < 768) {
-                    setMobileSearchExpanded(true);
-                    setTimeout(() => searchInputRef.current?.focus(), 100);
-                    return;
-                  }
-                  handleSearch(e);
+            <input
+              ref={searchInputRef}
+              type="search"
+              autoComplete="off"
+              placeholder="Search country"
+              value={searchDestination}
+              onChange={(e) => setSearchDestination(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={(e) => {
+                const nextFocused = e.relatedTarget;
+                if (searchFormRef.current?.contains(nextFocused)) return;
+                window.setTimeout(() => setIsSearchFocused(false), 120);
+              }}
+              aria-label="Search country"
+              id="hero-destination-input"
+              autoFocus
+            />
+            {searchDestination ? (
+              <button
+                type="button"
+                onClick={() => {
+                  clearSearchQuery();
+                  searchInputRef.current?.focus();
                 }}
-                autoComplete="off"
-                className={`relative flex items-center justify-center transition-all duration-300 ${
-                  effectiveMobileSearchExpanded
-                    ? "flex-1 rounded-full border border-slate-200 bg-white h-11 px-2 pr-1 shadow-inner"
-                    : "md:rounded-full md:border md:border-slate-200 md:bg-white md:h-11 md:w-full md:px-4 md:shadow-sm"
-                }`}
+                className="sbx-clear"
+                aria-label="Clear search"
               >
-                <div className={`flex h-full w-full items-center ${effectiveMobileSearchExpanded ? "gap-1" : "md:gap-3"}`}>
-                  <input
-                    ref={isSearchPinned ? searchInputRef : null}
-                    type="text"
-                    placeholder="Search country"
-                    value={searchDestination}
-                    onChange={(e) => setSearchDestination(e.target.value)}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={(e) => {
-                      const nextFocused = e.relatedTarget;
-                      if (searchFormRef.current?.contains(nextFocused)) return;
-                      window.setTimeout(() => setIsSearchFocused(false), 120);
-                    }}
-                    className={`h-full min-w-0 flex-1 bg-transparent px-3 text-sm leading-none text-text-primary placeholder:text-[#858da3] focus:outline-none ${
-                      effectiveMobileSearchExpanded ? "block" : "hidden md:block"
-                    }`}
-                  />
-                  <button
-                    type={!effectiveMobileSearchExpanded && window.innerWidth < 768 ? "button" : "submit"}
-                    onClick={(e) => {
-                      if (!effectiveMobileSearchExpanded && window.innerWidth < 768) {
-                        e.preventDefault();
-                        setMobileSearchExpanded(true);
-                        setTimeout(() => searchInputRef.current?.focus(), 100);
-                      }
-                    }}
-                    className={`flex items-center justify-center rounded-full transition-all flex-shrink-0 ${
-                      effectiveMobileSearchExpanded
-                        ? "h-9 w-9 text-cyan hover:bg-cyan/10"
-                        : "h-10 w-10 bg-cyan/15 border border-cyan/30 text-cyan hover:bg-cyan/20 hover:shadow-cyan-glow md:border-0 md:h-8 md:w-8 md:bg-cyan md:text-white md:hover:scale-[1.03] md:hover:bg-cyan-dim md:shadow-sm"
-                    }`}
-                  >
-                    <Search className={effectiveMobileSearchExpanded ? "h-4 w-4" : "h-5 w-5 md:h-4 md:w-4"} />
-                  </button>
-                </div>
+                <X size={18} />
+              </button>
+            ) : null}
+            <button
+              type="submit"
+              className="b rb"
+              aria-label="Search destinations"
+            >
+              <Search size={22} />
+            </button>
 
-                {isSearchPinned && searchTerm && isSearchFocused && (
-                  <div className={`z-30 text-left ${effectiveMobileSearchExpanded ? "fixed inset-x-2 top-[72px] block md:absolute md:inset-x-0 md:top-[calc(100%+14px)]" : "hidden md:absolute md:inset-x-0 md:top-[calc(100%+14px)] md:block"}`}>
-                    <div
-                      ref={searchFormRef}
-                      className="max-h-[min(70vh,520px)] overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]"
-                    >
-                      {suggestionRows.length > 0 ? (
-                        <div className="overflow-y-auto overscroll-contain">
-                          {suggestionRows.map((row) => (
-                            <button
-                              type="button"
-                              key={row.key}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => handleSuggestionRowClick(row)}
-                              className="w-full flex items-start justify-between gap-3 px-4 py-3 text-sm text-text-primary hover:bg-white transition-colors text-left"
-                            >
-                              <span className="flex flex-col gap-0.5 min-w-0 flex-1">
-                                {row.kind === "country" ? (
-                                  <>
-                                    <span className="font-medium truncate">{row.country.name}</span>
-                                    {row.hint ? (
-                                      <span className="text-xs text-text-muted">{row.hint}</span>
-                                    ) : null}
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="flex items-center gap-2 font-medium text-text-primary min-w-0">
-                                      <MapPin size={14} className="text-cyan flex-shrink-0 mt-0.5" />
-                                      <span className="truncate">{row.primaryLabel}</span>
-                                    </span>
-                                    <span className="text-xs text-text-muted pl-6 truncate">
-                                      {row.detailLabel}
-                                    </span>
-                                  </>
-                                )}
-                              </span>
-                              <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-lg shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex-shrink-0">
-                                {getCountryFlagEmoji(row.country.name, row.country.flagEmoji)}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-text-muted">
-                          No matching destinations found.
-                        </div>
-                      )}
+            {searchTerm && isSearchFocused && (
+              <div className="absolute left-0 right-0 top-[calc(100%+14px)] z-30 text-left">
+                <div
+                  ref={searchFormRef}
+                  className="max-h-[min(70vh,520px)] overflow-hidden rounded-[var(--r)] bg-[var(--bg)] shadow-[var(--cs)]"
+                >
+                  {suggestionRows.length > 0 ? (
+                    <div className="overflow-y-auto overscroll-contain">
+                      {suggestionRows.map((row) => (
+                        <button
+                          type="button"
+                          key={row.key}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleSuggestionRowClick(row)}
+                          className="w-full flex items-start justify-between gap-3 px-5 py-3.5 text-sm text-[var(--ink)] hover:bg-[#607938]/10 transition-colors text-left"
+                        >
+                          <span className="flex flex-col gap-0.5 min-w-0 flex-1">
+                            {row.kind === "country" ? (
+                              <>
+                                <span className="font-semibold truncate">{row.country.name}</span>
+                                {row.hint ? (
+                                  <span className="text-xs text-[var(--mu)]">{row.hint}</span>
+                                ) : null}
+                              </>
+                            ) : (
+                              <>
+                                <span className="flex items-center gap-2 font-semibold text-[var(--ink)] min-w-0">
+                                  <MapPin size={14} className="text-[var(--ac)] flex-shrink-0 mt-0.5" />
+                                  <span className="truncate">{row.primaryLabel}</span>
+                                </span>
+                                <span className="text-xs text-[var(--mu)] pl-6 truncate">
+                                  {row.detailLabel}
+                                </span>
+                              </>
+                            )}
+                          </span>
+                          <span className="w-9 h-9 rounded-full bg-[var(--bg)] flex items-center justify-center text-lg shadow-[var(--rs)] flex-shrink-0">
+                            {getCountryFlagEmoji(row.country.name, row.country.flagEmoji)}
+                          </span>
+                        </button>
+                      ))}
                     </div>
-                  </div>
-                )}
-              </form>
-            </div>
-          </div>
-
-
-
-          <div
-            className="mx-auto mt-6 w-full max-w-5xl rounded-2xl bg-white px-4 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.03)] sm:mt-8 sm:px-6 animate-home-enter [animation-delay:80ms]"
-          >
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {heroHighlights.map(({ icon: Icon, title, body }) => (
-                <div key={title} className="flex items-center gap-3 rounded-xl px-2 py-2 lg:px-4 first:lg:pl-0 last:lg:pr-0">
-                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center text-cyan">
-                    <Icon size={20} strokeWidth={2.2} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold leading-tight text-[#0b1f45]">{title}</p>
-                    <p className="mt-0.5 text-xs leading-4 text-[#496382]">{body}</p>
-                  </div>
+                  ) : (
+                    <div className="px-5 py-4 text-sm text-[var(--mu)]">
+                      No matching destinations found.
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )}
+          </form>
         </div>
-
-        <LandingCountriesGrid
-          countryIdsKey={countryIdsKey}
-          filteredCountries={displayedCountries}
-          countryCardRefs={countryCardRefs}
-          display={countryDisplay}
-          documentCatalog={documentCatalog}
-          heading=""
-          loading={shouldShowPopularCountriesLoading}
-          globalRequirements={globalRequirements}
-          showVisaRequirements={countryDisplay?.showRequiredDocuments !== false}
-          onNavigateDestination={handleNavigateDestination}
-          hasMore={visibleCount < filteredCountries.length}
-          onLoadMore={() => setVisibleCount((v) => v + 12)}
-        />
       </section>
+
+      {/* Feature strip matching reference */}
+      <section className="fw">
+        <div className="feat cd">
+          {heroHighlights.map(({ icon: Icon, title, body }, idx) => (
+            <div key={title || idx}>
+              <Icon size={24} strokeWidth={1.8} />
+              <p>
+                <b>{title}</b>
+                <span>{body}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Countries Grid */}
+      <LandingCountriesGrid
+        countryIdsKey={countryIdsKey}
+        filteredCountries={displayedCountries}
+        countryCardRefs={countryCardRefs}
+        display={countryDisplay}
+        documentCatalog={documentCatalog}
+        heading=""
+        loading={shouldShowPopularCountriesLoading}
+        globalRequirements={globalRequirements}
+        showVisaRequirements={countryDisplay?.showRequiredDocuments !== false}
+        onNavigateDestination={handleNavigateDestination}
+        hasMore={visibleCount < filteredCountries.length}
+        onLoadMore={() => setVisibleCount((v) => v + 10)}
+      />
 
       {showDeferredFooter ? (
         <Suspense fallback={null}>

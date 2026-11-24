@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { Mail, Shield, Lock, Globe, Link as LinkIcon, MessageCircle, Send, ChevronDown } from "lucide-react";
 import { api, SERVER_URL } from "../../store/authStore";
 import { useSiteLogo } from "../../hooks/useSiteLogo";
+import brandLogo from "../../assets/visa-voyage-logo.webp";
 
 const FOOTER_CONTENT_FALLBACK = {
   logo: "",
@@ -246,32 +247,26 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-white transition-[padding] duration-300 [.has-sticky-cta_&]:pb-24 sm:[.has-sticky-cta_&]:pb-0" id="footer">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
-        <div className="flex flex-col lg:flex-row justify-between gap-8 lg:gap-12 mb-12">
-          <div className="w-full lg:w-[35%] lg:max-w-sm lg:pr-12 shrink-0">
-            <div className="flex flex-col items-start">
-              <Link to="/" replace className="flex h-[38px] items-center overflow-hidden leading-none -ml-3 mb-3">
-                <img
-                  src={siteLogo}
-                  alt={`${footerContent.brandPrimaryText} ${footerContent.brandAccentText}`}
-                  width="240"
-                  height="80"
-                  loading="lazy"
-                  decoding="async"
-                  className="block h-16 shrink-0 w-auto object-contain"
-                />
-              </Link>
-              <p className="max-w-[20rem] text-base leading-relaxed text-text-secondary">
-                {footerContent.description}
-              </p>
+    <footer className="ft" id="footer" style={{ background: "var(--nb)" }}>
+      <div className="w">
+        <div className="fg">
+          <div>
+            <Link to="/" replace className="inline-block" style={{ marginBottom: 16 }}>
+              <img
+                src={brandLogo}
+                alt={`${footerContent.brandPrimaryText} ${footerContent.brandAccentText}`}
+                className="h-10 sm:h-11 w-auto object-contain"
+                loading="lazy"
+              />
+            </Link>
+            <p>{footerContent.description}</p>
 
-              {socialIcons.length > 0 && (
-                <div className="mt-5 flex flex-wrap items-center gap-2.5">
-                  {socialIcons.map(({ _id, label, type, url }) => {
-                    const Icon = FOOTER_SOCIAL_ICON_COMPONENTS[type] || LinkIcon;
+            {socialIcons.length > 0 && (
+              <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                {socialIcons.map(({ _id, label, type, url }) => {
+                  const Icon = FOOTER_SOCIAL_ICON_COMPONENTS[type] || LinkIcon;
 
-                    let finalUrl = url || "";
+                  let finalUrl = url || "";
                   let target = "_blank";
                   if (type === "email") {
                     if (finalUrl.toLowerCase().startsWith("mailto:https://")) {
@@ -282,7 +277,7 @@ const Footer = () => {
                     } else if (finalUrl.includes("@") && !finalUrl.toLowerCase().startsWith("http")) {
                       finalUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${finalUrl}`;
                     }
-                    
+
                     if (finalUrl.toLowerCase().startsWith("mailto:")) {
                       target = "_self";
                     } else {
@@ -290,105 +285,89 @@ const Footer = () => {
                     }
                   }
 
-                    return (
-                      <a
-                        key={_id || `${type}-${label}`}
-                        href={finalUrl}
-                        aria-label={label}
-                        title={label}
-                        target={target}
-                        rel="noopener noreferrer"
-                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-text-muted transition-all duration-200 hover:border-cyan/30 hover:text-cyan"
-                      >
-                        <Icon size={16} />
-                      </a>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                  return (
+                    <a
+                      key={_id || `${type}-${label}`}
+                      href={finalUrl}
+                      aria-label={label}
+                      title={label}
+                      target={target}
+                      rel="noopener noreferrer"
+                      className="ib"
+                      style={{ width: 40, height: 40 }}
+                    >
+                      <Icon size={16} />
+                    </a>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="flex flex-col lg:flex-row flex-wrap lg:flex-nowrap justify-start lg:justify-end w-full lg:w-auto flex-1 gap-2 lg:gap-12 xl:gap-16">
-            {columns.map((col) => (
-              <div key={col.key} className="w-full lg:w-auto sm:min-w-[140px] border-b border-slate-100 lg:border-none pb-2 lg:pb-0">
-                <button
-                  type="button"
-                  onClick={() => toggleSection(col.key)}
-                  className="flex items-center justify-between lg:block w-full text-left text-base font-semibold text-text-primary py-3 lg:py-0 lg:mb-4 lg:pointer-events-none"
-                >
-                  <span>{col.title}</span>
-                  <ChevronDown
-                    size={20}
-                    className={`lg:hidden text-text-muted transition-transform duration-300 ${
-                      openSections[col.key] ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                <div
-                  className={`grid transition-[grid-template-rows,opacity] duration-300 lg:!grid-rows-[1fr] lg:!opacity-100 ${
-                    openSections[col.key] ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          {columns.map((col) => (
+            <div key={col.key}>
+              <button
+                type="button"
+                onClick={() => toggleSection(col.key)}
+                className="flex items-center justify-between w-full text-left md:pointer-events-none md:block"
+              >
+                <h4>{col.title}</h4>
+                <ChevronDown
+                  size={18}
+                  className={`md:hidden text-[var(--ftt)] transition-transform duration-300 ${
+                    openSections[col.key] ? "rotate-180" : ""
                   }`}
-                >
-                  <div className="overflow-hidden">
-                    <ul className="space-y-3 flex flex-col items-start text-left pb-4 lg:pb-0 pt-1 lg:pt-0">
-                      {col.links.map((link) => (
-                        <li key={link.slug}>
-                          <Link
-                            to={`/page/${link.slug}`}
-                            className="text-base text-text-secondary hover:text-cyan transition-colors duration-200 block"
-                          >
-                            {link.label}
-                          </Link>
-                        </li>
-                      ))}
-                      {col.links.length === 0 && (
-                        <li className="text-base text-text-muted">No pages yet</li>
-                      )}
-                    </ul>
-                  </div>
+                />
+              </button>
+              <div
+                className={`transition-opacity duration-300 ${
+                  openSections[col.key] ? "block opacity-100" : "hidden md:block opacity-100"
+                }`}
+              >
+                <div>
+                  <ul>
+                    {col.links.map((link) => (
+                      <li key={link.slug}>
+                        <Link to={`/page/${link.slug}`}>{link.label}</Link>
+                      </li>
+                    ))}
+                    {col.links.length === 0 && (
+                      <li style={{ color: "var(--mu)" }}>No pages yet</li>
+                    )}
+                  </ul>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
 
-        <div className="pt-8 border-t border-slate-200">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="text-sm text-text-muted space-y-1.5 text-left">
-              
-              {footerContent.supportedByShow && footerContent.supportedByText && (
-                <p>
-                  {footerContent.supportedByLink ? (
-                    <a
-                      href={footerContent.supportedByLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-cyan transition-colors"
-                    >
-                      {footerContent.supportedByText}
-                    </a>
-                  ) : (
-                    <span>{footerContent.supportedByText}</span>
-                  )}
-                </p>
-              )}
-              <p>&copy; 2026 Visa &amp; Voyage. All Rights Reserved.</p>
-            </div>
+        <div className="fb">
+          <span>
+            {footerContent.supportedByShow && footerContent.supportedByText && (
+              <span className="mr-3">
+                {footerContent.supportedByLink ? (
+                  <a
+                    href={footerContent.supportedByLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {footerContent.supportedByText}
+                  </a>
+                ) : (
+                  <span>{footerContent.supportedByText}</span>
+                )}
+              </span>
+            )}
+            &copy; 2026 Visa &amp; Voyage. All Rights Reserved.
+          </span>
 
-            <div className="flex items-center flex-wrap gap-4 md:gap-6 md:pb-1">
-              {trustBadges.map(({ icon: Icon, label }, index) => (
-                <div key={label} className="flex items-center gap-4 md:gap-6">
-                  <div className="flex items-center gap-2 text-sm text-text-muted">
-                    <Icon size={20} strokeWidth={1.5} className="text-blue-600 flex-shrink-0" />
-                    <span>{label}</span>
-                  </div>
-                  {index < trustBadges.length - 1 && (
-                    <div className="h-4 w-px bg-slate-300" aria-hidden="true" />
-                  )}
-                </div>
-              ))}
-            </div>
+          <div className="bd">
+            {trustBadges.map(({ icon: Icon, label }) => (
+              <span key={label}>
+                <Icon size={18} strokeWidth={1.8} style={{ color: "var(--ac)" }} />
+                <span>{label}</span>
+              </span>
+            ))}
           </div>
         </div>
       </div>
