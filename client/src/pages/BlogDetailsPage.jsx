@@ -247,13 +247,13 @@ const SectionRenderer = ({ section }) => {
           {items.map((qa, idx) => (
             <details
               key={idx}
-              className="bg-surface-2 rounded-2xl p-4 border border-border open:border-cyan-border"
+              className="rounded-2xl border border-[#2D2B22]/12 bg-[#dfd2bc]/70 p-4 transition-all open:bg-[#dfd2bc] open:shadow-[inset_1px_2px_5px_rgba(45,43,34,0.16)]"
             >
-              <summary className="cursor-pointer font-semibold text-text-primary list-none flex items-center justify-between">
+              <summary className="cursor-pointer font-bold text-[#2D2B22] list-none flex items-center justify-between">
                 <span>{qa.question || qa.q || ""}</span>
-                <span className="text-cyan ml-3">+</span>
+                <span className="text-[#607938] ml-3 font-extrabold">+</span>
               </summary>
-              <p className="text-sm text-text-secondary mt-3 leading-relaxed">
+              <p className="text-sm text-[#6E6A59] mt-3 leading-relaxed">
                 {qa.answer || qa.a || ""}
               </p>
             </details>
@@ -281,13 +281,13 @@ const SectionRenderer = ({ section }) => {
       const headers = Array.isArray(payload.headers) ? payload.headers : [];
       if (!rows.length && !headers.length) return null;
       return (
-        <div className="my-8 overflow-x-auto rounded-2xl border border-border">
+        <div className="my-8 overflow-x-auto rounded-2xl border border-[#2D2B22]/15 bg-[#EEDFC7] shadow-[inset_1px_2px_6px_rgba(45,43,34,0.12)]">
           <table className="w-full text-left text-sm">
             {headers.length ? (
-              <thead className="bg-surface-2">
+              <thead className="border-b border-[#2D2B22]/12 bg-[#dfd2bc]">
                 <tr>
                   {headers.map((h, idx) => (
-                    <th key={idx} className="px-4 py-2.5 font-semibold text-text-primary">
+                    <th key={idx} className="px-4 py-3 font-extrabold text-[#2D2B22]">
                       {h}
                     </th>
                   ))}
@@ -296,9 +296,9 @@ const SectionRenderer = ({ section }) => {
             ) : null}
             <tbody>
               {rows.map((row, ri) => (
-                <tr key={ri} className="border-t border-border">
+                <tr key={ri} className="border-t border-[#2D2B22]/10 even:bg-[#dfd2bc]/35">
                   {(Array.isArray(row) ? row : []).map((cell, ci) => (
-                    <td key={ci} className="px-4 py-2.5 text-text-secondary">
+                    <td key={ci} className="px-4 py-2.5 text-[#2D2B22]/85">
                       {String(cell)}
                     </td>
                   ))}
@@ -406,9 +406,9 @@ const CommentNode = ({ comment, blogId, depth = 0, currentUserId, onAfterChange 
   };
 
   return (
-    <div className={depth ? "pl-4 sm:pl-6 border-l border-border" : ""}>
+    <div className={depth ? "pl-4 sm:pl-6 border-l border-[#2D2B22]/12" : ""}>
       <div className="flex gap-3 py-4">
-        <div className="w-9 h-9 rounded-full bg-cyan/10 text-cyan flex items-center justify-center flex-shrink-0 font-semibold">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#dfd2bc] font-extrabold text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)]">
           {(comment.user?.name || "?").charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
@@ -471,7 +471,7 @@ const CommentNode = ({ comment, blogId, depth = 0, currentUserId, onAfterChange 
                 value={replyDraft}
                 onChange={(e) => setReplyDraft(e.target.value)}
                 placeholder={`Reply to @${comment.user?.username || comment.user?.name || ""}`}
-                className="flex-1 bg-surface-2 border border-border rounded-xl px-3 py-2 text-sm text-text-primary placeholder-text-muted resize-none focus:outline-none focus:ring-2 focus:ring-cyan/30"
+                className="flex-1 resize-none rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-3.5 py-2.5 text-sm font-medium text-[#2D2B22] placeholder-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.16)] focus:border-[#607938] focus:bg-[#EEDFC7] focus:outline-none"
               />
               <Button
                 type="submit"
@@ -479,6 +479,7 @@ const CommentNode = ({ comment, blogId, depth = 0, currentUserId, onAfterChange 
                 size="sm"
                 loading={posting}
                 leftIcon={<Send size={14} />}
+                className="rounded-xl bg-[#607938] text-white shadow-[2px_3px_6px_rgba(45,43,34,0.2)] hover:bg-[#536930]"
               >
                 Send
               </Button>
@@ -733,7 +734,24 @@ const BlogDetailsPage = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-cyan/85 via-cyan-dim/80 to-black/70" />
         </div>
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-24 sm:pb-32 text-white">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-24 sm:pb-32 text-white">
+          <div className="mb-5">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.state && window.history.state.idx > 0) {
+                  navigate(-1);
+                } else {
+                  navigate("/blog");
+                }
+              }}
+              className="inline-flex h-[38px] items-center gap-2 rounded-[12px] border border-[#2D2B22]/15 bg-[#EEDFC7] pl-3 pr-4 text-[14px] font-semibold text-[#2D2B22] shadow-[2px_4px_10px_rgba(45,43,34,0.28)] transition-all hover:-translate-y-px hover:bg-[#f5ead8] active:translate-y-[1px] active:bg-[#dfd2bc]"
+            >
+              <ArrowLeft size={16} />
+              Back
+            </button>
+          </div>
+
           {/* Breadcrumb */}
           <nav className="flex items-center gap-1.5 text-xs sm:text-sm text-white/75 mb-5">
             <Link to="/" className="hover:text-white transition-colors">
@@ -955,22 +973,22 @@ const BlogDetailsPage = () => {
               ) : null}
 
               {/* Inline like CTA at the bottom of the article */}
-              <div className="mt-10 pt-8 border-t border-border-light flex flex-wrap items-center justify-between gap-4 bg-gradient-to-br from-cyan/5 to-transparent rounded-2xl p-5">
+              <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#2D2B22]/12 bg-[#dfd2bc]/75 p-5 shadow-[inset_1px_2px_5px_rgba(45,43,34,0.14)]">
                 <div>
-                  <h3 className="text-base font-bold text-text-primary">
+                  <h3 className="text-base font-extrabold text-[#2D2B22]">
                     Found this helpful?
                   </h3>
-                  <p className="text-sm text-text-muted mt-1">
+                  <p className="mt-1 text-sm text-[#6E6A59]">
                     Show some love so we know what to write next.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleToggleLike}
-                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-sm transition-all ${
+                  className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all active:translate-y-[1px] ${
                     liked
-                      ? "bg-cyan text-white shadow-cyan-glow"
-                      : "bg-surface border border-cyan text-cyan hover:bg-cyan hover:text-white"
+                      ? "bg-[#607938] text-white shadow-[2px_3px_8px_rgba(45,43,34,0.22)] hover:bg-[#536930]"
+                      : "border border-[#607938]/30 bg-[#EEDFC7] text-[#4e632d] shadow-[2px_3px_6px_rgba(45,43,34,0.12)] hover:bg-[#607938]/15"
                   }`}
                 >
                   <Heart size={16} className={liked ? "fill-white" : ""} />
@@ -983,14 +1001,14 @@ const BlogDetailsPage = () => {
           {/* ── Sidebar ──────────────────────────────────────── */}
           <aside className="space-y-6 lg:sticky lg:top-24 self-start">
             {/* Author card */}
-            <div className="bg-surface rounded-3xl shadow-card border border-border-light p-6 relative overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-br from-cyan to-cyan-dim" />
+            <div className="relative overflow-hidden rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-6 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3]">
+              <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-br from-[#607938] to-[#4e632d]" />
               <div className="relative">
-                <div className="w-16 h-16 rounded-full bg-white border-4 border-white shadow-card flex items-center justify-center text-cyan font-bold text-2xl mb-3">
+                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full border-4 border-[#EEDFC7] bg-[#dfd2bc] text-2xl font-extrabold text-[#607938] shadow-[inset_1px_2px_5px_rgba(45,43,34,0.18),2px_4px_10px_rgba(45,43,34,0.2)]">
                   {authorInitial}
                 </div>
-                <p className="font-bold text-text-primary">{authorName}</p>
-                <p className="text-xs text-text-muted mt-1">
+                <p className="font-extrabold text-[#2D2B22]">{authorName}</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#6E6A59]">
                   Visa specialists writing about travel, immigration and the small print so you
                   don't have to.
                 </p>
@@ -998,17 +1016,17 @@ const BlogDetailsPage = () => {
             </div>
 
             {/* Related articles */}
-            <div className="bg-surface rounded-3xl shadow-card border border-border-light p-6">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-8 h-8 rounded-xl bg-cyan/10 text-cyan flex items-center justify-center">
+            <div className="rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-6 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3]">
+              <div className="mb-5 flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#dfd2bc] text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)]">
                   <BookOpen size={16} />
                 </div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary">
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#2D2B22]">
                   Related articles
                 </h3>
               </div>
               {related.length === 0 ? (
-                <p className="text-sm text-text-muted">No related posts yet.</p>
+                <p className="text-sm text-[#6E6A59]">No related posts yet.</p>
               ) : (
                 <ul className="space-y-4">
                   {related.slice(0, 4).map((r) => {
@@ -1024,22 +1042,22 @@ const BlogDetailsPage = () => {
                               width={160}
                             />
                             {rBadge.day ? (
-                              <div className="absolute -top-1 -left-1 bg-gold text-white rounded-md text-[9px] font-bold leading-none px-1.5 py-1 shadow">
+                              <div className="absolute -top-1 -left-1 rounded-md bg-[#2D2B22]/85 px-1.5 py-1 text-[9px] font-bold leading-none text-[#EEDFC7] shadow">
                                 {rBadge.day}
-                                <span className="block text-[8px] tracking-widest mt-0.5">
+                                <span className="mt-0.5 block text-[8px] tracking-widest">
                                   {rBadge.month}
                                 </span>
                               </div>
                             ) : null}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-text-primary line-clamp-2 group-hover:text-cyan transition-colors">
+                            <p className="line-clamp-2 text-sm font-bold text-[#2D2B22] transition-colors group-hover:text-[#607938]">
                               {r.title}
                             </p>
-                            <p className="text-xs text-text-muted mt-1.5 flex items-center gap-2">
-                              <Heart size={11} /> {r.likesCount || 0}
-                              <span className="text-text-muted/50">·</span>
-                              <MessageCircle size={11} /> {r.commentsCount || 0}
+                            <p className="mt-1.5 flex items-center gap-2 text-xs text-[#6E6A59]">
+                              <Heart size={11} className="text-[#607938]" /> {r.likesCount || 0}
+                              <span className="opacity-50">·</span>
+                              <MessageCircle size={11} className="text-[#607938]" /> {r.commentsCount || 0}
                             </p>
                           </div>
                         </Link>
@@ -1050,25 +1068,25 @@ const BlogDetailsPage = () => {
               )}
               <Link
                 to="/blog"
-                className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-cyan hover:text-cyan-dim"
+                className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-[#607938] hover:text-[#4e632d]"
               >
                 Browse all articles <ArrowRight size={14} />
               </Link>
             </div>
 
             {/* CTA — visa concierge */}
-            <div className="rounded-3xl p-6 bg-gradient-to-br from-cyan via-cyan-dim to-cyan-dim text-white shadow-cyan-glow-lg overflow-hidden relative">
-              <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/15" />
-              <div className="absolute -right-2 bottom-2 w-12 h-12 rounded-full bg-white/10" />
-              <Sparkles size={28} className="text-gold mb-3 relative" />
-              <h3 className="text-lg font-bold relative">Need a visa expert?</h3>
-              <p className="text-sm text-white/85 mt-1.5 relative">
+            <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#607938] to-[#4e632d] p-6 text-white shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3]">
+              <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/12" />
+              <div className="absolute -right-2 bottom-2 h-12 w-12 rounded-full bg-white/10" />
+              <Sparkles size={28} className="relative mb-3 text-[#EEDFC7]" />
+              <h3 className="relative text-lg font-extrabold">Need a visa expert?</h3>
+              <p className="relative mt-1.5 text-sm text-white/85">
                 Our specialists pre-check your documents before submission so you don't lose
                 fees to avoidable mistakes.
               </p>
               <Link
                 to="/"
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold bg-white text-cyan px-4 py-2 rounded-full hover:bg-white/90 transition-colors relative"
+                className="relative mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#EEDFC7] px-4 py-2.5 text-sm font-bold text-[#2D2B22] shadow-[2px_4px_10px_rgba(25,24,18,0.25)] transition-all hover:bg-[#f5ead8] active:translate-y-[1px]"
               >
                 Explore destinations <ArrowRight size={14} />
               </Link>
@@ -1078,19 +1096,19 @@ const BlogDetailsPage = () => {
 
         {/* ── Comments ───────────────────────────────────────── */}
         <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-20">
-          <div className="bg-surface rounded-3xl shadow-card border border-border-light p-6 sm:p-10">
-            <div className="flex items-start gap-3 mb-7">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan to-cyan-dim text-white flex items-center justify-center shadow-cyan-glow">
+          <div className="rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-6 sm:p-10 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3]">
+            <div className="mb-7 flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#607938] text-white shadow-[2px_3px_8px_rgba(45,43,34,0.2)]">
                 <MessageCircle size={18} />
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-text-primary">
+                <h2 className="text-xl font-extrabold text-[#2D2B22] sm:text-2xl">
                   Join the discussion
                 </h2>
-                <p className="text-sm text-text-muted mt-1">
+                <p className="mt-1 text-sm text-[#6E6A59]">
                   {commentPagination.total || 0}{" "}
                   {commentPagination.total === 1 ? "comment" : "comments"} · Use{" "}
-                  <span className="font-mono text-cyan">@username</span> to mention someone.
+                  <span className="font-mono font-semibold text-[#607938]">@username</span> to mention someone.
                 </p>
               </div>
             </div>
@@ -1098,10 +1116,10 @@ const BlogDetailsPage = () => {
             {isAuthenticated ? (
               <form
                 onSubmit={handleSubmitComment}
-                className="bg-gradient-to-br from-cyan/5 to-transparent rounded-2xl border border-cyan-border/40 p-4 mb-8"
+                className="mb-8 rounded-2xl border border-[#2D2B22]/12 bg-[#dfd2bc]/55 p-4"
               >
-                <div className="flex gap-3 items-start">
-                  <div className="w-10 h-10 rounded-full bg-cyan/15 text-cyan flex items-center justify-center font-bold flex-shrink-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#dfd2bc] font-extrabold text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.18)]">
                     {(user?.name || "?").charAt(0).toUpperCase()}
                   </div>
                   <textarea
@@ -1109,11 +1127,11 @@ const BlogDetailsPage = () => {
                     value={commentDraft}
                     onChange={(e) => setCommentDraft(e.target.value)}
                     placeholder={`Comment as ${user?.name || "you"}…`}
-                    className="flex-1 bg-surface border border-border rounded-2xl px-4 py-3 text-sm text-text-primary placeholder-text-muted resize-none focus:outline-none focus:ring-2 focus:ring-cyan/30"
+                    className="flex-1 resize-none rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-4 py-3 text-sm font-medium text-[#2D2B22] placeholder-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.18)] transition-colors focus:border-[#607938] focus:bg-[#EEDFC7] focus:outline-none"
                   />
                 </div>
-                <div className="flex items-center justify-between mt-3 pl-[3.25rem]">
-                  <p className="text-xs text-text-muted pl-1">
+                <div className="mt-3 flex items-center justify-between pl-[3.25rem]">
+                  <p className="pl-1 text-xs text-[#6E6A59]">
                     Be kind. We moderate spam and abuse.
                   </p>
                   <Button
@@ -1121,7 +1139,7 @@ const BlogDetailsPage = () => {
                     variant="primary"
                     loading={posting}
                     leftIcon={<Send size={15} />}
-                    className="rounded-full"
+                    className="rounded-xl bg-[#607938] px-5 text-white shadow-[2px_3px_8px_rgba(45,43,34,0.22)] hover:bg-[#536930]"
                     disabled={!commentDraft.trim()}
                   >
                     Post
@@ -1129,20 +1147,20 @@ const BlogDetailsPage = () => {
                 </div>
               </form>
             ) : (
-              <div className="bg-gradient-to-br from-cyan/10 to-cyan/5 border border-cyan-border rounded-2xl p-5 mb-8 text-sm flex flex-wrap items-center justify-between gap-3">
+              <div className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#2D2B22]/12 bg-[#dfd2bc]/70 p-5 text-sm">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-cyan/20 text-cyan flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EEDFC7] text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)]">
                     <UserIcon size={18} />
                   </div>
                   <div>
-                    <p className="font-semibold text-text-primary">Join the conversation</p>
-                    <p className="text-xs text-text-muted">
+                    <p className="font-bold text-[#2D2B22]">Join the conversation</p>
+                    <p className="text-xs text-[#6E6A59]">
                       Sign in to like, comment, and reply.
                     </p>
                   </div>
                 </div>
                 <Link to="/login">
-                  <Button variant="primary" size="sm" className="rounded-full">
+                  <Button variant="primary" size="sm" className="rounded-xl bg-[#607938] text-white shadow-[2px_3px_6px_rgba(45,43,34,0.2)] hover:bg-[#536930]">
                     Sign in
                   </Button>
                 </Link>

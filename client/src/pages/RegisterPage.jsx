@@ -132,7 +132,7 @@ const ProfileCompletionStep = ({ values, errors, showEmail, onChange, onSubmit, 
         value={values.firstName}
         onChange={(e) => onChange("firstName", e.target.value)}
         error={errors.firstName}
-        className="h-[52px] rounded-full border-border bg-surface px-5 text-[15px] placeholder:text-text-muted focus:ring-1 focus:ring-text-primary focus:border-text-primary"
+        className="h-[52px] rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
         required
       />
       <Input
@@ -142,7 +142,7 @@ const ProfileCompletionStep = ({ values, errors, showEmail, onChange, onSubmit, 
         value={values.lastName}
         onChange={(e) => onChange("lastName", e.target.value)}
         error={errors.lastName}
-        className="h-[52px] rounded-full border-border bg-surface px-5 text-[15px] placeholder:text-text-muted focus:ring-1 focus:ring-text-primary focus:border-text-primary"
+        className="h-[52px] rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
         required
       />
       {showEmail && (
@@ -154,7 +154,7 @@ const ProfileCompletionStep = ({ values, errors, showEmail, onChange, onSubmit, 
           value={values.email}
           onChange={(e) => onChange("email", e.target.value)}
           error={errors.email}
-          className="h-[52px] rounded-full border-border bg-surface px-5 text-[15px] placeholder:text-text-muted focus:ring-1 focus:ring-text-primary focus:border-text-primary"
+          className="h-[52px] rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
           required
         />
       )}
@@ -168,7 +168,7 @@ const ProfileCompletionStep = ({ values, errors, showEmail, onChange, onSubmit, 
         variant="primary"
         fullWidth
         loading={loading}
-        className="h-[52px] rounded-full bg-cyan text-white hover:bg-cyan-dim text-[15px] font-medium mt-2 shadow-none border-none"
+        className="h-[52px] rounded-2xl bg-[#607938] text-white hover:bg-[#536930] text-[15px] font-semibold mt-2 shadow-[1px_3px_8px_rgba(45,43,34,0.32)] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.5),inset_0_1px_3px_rgba(0,0,0,0.35)] border-none"
       >
         Continue
       </Button>
@@ -558,20 +558,14 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
 
   if (controlsLoading) {
     return (
-      <div className={`${embedded ? "min-h-[260px]" : "min-h-screen"} bg-background hero-gradient flex flex-col items-center justify-center px-4 py-8 font-sans relative overflow-hidden`}>
-        <Loader2 className="animate-spin text-text-muted" size={32} />
+      <div className={`${embedded ? "min-h-[260px]" : "min-h-screen"} bg-[#EEDFC7] text-[#2D2B22] flex flex-col items-center justify-center px-4 py-8 font-sans relative overflow-hidden`}>
+        <Loader2 className="animate-spin text-[#6E6A59]" size={32} />
       </div>
     );
   }
 
   return (
-    <div className={`${embedded ? "min-h-0" : "min-h-screen"} bg-background hero-gradient flex flex-col items-center justify-center px-4 ${embedded ? "py-8" : "py-10"} font-sans relative overflow-hidden`}>
-      <div className="absolute inset-0 dot-pattern opacity-40 pointer-events-none" aria-hidden="true" />
-      <div
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full opacity-20 blur-[120px] pointer-events-none"
-        style={{ background: "radial-gradient(circle, #0284c7 0%, transparent 70%)" }}
-        aria-hidden="true"
-      />
+    <div className={`${embedded ? "min-h-0" : "min-h-screen"} bg-[#EEDFC7] text-[#2D2B22] flex flex-col items-center justify-center px-4 ${embedded ? "py-8" : "py-10"} font-sans relative overflow-hidden`}>
       <div className="relative z-10 w-full max-w-[400px]">
         <AnimatePresence mode="wait">
 
@@ -609,7 +603,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                     type="button"
                     onClick={handleGoogleSignup}
                     disabled={isLoading}
-                    className="w-full rounded-full border border-border bg-surface px-4 py-3.5 text-[15px] font-medium text-text-primary transition-colors hover:bg-surface-2 disabled:opacity-60 flex items-center justify-center gap-3"
+                    className="w-full rounded-full border border-[#2D2B22]/15 bg-[#dfd2bc]/80 px-4 py-3.5 text-[15px] font-semibold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.16),0_1px_2px_rgba(45,43,34,0.1)] transition-all hover:bg-[#dfd2bc] active:translate-y-[1px] active:bg-[#d5c5ab] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.28),inset_0_1px_2px_rgba(45,43,34,0.18)] disabled:opacity-60 flex items-center justify-center gap-3"
                   >
                     <GoogleMark />
                     Continue with Google
@@ -620,7 +614,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                     type="button"
                     onClick={handleFacebookSignup}
                     disabled={isLoading}
-                    className="w-full rounded-full border border-border bg-surface px-4 py-3.5 text-[15px] font-medium text-text-primary transition-colors hover:bg-surface-2 disabled:opacity-60 flex items-center justify-center gap-3"
+                    className="w-full rounded-full border border-[#2D2B22]/15 bg-[#dfd2bc]/80 px-4 py-3.5 text-[15px] font-semibold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.16),0_1px_2px_rgba(45,43,34,0.1)] transition-all hover:bg-[#dfd2bc] active:translate-y-[1px] active:bg-[#d5c5ab] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.28),inset_0_1px_2px_rgba(45,43,34,0.18)] disabled:opacity-60 flex items-center justify-center gap-3"
                   >
                     <FacebookMark />
                     Continue with Facebook
@@ -628,16 +622,16 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                 )}
 
                 {otpAuthEnabled && (
-                <div className="rounded-3xl border border-border bg-surface overflow-hidden transition-colors">
+                <div className="rounded-3xl border border-[#2D2B22]/15 bg-[#dfd2bc]/80 shadow-[2px_3px_6px_rgba(45,43,34,0.16),0_1px_2px_rgba(45,43,34,0.1)] overflow-hidden transition-all">
                   <button
                     type="button"
                     onClick={() => {
                       setSignupMethod(signupMethod === "otp" ? "" : "otp");
                       clearError();
                     }}
-                    className="w-full px-4 py-3.5 text-[15px] font-medium text-text-primary hover:bg-surface-2 flex items-center justify-center gap-3"
+                    className="w-full px-4 py-3.5 text-[15px] font-semibold text-[#2D2B22] hover:bg-[#dfd2bc] active:translate-y-[1px] active:bg-[#d5c5ab] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.28),inset_0_1px_2px_rgba(45,43,34,0.18)] flex items-center justify-center gap-3 transition-all"
                   >
-                    <Smartphone size={18} className="text-text-primary" />
+                    <Smartphone size={18} className="text-[#2D2B22]" />
                     {otpSignupLabel}
                   </button>
                   <AnimatePresence>
@@ -684,7 +678,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                                   clearError();
                                 }}
                                 error={fieldErrors.email || fieldErrors.phone || fieldErrors.both}
-                                className={`h-[52px] w-full rounded-full border-border bg-surface pr-5 text-[15px] placeholder:text-text-muted focus:ring-1 focus:ring-text-primary focus:border-text-primary ${otpPhoneEnabled ? "pl-14" : "pl-5"}`}
+                                className={`h-[52px] w-full rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] pr-5 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938] ${otpPhoneEnabled ? "pl-14" : "pl-5"}`}
                                 leftIcon={otpPhoneEnabled ? <span className="font-medium text-text-primary ml-1.5">{phoneCountryCode}</span> : null}
                                 required
                               />
@@ -714,7 +708,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                               variant="primary"
                               fullWidth
                               loading={isLoading}
-                              className="h-[52px] rounded-full bg-cyan text-white hover:bg-cyan-dim text-[15px] font-medium mt-2 shadow-none border-none"
+                              className="h-[52px] rounded-2xl bg-[#607938] text-white hover:bg-[#536930] text-[15px] font-semibold mt-2 shadow-[1px_3px_8px_rgba(45,43,34,0.32)] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.5),inset_0_1px_3px_rgba(0,0,0,0.35)] border-none"
                             >
                               Send OTP
                             </Button>
@@ -754,7 +748,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                     setFieldErrors({});
                     clearError();
                   }}
-                  className="h-[52px] rounded-full border-border bg-surface px-5 text-[15px] placeholder:text-text-muted focus:ring-1 focus:ring-text-primary focus:border-text-primary"
+                  className="h-[52px] rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
                   required
                 />
 
@@ -777,7 +771,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                       clearError();
                     }}
                     error={fieldErrors.email || fieldErrors.phone || fieldErrors.both}
-                    className={`h-[52px] w-full rounded-full border-border bg-surface pr-5 text-[15px] placeholder:text-text-muted focus:ring-1 focus:ring-text-primary focus:border-text-primary ${otpPhoneEnabled ? "pl-14" : "pl-5"}`}
+                    className={`h-[52px] w-full rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] pr-5 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938] ${otpPhoneEnabled ? "pl-14" : "pl-5"}`}
                     leftIcon={otpPhoneEnabled ? <span className="font-medium text-text-primary ml-1.5">{phoneCountryCode}</span> : null}
                     required
                   />
@@ -814,7 +808,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                           clearError();
                         }}
                         autoComplete="new-password"
-                        className="h-[52px] rounded-full border-border bg-surface px-5 pr-12 text-[15px] placeholder:text-text-muted focus:ring-1 focus:ring-text-primary focus:border-text-primary"
+                        className="h-[52px] rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pr-12 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
                         rightIcon={
                           <button
                             type="button"
@@ -867,7 +861,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                         if (confirmPasswordError) setConfirmPasswordError("");
                       }}
                       autoComplete="new-password"
-                      className="h-[52px] rounded-full border-border bg-surface px-5 pr-12 text-[15px] placeholder:text-text-muted focus:ring-1 focus:ring-text-primary focus:border-text-primary"
+                      className="h-[52px] rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pr-12 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
                       error={confirmPasswordError}
                       required
                     />
@@ -879,7 +873,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                   variant="primary"
                   fullWidth
                   loading={isLoading}
-                  className="h-[52px] rounded-full bg-cyan text-white hover:bg-cyan-dim text-[15px] font-medium mt-2 shadow-none border-none"
+                  className="h-[52px] rounded-2xl bg-[#607938] text-white hover:bg-[#536930] text-[15px] font-semibold mt-2 shadow-[1px_3px_8px_rgba(45,43,34,0.32)] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.5),inset_0_1px_3px_rgba(0,0,0,0.35)] border-none"
                 >
                   Continue
                 </Button>
@@ -887,18 +881,18 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
               )}
 
               <div className="mt-8 text-center text-[14px]">
-                <p className="text-text-primary font-medium">
+                <p className="text-[#6E6A59] font-medium">
                   Already have an account?{" "}
                   {embedded ? (
                     <button
                       type="button"
                       onClick={onSwitchToLogin}
-                      className="text-[#3b82f6] hover:text-[#2563eb] transition-colors"
+                      className="font-bold text-[#607938] hover:text-[#4e632d] transition-colors"
                     >
                       Log in
                     </button>
                   ) : (
-                    <Link to="/login" replace className="text-[#3b82f6] hover:text-[#2563eb] transition-colors">
+                    <Link to="/login" replace className="font-bold text-[#607938] hover:text-[#4e632d] transition-colors">
                       Log in
                     </Link>
                   )}
@@ -984,7 +978,7 @@ const RegisterPage = ({ embedded = false, onClose, onSwitchToLogin, onAuthentica
                   fullWidth
                   loading={isLoading}
                   disabled={otpDigits.join("").length !== otpLength}
-                  className="h-[52px] rounded-full bg-cyan text-white hover:bg-cyan-dim text-[15px] font-medium shadow-none border-none"
+                  className="h-[52px] rounded-2xl bg-[#607938] text-white hover:bg-[#536930] text-[15px] font-semibold shadow-[1px_3px_8px_rgba(45,43,34,0.32)] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.5),inset_0_1px_3px_rgba(0,0,0,0.35)] border-none"
                 >
                   Verify
                 </Button>

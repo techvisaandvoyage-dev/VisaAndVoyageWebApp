@@ -3,6 +3,8 @@ const crypto = require('crypto');
 const Settings = require('../models/Settings');
 const Transaction = require('../models/Transaction');
 const Application = require('../models/Application');
+const { loadSettingsDocument } = require('../utils/settingsDocument');
+const { calculateCouponDiscount } = require('../utils/couponUtils');
 
 const appendApplicationNote = (application, message) => {
   const line = String(message || '').trim();
@@ -41,7 +43,7 @@ const getRazorpayInstance = async () => {
  */
 const createOrder = async (req, res) => {
   try {
-    const { amount, applicationId } = req.body;
+    const { amount, applicationId, couponCode } = req.body;
     
     console.log("--- Payment Debug Start ---");
     console.log("1. Raw Amount from Frontend:", amount);
@@ -56,10 +58,37 @@ const createOrder = async (req, res) => {
 
     // 🛠️ Secure Logic: Completely ignore any amount sent from the frontend.
     // Fetch the exact total fee (government fee + service fee + GST + forex markup) saved securely by the backend during checkout draft creation.
-    const finalRupees = Number(application.fee);
-    
-    if (!finalRupees || finalRupees <= 0) {
+    const baseFee = Number(application.originalFee) > 0
+      ? Number(application.originalFee)
+      : Number(application.fee);
+
+    if (!baseFee || baseFee <= 0) {
       return res.status(400).json({ success: false, message: 'Invalid application fee. Please recreate your checkout draft.' });
+    }
+
+    let finalRupees = baseFee;
+    const trimmedCoupon = String(couponCode || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (trimmedCoupon) {
+      const settings = await loadSettingsDocument();
+      const result = calculateCouponDiscount({
+        config: settings?.paymentSummaryPageConfig,
+        code: trimmedCoupon,
+        totalAmount: baseFee,
+        serviceFee: Number(application.serviceFee || 0),
+        taxes: Number(application.taxes || 0),
+      });
+      if (!result.valid) {
+        return res.status(400).json({ success: false, message: result.message });
+      }
+      application.originalFee = baseFee;
+      application.couponCode = result.coupon.code;
+      application.discountAmount = result.discountAmount;
+      application.fee = result.finalAmount;
+      finalRupees = result.finalAmount;
+    } else if (Number(application.originalFee) > 0) {
+      application.fee = baseFee;
+      application.couponCode = '';
+      application.discountAmount = 0;
     }
 
     const options = {
@@ -356,11 +385,43 @@ const failPayment = async (req, res) => {
   }
 };
 
+/**
+ * @route   POST /api/coupons/validate
+ * @desc    Validate a coupon code for Payment Summary preview
+ * @access  Public
+ */
+const validateCoupon = async (req, res) => {
+  try {
+    const { code, totalAmount, serviceFee, taxes } = req.body || {};
+    const settings = await loadSettingsDocument();
+    const result = calculateCouponDiscount({
+      config: settings?.paymentSummaryPageConfig,
+      code,
+      totalAmount,
+      serviceFee,
+      taxes,
+    });
+    if (!result.valid) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+    return res.json({
+      success: true,
+      coupon: result.coupon,
+      discountAmount: result.discountAmount,
+      finalAmount: result.finalAmount,
+    });
+  } catch (error) {
+    console.error('Error validating coupon:', error);
+    return res.status(500).json({ success: false, message: 'Could not validate coupon code' });
+  }
+};
+
 module.exports = {
   createOrder,
   verifyPayment,
   cancelPayment,
   failPayment,
   getMyTransactions,
-  getAllTransactions
+  getAllTransactions,
+  validateCoupon,
 };

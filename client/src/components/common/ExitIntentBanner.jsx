@@ -7,12 +7,13 @@ const EXIT_INTENT_PENDING_KEY = "exitIntentPendingContext";
 const REVISIT_THRESHOLD_MS = 5 * 60 * 1000;
 const REVISIT_BANNER_DELAY_MS = 1200;
 
-const buildPendingContext = (pathname) => {
+const buildPendingContext = (pathname, search = "") => {
+  const fullPath = `${pathname}${search || ""}`;
   const applyMatch = pathname.match(/^\/apply\/([^/]+)/);
   if (applyMatch) {
     return {
       type: "apply",
-      targetPath: `${pathname}#travel-details`,
+      targetPath: fullPath,
       updatedAt: Date.now(),
     };
   }
@@ -26,11 +27,11 @@ const buildPendingContext = (pathname) => {
     };
   }
 
-  const destinationMatch = pathname.match(/^\/destination\/([^/]+)$/);
-  if (destinationMatch) {
+  const destinationApplyMatch = pathname.match(/^\/destination\/([^/]+)\/apply$/);
+  if (destinationApplyMatch) {
     return {
       type: "destination-apply",
-      targetPath: `${pathname}#travel-details`,
+      targetPath: fullPath,
       updatedAt: Date.now(),
     };
   }
@@ -39,7 +40,16 @@ const buildPendingContext = (pathname) => {
   if (summaryMatch) {
     return {
       type: "payment-summary",
-      targetPath: pathname,
+      targetPath: fullPath,
+      updatedAt: Date.now(),
+    };
+  }
+
+  const destinationMatch = pathname.match(/^\/destination\/([^/]+)$/);
+  if (destinationMatch) {
+    return {
+      type: "destination",
+      targetPath: fullPath,
       updatedAt: Date.now(),
     };
   }
@@ -82,16 +92,16 @@ const ExitIntentBanner = () => {
   }, []);
 
   useEffect(() => {
-    const context = buildPendingContext(location.pathname);
+    const context = buildPendingContext(location.pathname, location.search);
     if (context) {
       writePendingContext(context);
     }
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const currentFlowContext = buildPendingContext(location.pathname);
+    const currentFlowContext = buildPendingContext(location.pathname, location.search);
     if (!currentFlowContext) return;
 
     const handleBeforeUnload = (event) => {
@@ -176,14 +186,23 @@ const ExitIntentBanner = () => {
     setVisible(false);
 
     const pendingContext = readPendingContext();
+    const currentFull = `${location.pathname}${location.search || ""}`;
     if (pendingContext && pendingContext.targetPath) {
-      if (pendingContext.targetPath === location.pathname) {
-        // We are already on the correct page. Simply dismissing the banner preserves the unsaved form state.
+      const targetWithoutHash = String(pendingContext.targetPath).split("#")[0];
+      if (targetWithoutHash === currentFull || targetWithoutHash === location.pathname) {
+        // Already on the exact page — dismissing preserves unsaved form state.
         return;
       }
       navigate(pendingContext.targetPath, {
         state: { resumedFromExitIntent: true },
-        replace: true,
+      });
+      return;
+    }
+
+    const lastCountryId = localStorage.getItem("lastActiveCountryId");
+    if (lastCountryId) {
+      navigate(`/destination/${lastCountryId}/apply`, {
+        state: { resumedFromExitIntent: true },
       });
       return;
     }
@@ -202,21 +221,21 @@ const ExitIntentBanner = () => {
         }`}
         inert={visible ? undefined : ""}
       >
-        <div className="overflow-hidden rounded-2xl border border-cyan/20 bg-white/90 shadow-[0_22px_60px_-30px_rgba(8,145,178,0.35)] backdrop-blur-xl">
-          <div className="flex items-start gap-3 p-4 sm:p-5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan/10 text-cyan">
-              <ShieldCheck size={18} />
+        <div className="overflow-hidden rounded-[20px] border border-[#2D2B22]/15 bg-[#EEDFC7]/95 text-[#2D2B22] shadow-[0_22px_54px_rgba(45,43,34,0.32),0_4px_12px_rgba(45,43,34,0.14)] backdrop-blur-md">
+          <div className="flex items-start gap-3.5 p-4 sm:p-5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#607938]/25 bg-[#dfd2bc] text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.14)]">
+              <ShieldCheck size={19} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold text-slate-950">Leaving already?</p>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="text-base font-extrabold text-[#2D2B22]">Leaving already?</p>
+              <p className="mt-1 text-sm leading-6 text-[#6E6A59]">
                 Complete your visa application now and save your progress.
               </p>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
                 <button
                   type="button"
                   onClick={handleContinue}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan/90"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#607938] px-4 py-2.5 text-sm font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.5),inset_0_1px_3px_rgba(0,0,0,0.35)]"
                 >
                   Continue Application
                   <ArrowRight size={15} />
@@ -224,7 +243,7 @@ const ExitIntentBanner = () => {
                 <button
                   type="button"
                   onClick={closeBanner}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                  className="inline-flex items-center justify-center rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc]/80 px-4 py-2.5 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.14),0_1px_2px_rgba(45,43,34,0.08)] transition-all hover:bg-[#dfd2bc] active:translate-y-[1px] active:bg-[#d5c5ab] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.24)]"
                 >
                   Maybe Later
                 </button>
@@ -234,7 +253,7 @@ const ExitIntentBanner = () => {
               type="button"
               onClick={closeBanner}
               aria-label="Close exit intent banner"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dfd2bc]/70 text-[#2D2B22] shadow-[1px_2px_4px_rgba(45,43,34,0.12)] transition-all hover:bg-[#dfd2bc] active:translate-y-[1px] active:shadow-[inset_1px_2px_4px_rgba(45,43,34,0.24)]"
             >
               <X size={16} />
             </button>

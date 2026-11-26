@@ -14,7 +14,7 @@ import {
   ExternalLink, GalleryVertical, BadgeCheck, ShieldCheck, ListChecks, ScrollText, CalendarDays, MessageSquare, RotateCcw,
   Briefcase, Banknote, GraduationCap, Stethoscope, Stamp, Receipt, Home, Car, HeartHandshake, Plane, Building2, Zap, Lock,
   Mail, Youtube, Linkedin, Link as LinkIcon, MessageCircle, Trash2, Loader2, ChevronRight, PanelBottom, LayoutTemplate,
-  Info, ArrowUp, ArrowDown, Type, Eye,
+  Info, ArrowUp, ArrowDown, Type, Eye, Tag,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -1411,6 +1411,15 @@ const mapApiSettingsToFormState = (s, activeCountryIds = []) => ({
       ? s.startApplicationPageCopy.showGDriveUpload
       : (s.enableGDriveUpload !== false),
   },
+  paymentSummaryPageConfig: {
+    couponsEnabled: s?.paymentSummaryPageConfig?.couponsEnabled !== false,
+    couponSectionLabel: s?.paymentSummaryPageConfig?.couponSectionLabel || "Have a coupon code?",
+    couponPlaceholder: s?.paymentSummaryPageConfig?.couponPlaceholder || "Enter coupon code",
+    couponApplyButtonText: s?.paymentSummaryPageConfig?.couponApplyButtonText || "Apply",
+    coupons: Array.isArray(s?.paymentSummaryPageConfig?.coupons)
+      ? s.paymentSummaryPageConfig.coupons
+      : [],
+  },
   destinationWhyBookNow: mapDestinationWhyBookNowItemsFromApi(s, activeCountryIds),
   destinationIncludedItems: mapDestinationIncludedItemsFromApi(s, activeCountryIds),
   destinationFaqs: mapDestinationFaqItemsFromApi(s, activeCountryIds),
@@ -2381,6 +2390,13 @@ const Dashboard = () => {
       faqsHeading: "Frequently Asked Questions",
     },
     startApplicationPageCopy: { ...DEFAULT_START_APPLICATION_PAGE_COPY },
+    paymentSummaryPageConfig: {
+      couponsEnabled: true,
+      couponSectionLabel: "Have a coupon code?",
+      couponPlaceholder: "Enter coupon code",
+      couponApplyButtonText: "Apply",
+      coupons: [],
+    },
     destinationWhyBookNow: normalizeVisibleTextItems([], DESTINATION_PAGE_DEFAULT_WHY_BOOK_NOW, []),
     destinationIncludedItems: normalizeVisibleIncludedItems([], DESTINATION_PAGE_DEFAULT_INCLUDED, []),
     destinationFaqs: normalizeVisibleFaqItems([], DESTINATION_PAGE_DEFAULT_FAQS, []),
@@ -2413,6 +2429,13 @@ const Dashboard = () => {
   const [otpSettingsForm, setOtpSettingsForm] = useState(DEFAULT_OTP_SETTINGS);
   const [savingSettingsKey, setSavingSettingsKey] = useState(null);
   const [instantToggleBusyKey, setInstantToggleBusyKey] = useState(null);
+  const [newCouponDraft, setNewCouponDraft] = useState({
+    editingId: null,
+    code: "",
+    discountType: "percentage",
+    discountValue: "",
+    description: "",
+  });
 
   /*
    * Universal control system - admin sets a single global Visa Type / Validity that
@@ -2622,6 +2645,14 @@ const Dashboard = () => {
                 { key: "traveler-form-manager", label: "Traveler Form" },
                 { key: "upload-methods", label: "Document Uploads" },
                 { key: "application-documents", label: "Documents" },
+              ],
+            },
+            {
+              key: "payment-summary-page",
+              label: "Payment Summary Page",
+              icon: CreditCard,
+              children: [
+                { key: "payment-summary-coupons", label: "Coupon Codes" },
               ],
             },
           ],
@@ -4262,6 +4293,10 @@ const Dashboard = () => {
         setIsSms91Configured(flags.isSms91Configured);
         setIsUnsplashConfigured(flags.isUnsplashConfigured);
         const serverMapped = mapApiSettingsToFormState(data.settings, activeCountryIds);
+        if (safePayload.paymentSummaryPageConfig && !data.settings.paymentSummaryPageConfig) {
+          showToast("Backend server restart required to save coupon settings.", "error");
+          return;
+        }
         setSettingsForm((prev) => {
           const nextForm = { ...prev };
           Object.keys(safePayload).forEach((key) => {
@@ -10101,6 +10136,380 @@ const Dashboard = () => {
                         }
                       >
                         Save Document Copy Settings
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              <div className={isControlSectionVisible("payment-summary-coupons") ? "w-full max-w-none flex-1 xl:col-span-2 self-stretch" : "hidden"}>
+                <Card>
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan/10 text-cyan">
+                        <Tag size={20} />
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-text-primary">Payment Summary Page — Coupon Codes</h2>
+                        <p className="text-xs text-text-muted">Enable coupon input, customize labels, and create/manage discount coupons for the Payment Summary page.</p>
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                      <span className="text-xs font-medium text-text-muted">
+                        {(settingsForm.paymentSummaryPageConfig?.couponsEnabled ?? true) ? "Enabled" : "Disabled"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSettingsForm((p) => ({
+                            ...p,
+                            paymentSummaryPageConfig: {
+                              ...(p.paymentSummaryPageConfig || {}),
+                              couponsEnabled: !(p.paymentSummaryPageConfig?.couponsEnabled ?? true),
+                            },
+                          }))
+                        }
+                        className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-1 ${(settingsForm.paymentSummaryPageConfig?.couponsEnabled ?? true) ? "bg-emerald-500" : "bg-surface-3 border border-border"}`}
+                      >
+                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${(settingsForm.paymentSummaryPageConfig?.couponsEnabled ?? true) ? "translate-x-5" : "translate-x-0"}`} />
+                      </button>
+                    </label>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* UI Copy Settings */}
+                    <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                        <h3 className="text-sm font-semibold text-text-primary">Coupon Box Labels</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Input
+                          label="Section Label"
+                          placeholder="Have a coupon code?"
+                          value={settingsForm.paymentSummaryPageConfig?.couponSectionLabel ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              paymentSummaryPageConfig: {
+                                ...(p.paymentSummaryPageConfig || {}),
+                                couponSectionLabel: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Input Placeholder"
+                          placeholder="Enter coupon code"
+                          value={settingsForm.paymentSummaryPageConfig?.couponPlaceholder ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              paymentSummaryPageConfig: {
+                                ...(p.paymentSummaryPageConfig || {}),
+                                couponPlaceholder: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          label="Apply Button Text"
+                          placeholder="Apply"
+                          value={settingsForm.paymentSummaryPageConfig?.couponApplyButtonText ?? ""}
+                          onChange={(e) =>
+                            setSettingsForm((p) => ({
+                              ...p,
+                              paymentSummaryPageConfig: {
+                                ...(p.paymentSummaryPageConfig || {}),
+                                couponApplyButtonText: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* Add / Edit Coupon */}
+                    <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">
+                            {newCouponDraft.editingId ? "Edit Coupon" : "Add New Coupon"}
+                          </h3>
+                        </div>
+                        {newCouponDraft.editingId && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setNewCouponDraft({
+                                editingId: null,
+                                code: "",
+                                discountType: "percentage",
+                                discountValue: "",
+                                description: "",
+                              })
+                            }
+                            className="text-xs font-medium text-text-muted hover:text-text-primary"
+                          >
+                            Cancel Edit
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <Input
+                          label="Coupon Code"
+                          placeholder="e.g. VISA10"
+                          value={newCouponDraft.code}
+                          onChange={(e) =>
+                            setNewCouponDraft((d) => ({
+                              ...d,
+                              code: e.target.value.toUpperCase().replace(/\s+/g, ""),
+                            }))
+                          }
+                        />
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-medium text-text-secondary">
+                            Discount Type
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-border bg-surface p-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNewCouponDraft((d) => ({ ...d, discountType: "percentage" }))
+                              }
+                              className={`h-8 rounded-lg text-xs font-semibold transition-colors ${
+                                newCouponDraft.discountType === "percentage"
+                                  ? "bg-cyan text-white shadow-sm"
+                                  : "text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              % Off
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNewCouponDraft((d) => ({ ...d, discountType: "flat" }))
+                              }
+                              className={`h-8 rounded-lg text-xs font-semibold transition-colors ${
+                                newCouponDraft.discountType === "flat"
+                                  ? "bg-cyan text-white shadow-sm"
+                                  : "text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              ₹ Flat Off
+                            </button>
+                          </div>
+                        </div>
+                        <Input
+                          label={newCouponDraft.discountType === "percentage" ? "Discount (%)" : "Discount Amount (₹)"}
+                          type="number"
+                          min="1"
+                          placeholder={newCouponDraft.discountType === "percentage" ? "e.g. 10" : "e.g. 150"}
+                          value={newCouponDraft.discountValue}
+                          onChange={(e) =>
+                            setNewCouponDraft((d) => ({ ...d, discountValue: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+                        <div className="flex-1">
+                          <Input
+                            label="Description / Note (Optional)"
+                            placeholder="e.g. 10% off on total amount"
+                            value={newCouponDraft.description}
+                            onChange={(e) =>
+                              setNewCouponDraft((d) => ({ ...d, description: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          leftIcon={newCouponDraft.editingId ? <CheckCircle size={16} /> : <Plus size={16} />}
+                          onClick={() => {
+                            const code = String(newCouponDraft.code || "").trim().toUpperCase();
+                            const val = Number(newCouponDraft.discountValue);
+                            if (!code) {
+                              showToast("Please enter a coupon code", "error");
+                              return;
+                            }
+                            if (!Number.isFinite(val) || val <= 0) {
+                              showToast("Please enter a valid discount value", "error");
+                              return;
+                            }
+                            const existing = settingsForm.paymentSummaryPageConfig?.coupons || [];
+                            const duplicate = existing.find(
+                              (c) =>
+                                c.code === code &&
+                                (c.id || c.code) !== newCouponDraft.editingId
+                            );
+                            if (duplicate) {
+                              showToast(`Coupon ${code} already exists`, "error");
+                              return;
+                            }
+                            const nextCoupon = {
+                              id: newCouponDraft.editingId || `coupon_${Date.now()}`,
+                              code,
+                              discountType: newCouponDraft.discountType === "flat" ? "flat" : "percentage",
+                              discountValue: newCouponDraft.discountType === "percentage" ? Math.min(100, val) : val,
+                              maxDiscount: 0,
+                              minOrderAmount: 0,
+                              applyOn: "total",
+                              active: newCouponDraft.editingId
+                                ? (existing.find((c) => (c.id || c.code) === newCouponDraft.editingId)?.active ?? true)
+                                : true,
+                              description: String(newCouponDraft.description || "").trim(),
+                            };
+                            setSettingsForm((p) => {
+                              const list = p.paymentSummaryPageConfig?.coupons || [];
+                              const updatedList = newCouponDraft.editingId
+                                ? list.map((c) =>
+                                    (c.id || c.code) === newCouponDraft.editingId ? nextCoupon : c
+                                  )
+                                : [...list, nextCoupon];
+                              return {
+                                ...p,
+                                paymentSummaryPageConfig: {
+                                  ...(p.paymentSummaryPageConfig || {}),
+                                  coupons: updatedList,
+                                },
+                              };
+                            });
+                            setNewCouponDraft({
+                              editingId: null,
+                              code: "",
+                              discountType: "percentage",
+                              discountValue: "",
+                              description: "",
+                            });
+                          }}
+                        >
+                          {newCouponDraft.editingId ? "Update Coupon" : "Add Coupon"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Active & Saved Coupons List */}
+                    <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3.5 w-1 rounded-full bg-cyan" />
+                          <h3 className="text-sm font-semibold text-text-primary">
+                            Configured Coupons ({(settingsForm.paymentSummaryPageConfig?.coupons || []).length})
+                          </h3>
+                        </div>
+                      </div>
+
+                      {(settingsForm.paymentSummaryPageConfig?.coupons || []).length === 0 ? (
+                        <p className="text-xs text-text-muted py-4 text-center">
+                          No coupons created yet. Add a coupon above and click Save to publish it.
+                        </p>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {(settingsForm.paymentSummaryPageConfig?.coupons || []).map((coupon) => (
+                            <div
+                              key={coupon.id || coupon.code}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3.5"
+                            >
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="inline-flex items-center rounded-md bg-cyan/10 px-2.5 py-0.5 text-xs font-bold tracking-wider text-cyan">
+                                    {coupon.code}
+                                  </span>
+                                  <span className="text-xs font-semibold text-text-primary">
+                                    {coupon.discountType === "percentage"
+                                      ? `${coupon.discountValue}% OFF`
+                                      : `₹${coupon.discountValue} OFF`}
+                                  </span>
+                                  <span className="text-[11px] text-text-muted">
+                                    · On Total Amount
+                                  </span>
+                                </div>
+                                {coupon.description && (
+                                  <p className="text-xs text-text-muted">{coupon.description}</p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSettingsForm((p) => ({
+                                      ...p,
+                                      paymentSummaryPageConfig: {
+                                        ...(p.paymentSummaryPageConfig || {}),
+                                        coupons: (p.paymentSummaryPageConfig?.coupons || []).map((c) =>
+                                          (c.id || c.code) === (coupon.id || coupon.code)
+                                            ? { ...c, active: !c.active }
+                                            : c
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+                                    coupon.active !== false
+                                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                                      : "bg-surface-2 text-text-muted border-border"
+                                  }`}
+                                >
+                                  {coupon.active !== false ? "Active" : "Inactive"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setNewCouponDraft({
+                                      editingId: coupon.id || coupon.code,
+                                      code: coupon.code,
+                                      discountType: coupon.discountType === "flat" ? "flat" : "percentage",
+                                      discountValue: String(coupon.discountValue ?? ""),
+                                      description: coupon.description || "",
+                                    })
+                                  }
+                                  className="p-1.5 rounded-lg text-text-muted hover:text-cyan hover:bg-cyan/10 transition-colors"
+                                  title="Edit coupon"
+                                >
+                                  <Edit3 size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSettingsForm((p) => ({
+                                      ...p,
+                                      paymentSummaryPageConfig: {
+                                        ...(p.paymentSummaryPageConfig || {}),
+                                        coupons: (p.paymentSummaryPageConfig?.coupons || []).filter(
+                                          (c) => (c.id || c.code) !== (coupon.id || coupon.code)
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                  className="p-1.5 rounded-lg text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                                  title="Delete coupon"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        variant="primary"
+                        leftIcon={<Save size={16} />}
+                        loading={savingSettingsKey === "payment-summary-coupons"}
+                        onClick={() =>
+                          saveSettingsPartial(
+                            "payment-summary-coupons",
+                            { paymentSummaryPageConfig: settingsForm.paymentSummaryPageConfig },
+                            "Payment Summary coupon settings saved successfully"
+                          )
+                        }
+                      >
+                        Save Payment Summary Settings
                       </Button>
                     </div>
                   </div>

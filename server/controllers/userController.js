@@ -1181,6 +1181,34 @@ const uploadProfileImage = async (req, res) => {
 };
 
 /**
+ * @route   DELETE /api/users/profile/remove-image
+ * @desc    Remove profile image
+ * @access  Private
+ */
+const removeProfileImage = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const existingUrl = String(user.profileImage || '');
+    if (existingUrl.startsWith('/uploads/')) {
+      const localPath = path.join(__dirname, '..', existingUrl.replace(/^\/+/, ''));
+      fs.promises.unlink(localPath).catch(() => {});
+    }
+
+    user.profileImage = '';
+    await user.save();
+
+    res.json({ success: true, profileImage: '' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error removing image' });
+  }
+};
+
+/**
  * @route   POST /api/users/profile/reset-request
  * @desc    Trigger reset password OTP for logged-in user
  * @access  Private
@@ -1704,6 +1732,7 @@ module.exports = {
   requestProfilePhoneOtp,
   verifyProfilePhoneOtp,
   uploadProfileImage,
+  removeProfileImage,
   resetPasswordRequest,
   requestForgotPasswordOtp,
   resetForgotPassword,

@@ -59,6 +59,9 @@ const applicationSchema = new mongoose.Schema({
   flagEmoji: { type: String, required: true },
   visaType: { type: String, required: true },
   fee: { type: Number, required: true },
+  originalFee: { type: Number, default: 0 },
+  couponCode: { type: String, trim: true, default: '' },
+  discountAmount: { type: Number, default: 0 },
   processingDays: { type: Number },
   applicationId: {
     type: String,

@@ -101,6 +101,13 @@ const ADMIN_NAV = [
               { label: "Documents", sectionKey: "application-documents" },
             ],
           },
+          {
+            label: "Payment Summary Page",
+            isGroup: true,
+            children: [
+              { label: "Coupon Codes", sectionKey: "payment-summary-coupons" },
+            ],
+          },
         ],
       },
       { label: "Testimonials", sectionKey: "testimonials" },

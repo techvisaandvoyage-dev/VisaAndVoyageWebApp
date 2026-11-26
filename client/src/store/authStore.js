@@ -680,6 +680,25 @@ export const useAuthStore = create(
       },
 
       /**
+       * removeProfileImage()
+       */
+      removeProfileImage: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.delete("/users/profile/remove-image");
+          if (data?.success) {
+            set({ user: { ...get().user, profileImage: "" }, isLoading: false });
+            return { success: true };
+          }
+          set({ isLoading: false });
+          return { success: false };
+        } catch {
+          set({ isLoading: false, error: "Failed to remove image" });
+          return { success: false };
+        }
+      },
+
+      /**
        * Popup Auth Methods
        */
       popupCheckPhone: async (phone) => {

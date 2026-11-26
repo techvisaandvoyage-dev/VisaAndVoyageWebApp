@@ -1208,10 +1208,10 @@ const CountryDetails = () => {
     if (to && to < today) to = "";
     if (!from) to = "";
     if (from && to && to < from) to = from;
-    if (draft.travelDateFrom != null && String(draft.travelDateFrom).length) {
+    if (draft.travelDateFrom != null) {
       setTravelDateFrom(from);
     }
-    if (draft.travelDateTo != null && String(draft.travelDateTo).length) {
+    if (draft.travelDateTo != null) {
       setTravelDateTo(to);
     }
     if (draft.visaOption) setVisaOption(String(draft.visaOption));
@@ -1248,11 +1248,21 @@ const CountryDetails = () => {
     const appId = currentApplicationId || localStorage.getItem(`lastAppId:${countryId}`) || "";
     if (!appId) return;
     try {
+      const draftHidden = loadTravelDraft(countryId)?.hiddenPassportTravelerNos || {};
+      const isHiddenKey = (key) => {
+        if (!key.endsWith("-passport")) return false;
+        const travelerNo = key.slice(0, -"-passport".length);
+        return Boolean(hiddenPassportTravelerNos?.[travelerNo] || draftHidden?.[travelerNo]);
+      };
+
       const raw = localStorage.getItem(getApplicationDocSuccessStorageKey(appId));
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === "object") {
-          setUploadedDocSuccesses((prev) => ({ ...prev, ...parsed }));
+          const filtered = Object.fromEntries(
+            Object.entries(parsed).filter(([k]) => !isHiddenKey(k))
+          );
+          setUploadedDocSuccesses((prev) => ({ ...prev, ...filtered }));
         }
       }
       const detailsKey = `application-doc-details:${appId}`;
@@ -1260,11 +1270,14 @@ const CountryDetails = () => {
       if (detailsRaw) {
         const parsed = JSON.parse(detailsRaw);
         if (parsed && typeof parsed === "object") {
-          setUploadedDocDetails((prev) => ({ ...prev, ...parsed }));
+          const filtered = Object.fromEntries(
+            Object.entries(parsed).filter(([k]) => !isHiddenKey(k))
+          );
+          setUploadedDocDetails((prev) => ({ ...prev, ...filtered }));
         }
       }
     } catch { /* ignore storage errors */ }
-  }, [currentApplicationId, countryId]);
+  }, [currentApplicationId, countryId, hiddenPassportTravelerNos]);
 
   useEffect(() => {
     if (currentApplicationId && countryId) {
@@ -1787,6 +1800,10 @@ const CountryDetails = () => {
         delete next[travelerNo];
         return next;
       });
+      setHiddenPassportTravelerNos((prev) => ({
+        ...(prev || {}),
+        [travelerNo]: true,
+      }));
       setUploadedDocSuccesses((prev) => {
         const next = { ...prev };
         delete next[zoneKey];
@@ -1798,6 +1815,22 @@ const CountryDetails = () => {
         return next;
       });
       try {
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const storageKey = localStorage.key(i);
+          if (
+            storageKey &&
+            (storageKey.startsWith("application-doc-successes:") ||
+              storageKey.startsWith("application-doc-details:"))
+          ) {
+            const raw = localStorage.getItem(storageKey);
+            if (!raw) continue;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object" && zoneKey in parsed) {
+              delete parsed[zoneKey];
+              localStorage.setItem(storageKey, JSON.stringify(parsed));
+            }
+          }
+        }
         saveTravelDraft(countryId, {
           passportSuccesses: Object.fromEntries(
             Object.entries(passportSuccesses || {}).filter(([k]) => Number(k) !== Number(travelerNo))
@@ -1805,6 +1838,10 @@ const CountryDetails = () => {
           passportDetails: Object.fromEntries(
             Object.entries(passportDetails || {}).filter(([k]) => Number(k) !== Number(travelerNo))
           ),
+          hiddenPassportTravelerNos: {
+            ...(hiddenPassportTravelerNos || {}),
+            [travelerNo]: true,
+          },
           uploadedDocSuccesses: Object.fromEntries(
             Object.entries(uploadedDocSuccesses || {}).filter(([k]) => k !== zoneKey)
           ),
@@ -1815,6 +1852,13 @@ const CountryDetails = () => {
       } catch {}
       return;
     }
+
+    setHiddenPassportTravelerNos((prev) => {
+      if (!prev?.[travelerNo]) return prev;
+      const next = { ...prev };
+      delete next[travelerNo];
+      return next;
+    });
 
     if (!isAuthenticated) {
       requireAuth(() => handleTravelerPassportFile(index, rawFile));
@@ -1982,10 +2026,6 @@ const CountryDetails = () => {
   };
 
   const handleTravelerDocumentFile = async (index, docKey, rawFile) => {
-    if (!isAuthenticated) {
-      requireAuth(() => handleTravelerDocumentFile(index, docKey, rawFile));
-      return;
-    }
     const travelerNo = index + 1;
     const zoneKey = `${travelerNo}-${docKey}`;
     if (!rawFile) {
@@ -1995,6 +2035,36 @@ const CountryDetails = () => {
       setDocErrors((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
       setUploadedDocSuccesses((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
       setUploadedDocDetails((prev) => { const n = { ...prev }; delete n[zoneKey]; return n; });
+      try {
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const storageKey = localStorage.key(i);
+          if (
+            storageKey &&
+            (storageKey.startsWith("application-doc-successes:") ||
+              storageKey.startsWith("application-doc-details:"))
+          ) {
+            const raw = localStorage.getItem(storageKey);
+            if (!raw) continue;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object" && zoneKey in parsed) {
+              delete parsed[zoneKey];
+              localStorage.setItem(storageKey, JSON.stringify(parsed));
+            }
+          }
+        }
+        saveTravelDraft(countryId, {
+          uploadedDocSuccesses: Object.fromEntries(
+            Object.entries(uploadedDocSuccesses || {}).filter(([k]) => k !== zoneKey)
+          ),
+          uploadedDocDetails: Object.fromEntries(
+            Object.entries(uploadedDocDetails || {}).filter(([k]) => k !== zoneKey)
+          ),
+        });
+      } catch {}
+      return;
+    }
+    if (!isAuthenticated) {
+      requireAuth(() => handleTravelerDocumentFile(index, docKey, rawFile));
       return;
     }
     const rules = getFileValidationRules(uploadSettings?.allowedFileFormats);
@@ -2387,12 +2457,12 @@ const CountryDetails = () => {
     }
   };
 
-  // Auto-save draft as user fills the form to prevent data loss on refresh
+  // Auto-save draft as user fills or clears the form to prevent data loss or stale restores on refresh
   useEffect(() => {
-    if (showTravelDetails && countryId) {
+    if (countryId) {
       const timer = setTimeout(() => {
         persistCurrentTravelDraft();
-      }, 500); // Debounce save to avoid hammering storage on every keystroke
+      }, 250);
       return () => clearTimeout(timer);
     }
   }, [
@@ -2669,12 +2739,29 @@ const CountryDetails = () => {
 
     if (!travelDateFrom || !travelDateTo) {
       showToast(`Please select both travel dates before choosing ${actionLabel}.`, "error");
+      window.requestAnimationFrame(() => {
+        const dateCard = document.getElementById("ca-travel-date-card");
+        if (dateCard) {
+          dateCard.scrollIntoView({ behavior: "smooth", block: "center" });
+          const trigger = dateCard.querySelector("button");
+          if (trigger) trigger.focus({ preventScroll: true });
+        }
+      });
       return false;
     }
 
     const missingName = travelers.findIndex((t) => !String(t.name || "").trim());
     if (missingName >= 0) {
       showToast(`Please enter traveler ${missingName + 1} name before choosing ${actionLabel}.`, "error");
+      window.requestAnimationFrame(() => {
+        const nameEl =
+          travelerNameInputRefs.current?.[missingName] ||
+          document.getElementById(`ca-name-${missingName}`);
+        if (nameEl) {
+          nameEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          nameEl.focus({ preventScroll: true });
+        }
+      });
       return false;
     }
     return true;
@@ -3472,8 +3559,36 @@ const CountryDetails = () => {
         ]}
         requiredDocs={travelDetailsRequiredDocumentFields.filter((doc) => doc.key !== "passport")}
         uploadSettings={{ ...uploadSettings, enableGDriveUpload: uploadSettings.enableGDriveUpload && startAppCopy?.showGDriveUpload !== false }}
-        uploadedDocSuccesses={{ ...uploadedDocSuccesses, ...Object.fromEntries(Object.entries(passportSuccesses).map(([number, value]) => [`${number}-passport`, value && !hiddenPassportTravelerNos[number]])) }}
-        uploadedDocDetails={{ ...uploadedDocDetails, ...Object.fromEntries(Object.entries(passportDetails).map(([number, value]) => [`${number}-passport`, hiddenPassportTravelerNos[number] ? null : value])) }}
+        uploadedDocSuccesses={{
+          ...Object.fromEntries(
+            Object.entries(uploadedDocSuccesses || {}).filter(([k]) => {
+              if (!k.endsWith("-passport")) return true;
+              const num = k.slice(0, -"-passport".length);
+              return !hiddenPassportTravelerNos?.[num];
+            })
+          ),
+          ...Object.fromEntries(
+            Object.entries(passportSuccesses || {}).map(([number, value]) => [
+              `${number}-passport`,
+              Boolean(value) && !hiddenPassportTravelerNos?.[number],
+            ])
+          ),
+        }}
+        uploadedDocDetails={{
+          ...Object.fromEntries(
+            Object.entries(uploadedDocDetails || {}).filter(([k]) => {
+              if (!k.endsWith("-passport")) return true;
+              const num = k.slice(0, -"-passport".length);
+              return !hiddenPassportTravelerNos?.[num];
+            })
+          ),
+          ...Object.fromEntries(
+            Object.entries(passportDetails || {}).map(([number, value]) => [
+              `${number}-passport`,
+              hiddenPassportTravelerNos?.[number] ? null : value,
+            ])
+          ),
+        }}
         docErrors={Object.fromEntries(travelers.flatMap((_, index) => [
           [`${index}-passport`, passportErrors[index + 1]],
           ...requiredDocumentFields.map((field) => [`${index}-${field.key}`, docErrors[`${index + 1}-${field.key}`]])
@@ -3504,13 +3619,21 @@ const CountryDetails = () => {
         summaryVisaType={visaOption}
         visaTypeOptions={activeVisaTypes.length ? activeVisaTypes.map((type) => type.name) : ["e-Visa", "Sticker Visa"]}
         onFlowChange={(field, value) => {
-          if (field === "visaOption") setVisaOption(value);
-          else if (field === "travelDateFrom") setTravelDateFrom(value);
-          else if (field === "travelDateTo") setTravelDateTo(value);
+          if (field === "visaOption") {
+            setVisaOption(value);
+            saveTravelDraft(countryId, { visaOption: value });
+          } else if (field === "travelDateFrom") {
+            setTravelDateFrom(value);
+            saveTravelDraft(countryId, { travelDateFrom: value });
+          } else if (field === "travelDateTo") {
+            setTravelDateTo(value);
+            saveTravelDraft(countryId, { travelDateTo: value });
+          }
         }}
         payableNowAmount={payableToUs} governmentFeeTotal={governmentFeeTotal}
         serviceFeeTotal={serviceAmount} gstAmount={gstAmount} effectiveGstEnabled={effectiveGstEnabled}
         overallTotal={finalTotal} summaryTravelRange={formatTravelRange()}
+        validationAttempted={travelValidationAttempted}
       />
 
       {paymentSummaryOpen && (

@@ -819,6 +819,28 @@ const settingsSchema = new mongoose.Schema({
   /** Global GST toggles applied to every user payment calculation. */
   gstEnabled: { type: Boolean, default: true },
   gstRate: { type: Number, default: 18 },
+
+  /** Payment Summary Page & Coupon Controls (managed under Admin -> Cards -> Payment Summary Page). */
+  paymentSummaryPageConfig: {
+    couponsEnabled: { type: Boolean, default: true },
+    couponSectionLabel: { type: String, trim: true, default: 'Have a coupon code?' },
+    couponPlaceholder: { type: String, trim: true, default: 'Enter coupon code' },
+    couponApplyButtonText: { type: String, trim: true, default: 'Apply' },
+    coupons: {
+      type: [{
+        id: { type: String, trim: true, required: true },
+        code: { type: String, trim: true, uppercase: true, required: true },
+        discountType: { type: String, enum: ['percentage', 'flat'], default: 'percentage' },
+        discountValue: { type: Number, default: 0 },
+        maxDiscount: { type: Number, default: 0 },
+        minOrderAmount: { type: Number, default: 0 },
+        applyOn: { type: String, enum: ['total', 'service_fee'], default: 'total' },
+        active: { type: Boolean, default: true },
+        description: { type: String, trim: true, default: '' },
+      }],
+      default: [],
+    },
+  },
 }, {
   timestamps: true
 });

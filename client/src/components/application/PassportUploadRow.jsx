@@ -54,38 +54,36 @@ const PassportUploadRow = ({
             onPreview?.();
           }
         } : undefined}
-        className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 transition-colors ${
+        className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 shadow-[inset_2px_3px_6px_rgba(45,43,34,0.18),inset_0_1px_2px_rgba(45,43,34,0.1)] transition-all ${
           error
-            ? "border-red-500/45 bg-background"
+            ? "border-[#b91c1c]/60 bg-[#dfd2bc]"
             : saved
-              ? "border-emerald-500/25 bg-emerald-500/5"
-              : "border-border bg-background"
-        } ${canPreview ? "cursor-pointer hover:border-emerald-500/45 hover:bg-emerald-500/10 focus:outline-none focus:ring-2 focus:ring-emerald-500/30" : ""}`}
+              ? "border-[#607938]/40 bg-[#dfd2bc]"
+              : "border-[#2D2B22]/15 bg-[#dfd2bc]"
+        } ${canPreview ? "cursor-pointer hover:border-[#607938]/60 focus:outline-none focus:ring-2 focus:ring-[#607938]/25" : ""}`}
       >
         <div
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg"
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg"
         >
           <span
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
-              saved ? "bg-emerald-500/10 text-emerald-400" : "bg-cyan/10 text-cyan"
-            }`}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#607938]/20 bg-[#EEDFC7] text-[#607938] shadow-[1px_2px_4px_rgba(45,43,34,0.12)]"
           >
-            <FileText size={14} strokeWidth={2} />
+            <FileText size={15} strokeWidth={2} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-text-primary">{label}</p>
+            <p className="truncate text-xs font-bold text-[#2D2B22]">{label}</p>
             <div className="flex items-center gap-2">
-              <p className="min-w-0 flex-1 truncate text-[10px] text-text-muted">{statusText}</p>
+              <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-[#6E6A59]">{statusText}</p>
               {normalizedFileSizeText ? (
-                <span className="shrink-0 text-[10px] text-text-muted">{normalizedFileSizeText}</span>
+                <span className="shrink-0 text-[11px] font-semibold text-[#607938]">{normalizedFileSizeText}</span>
               ) : null}
             </div>
           </div>
         </div>
         {saved ? (
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="flex items-center gap-1 shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-400">
-              <CheckCircle size={10} /> Successful
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="flex items-center gap-1 shrink-0 rounded-full bg-[#607938] px-2.5 py-1 text-[10.5px] font-bold text-white shadow-sm">
+              <CheckCircle size={11} /> Uploaded
             </span>
             {onRemove && !disabled && (
               <button
@@ -95,7 +93,7 @@ const PassportUploadRow = ({
                   e.stopPropagation();
                   onRemove();
                 }}
-                className="rounded-md bg-red-500/10 px-2 py-1 text-[10px] font-semibold text-red-500 transition-colors hover:bg-red-500/20"
+                className="rounded-lg border border-[#b91c1c]/25 bg-[#EEDFC7] px-2.5 py-1 text-[11px] font-bold text-[#b91c1c] shadow-[1px_2px_4px_rgba(45,43,34,0.14)] transition-all hover:bg-[#b91c1c]/10 active:translate-y-[1px]"
               >
                 {removeLabel}
               </button>
@@ -109,21 +107,21 @@ const PassportUploadRow = ({
                   onReupload?.();
                   inputRef.current?.click();
                 }}
-                className="rounded-md bg-cyan/15 px-2 py-1 text-[10px] font-semibold text-cyan transition-colors hover:bg-cyan/25"
+                className="rounded-lg border border-[#2D2B22]/15 bg-[#EEDFC7] px-2.5 py-1 text-[11px] font-bold text-[#2D2B22] shadow-[1px_2px_4px_rgba(45,43,34,0.14)] transition-all hover:text-[#607938] active:translate-y-[1px]"
               >
                 {reuploadLabel}
               </button>
             )}
           </div>
         ) : file && optimizing ? (
-          <div className="flex items-center gap-1.5 rounded-md border border-cyan/20 bg-cyan/5 px-2.5 py-1.5 text-[10px] text-cyan shrink-0 animate-pulse">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-ping" />
-            Optimizing document...
+          <div className="flex items-center gap-1.5 rounded-lg border border-[#607938]/30 bg-[#EEDFC7] px-2.5 py-1.5 text-[11px] font-bold text-[#607938] shrink-0 animate-pulse">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#607938] animate-ping" />
+            Optimizing…
           </div>
         ) : file && uploading ? (
-          <div className="flex items-center gap-1.5 rounded-md border border-cyan/20 bg-cyan/5 px-2.5 py-1.5 text-[10px] text-cyan shrink-0 animate-pulse">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-ping" />
-            Uploading...
+          <div className="flex items-center gap-1.5 rounded-lg border border-[#607938]/30 bg-[#EEDFC7] px-2.5 py-1.5 text-[11px] font-bold text-[#607938] shrink-0 animate-pulse">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#607938] animate-ping" />
+            Uploading…
           </div>
         ) : (
           <div className="flex items-center gap-2 shrink-0">
@@ -135,7 +133,7 @@ const PassportUploadRow = ({
                   e.stopPropagation();
                   onRemove();
                 }}
-                className="rounded-md bg-red-500/10 px-2 py-1 text-[10px] font-semibold text-red-500 transition-colors hover:bg-red-500/20"
+                className="rounded-lg border border-[#b91c1c]/25 bg-[#EEDFC7] px-2.5 py-1.5 text-[11px] font-bold text-[#b91c1c] shadow-[1px_2px_4px_rgba(45,43,34,0.14)] transition-all hover:bg-[#b91c1c]/10 active:translate-y-[1px]"
               >
                 {removeLabel}
               </button>
@@ -143,8 +141,8 @@ const PassportUploadRow = ({
             <label
               htmlFor={inputId}
               onClick={(e) => e.stopPropagation()}
-              className={`shrink-0 rounded-md bg-cyan/15 px-2.5 py-1.5 text-[11px] font-semibold text-cyan transition-colors ${
-                disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-cyan/25"
+              className={`shrink-0 rounded-lg border border-[#2D2B22]/15 bg-[#EEDFC7] px-3 py-1.5 text-xs font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.16)] transition-all ${
+                disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:text-[#607938] active:translate-y-[1px] active:bg-[#dfd2bc] active:shadow-[inset_1px_2px_4px_rgba(45,43,34,0.24)]"
               }`}
             >
               {file ? (reuploadLabel || "Replace") : (uploadLabel || "Upload")}

@@ -15,6 +15,7 @@ const {
   requestProfilePhoneOtp,
   verifyProfilePhoneOtp,
   uploadProfileImage,
+  removeProfileImage,
   resetPasswordRequest,
   requestForgotPasswordOtp,
   resetForgotPassword,
@@ -78,6 +79,7 @@ router.put('/profile/complete', protect, completeUserProfile);
 router.post('/profile/phone/request-otp', protect, requestProfilePhoneOtp);
 router.post('/profile/phone/verify-otp', protect, verifyProfilePhoneOtp);
 router.post('/profile/upload-image', protect, upload.single('profileImage'), uploadProfileImage);
+router.delete('/profile/remove-image', protect, removeProfileImage);
 router.post('/profile/reset-request', protect, resetPasswordRequest);
 router.put('/change-password', protect, changePassword);
 

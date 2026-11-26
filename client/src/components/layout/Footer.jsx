@@ -247,7 +247,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="ft" id="footer" style={{ background: "var(--nb)" }}>
+    <footer className="ft" id="footer">
       <div className="w">
         <div className="fg">
           <div>

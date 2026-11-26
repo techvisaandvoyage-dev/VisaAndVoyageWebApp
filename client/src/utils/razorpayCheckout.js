@@ -42,6 +42,7 @@ export async function validateRazorpayCheckoutReadiness() {
 export async function openRazorpayForApplication({
   applicationId,
   amountRupees,
+  couponCode,
   description,
   applicantName,
   applicantEmail,
@@ -78,6 +79,7 @@ export async function openRazorpayForApplication({
     orderRes = await api.post("/users/payments/create-order", {
       amount: amountRupees,
       applicationId,
+      ...(couponCode ? { couponCode } : {}),
     });
   } catch (err) {
     const message =

@@ -57,13 +57,18 @@ const NotificationBell = ({ className = "" }) => {
       });
     };
 
+    const handleWindowScroll = (event) => {
+      if (dropdownRef.current?.contains(event.target)) return;
+      updateDropdownPosition();
+    };
+
     updateDropdownPosition();
     window.addEventListener("resize", updateDropdownPosition);
-    window.addEventListener("scroll", updateDropdownPosition, true);
+    window.addEventListener("scroll", handleWindowScroll, true);
 
     return () => {
       window.removeEventListener("resize", updateDropdownPosition);
-      window.removeEventListener("scroll", updateDropdownPosition, true);
+      window.removeEventListener("scroll", handleWindowScroll, true);
     };
   }, [notificationsOpen]);
 
@@ -193,13 +198,13 @@ const NotificationBell = ({ className = "" }) => {
       {notificationsOpen && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[300] w-[min(360px,calc(100vw-32px))] overflow-hidden cd"
-          style={{ top: dropdownPosition.top, right: dropdownPosition.right, background: "var(--bg)", borderRadius: "var(--rb)", boxShadow: "var(--cs)" }}
+          className="fixed z-[300] w-[min(360px,calc(100vw-32px))] overflow-hidden rounded-[20px] border border-[#2D2B22]/15 bg-[#EEDFC7] text-[#2D2B22] shadow-[0_22px_54px_rgba(45,43,34,0.3),0_4px_12px_rgba(45,43,34,0.14)]"
+          style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
         >
-          <div className="flex items-center justify-between border-b border-slate-200/50 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-[#2D2B22]/12 bg-[#e8d7bc]/60 px-5 py-4">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Notifications</h3>
-              <p className="text-xs text-slate-500">
+              <h3 className="text-base font-extrabold text-[#2D2B22]">Notifications</h3>
+              <p className="text-xs font-medium text-[#6E6A59]">
                 {unreadNotifications.length
                   ? `${unreadNotifications.length} unread update${unreadNotifications.length === 1 ? "" : "s"}`
                   : "You are all caught up"}
@@ -209,58 +214,84 @@ const NotificationBell = ({ className = "" }) => {
               type="button"
               disabled={!unreadNotifications.length || markingNotificationsRead}
               onClick={handleMarkAllNotificationsRead}
-              className="text-xs font-semibold text-[#235BFF] disabled:cursor-not-allowed disabled:text-slate-400"
+              className="rounded-lg px-2.5 py-1 text-xs font-bold text-[#607938] transition-all hover:bg-[#607938]/12 hover:text-[#4e632d] active:translate-y-[1px] disabled:cursor-not-allowed disabled:text-[#6E6A59]/50 disabled:hover:bg-transparent"
             >
               Mark all read
             </button>
           </div>
 
-          <div className="max-h-[420px] overflow-y-auto">
+          <div
+            className="max-h-[min(360px,calc(100vh-140px))] overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#dfd2bc]/50 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#607938]/45 hover:[&::-webkit-scrollbar-thumb]:bg-[#607938]/70"
+            style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(96, 121, 56, 0.5) transparent" }}
+          >
             {notificationsLoading ? (
-              <div className="flex items-center justify-center px-5 py-10 text-slate-500">
+              <div className="flex items-center justify-center px-5 py-10 text-[#607938]">
                 <Loader2 size={18} className="animate-spin" />
               </div>
             ) : notifications.length === 0 ? (
               <div className="px-5 py-10 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#dfd2bc] text-[#6E6A59] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)]">
                   <Bell size={18} />
                 </div>
-                <p className="text-sm font-semibold text-slate-800">No notifications yet</p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="text-sm font-bold text-[#2D2B22]">No notifications yet</p>
+                <p className="mt-1 text-xs text-[#6E6A59]">
                   Replies, application updates, payments, and support messages will show here.
                 </p>
               </div>
             ) : (
               notifications.map((notification) => {
                 const NotificationIcon = notification.icon || Bell;
+                const isUnread = !notification.read;
                 return (
                   <button
                     key={notification.id}
                     type="button"
                     onClick={() => handleNotificationClick(notification)}
-                    className={`flex w-full items-start gap-3 border-b border-slate-100 px-5 py-4 text-left transition-colors hover:bg-slate-50 ${
-                      !notification.read ? "bg-[#235BFF]/[0.04]" : ""
+                    className={`flex w-full items-start gap-3 border-b border-[#2D2B22]/10 last:border-b-0 px-5 py-4 text-left transition-colors hover:bg-[#dfd2bc]/65 active:bg-[#dfd2bc] ${
+                      isUnread ? "bg-[#607938]/10" : ""
                     }`}
                   >
-                    <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#EEF4FF_0%,#F5F9FF_100%)] text-[#235BFF]">
+                    <span
+                      className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-[inset_1px_2px_4px_rgba(45,43,34,0.14)] ${
+                        isUnread
+                          ? "border-[#607938]/35 bg-[#dfd2bc] text-[#4e632d]"
+                          : "border-[#2D2B22]/10 bg-[#dfd2bc]/70 text-[#6E6A59]"
+                      }`}
+                    >
                       <NotificationIcon size={18} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold text-slate-900">
+                        <span
+                          className={`truncate text-sm ${
+                            isUnread ? "font-extrabold text-[#1a1813]" : "font-semibold text-[#6E6A59]"
+                          }`}
+                        >
                           {notification.title || "Notification"}
                         </span>
-                        {!notification.read && <span className="h-2 w-2 rounded-full bg-[#235BFF]" />}
+                        {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-[#607938]" />}
                       </span>
-                      <span className="mt-1 block text-xs leading-relaxed text-slate-600">
+                      <span
+                        className={`mt-1 block text-xs leading-relaxed ${
+                          isUnread ? "font-semibold text-[#2D2B22]" : "font-normal text-[#6E6A59]/90"
+                        }`}
+                      >
                         {notification.subtitle || "You have a new update."}
                       </span>
                       {notification.body && (
-                        <span className="mt-2 block line-clamp-2 text-xs text-slate-500">
+                        <span
+                          className={`mt-1.5 block line-clamp-2 text-xs ${
+                            isUnread ? "font-medium text-[#3b382c]" : "text-[#6E6A59]/75"
+                          }`}
+                        >
                           {notification.body}
                         </span>
                       )}
-                      <span className="mt-2 block text-[11px] font-medium text-slate-400">
+                      <span
+                        className={`mt-2 block text-[11px] ${
+                          isUnread ? "font-bold text-[#607938]" : "font-medium text-[#6E6A59]/65"
+                        }`}
+                      >
                         {formatNotificationTime(notification.createdAt)}
                       </span>
                     </span>

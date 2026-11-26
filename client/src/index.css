@@ -229,11 +229,12 @@ html {
   --na-font: "Newsreader", serif;
   --r: 26px;
   --rb: 14px;
-  --nb: #d3c6b0;
+  --surface-bg: #D9CCB4;
+  --nb: var(--surface-bg);
   --nt: #2D2B22;
   --na: #556832;
   --nl: color-mix(in srgb, #2D2B22 16%, transparent);
-  --fb: var(--nb);
+  --fb: var(--surface-bg);
   --ftx: #1c1c24;
   --fth: #2D2B22;
   --ftt: #47453a;
@@ -366,10 +367,14 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   transition: transform .2s, filter .2s;
 }
 .ib:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.02);
+  transform: translateY(-1px);
+  box-shadow: 2px 5px 10px rgba(45, 43, 34, 0.22);
 }
 .ib:active {
-  box-shadow: var(--is);
+  transform: translateY(1px);
+  background: #dfd2bc;
+  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.28), inset 0 1px 2px rgba(45, 43, 34, 0.18);
 }
 
 /* Outline on focus-visible */
@@ -391,7 +396,7 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: var(--nb);
+  background: var(--surface-bg);
   color: var(--nt);
   border-bottom: 1px solid var(--nl);
   transition: background .3s;
@@ -435,6 +440,22 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+}
+.nv-center {
+  display: none;
+  flex: 1 1 0%;
+  min-width: 0;
+  justify-content: center;
+  align-items: center;
+}
+@media (min-width: 1200px) {
+  .nv:has(.nv-center) {
+    gap: 16px;
+  }
+  .nv-center {
+    display: flex;
+  }
 }
 .nr a {
   display: flex;
@@ -559,28 +580,30 @@ input[type="search"]::-webkit-search-results-decoration {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: var(--rb, 14px);
+  height: 48px;
+  padding: 0 18px;
+  border-radius: var(--rb);
   background: var(--bg);
-  box-shadow: 2px 3px 6px rgba(45, 43, 34, 0.12), 0 1px 2px rgba(45, 43, 34, 0.08);
+  box-shadow: var(--rs);
   font-weight: 600;
   font-size: 14px;
   color: var(--ink);
   text-decoration: none;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+  transition: transform 0.2s, filter 0.2s, box-shadow 0.2s, color 0.15s ease;
 }
 
 .nv-blog-btn:hover {
+  filter: brightness(1.02);
   transform: translateY(-1px);
   color: var(--ac);
-  box-shadow: 2px 5px 10px rgba(45, 43, 34, 0.18);
+  box-shadow: 2px 5px 10px rgba(45, 43, 34, 0.22);
 }
 
 .nv-blog-btn:active {
-  transform: translateY(0);
-  box-shadow: inset 1px 2px 4px rgba(45, 43, 34, 0.16);
+  transform: translateY(1px);
+  background: #dfd2bc;
+  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.28), inset 0 1px 2px rgba(45, 43, 34, 0.18);
 }
 
 /* Navbar Green Log In Button */
@@ -588,7 +611,7 @@ input[type="search"]::-webkit-search-results-decoration {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 40px;
+  height: 48px;
   padding: 0 20px;
   border-radius: var(--rb, 14px);
   background: var(--ac, #607938);
@@ -608,8 +631,8 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 .nv-login-btn:active {
-  transform: translateY(0);
-  box-shadow: inset 1px 2px 4px rgba(0, 0, 0, 0.28);
+  transform: translateY(1px);
+  box-shadow: inset 2px 3px 6px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 /* Navbar Search Dropdown */
@@ -976,8 +999,10 @@ section.grid, #grid.grid {
 
 /* Footer */
 .ft {
+  position: relative;
+  z-index: 10;
   margin-top: 110px;
-  background: var(--nb) !important;
+  background: var(--surface-bg);
   color: var(--ftt);
   padding: 56px 0 0;
   border-radius: 0 !important;

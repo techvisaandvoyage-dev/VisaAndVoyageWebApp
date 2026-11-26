@@ -24,12 +24,15 @@ import {
 import { useAuthStore, api } from "../store/authStore";
 import { useUIStore } from "../store/uiStore";
 import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Input, { Select } from "../components/ui/Input";
 import OtpInput from "../components/ui/OtpInput";
-import { useNavigate } from "react-router-dom";
+import ProfileImageUploadModal from "../components/profile/ProfileImageUploadModal";
+import { useLocation, useNavigate } from "react-router-dom";
 import { formatOrdinalDate } from "../utils/dateUtils";
+import { getFileUrl } from "../utils/fileUrl";
 import { useAuthControls } from "../hooks/useAuthControls";
 import {
   DEFAULT_PHONE_COUNTRY_CODE,
@@ -107,33 +110,45 @@ const DEFAULT_PROFILE_PAGE_COPY = {
   deleteConfirmSubtitle: "This action cannot be undone. All your profile data, applications, and history will be permanently deleted.",
 };
 
-const StatusPill = ({ children, tone = "green" }) => {
+const StatusPill = ({ children, tone = "green", onClick }) => {
   const tones = {
-    green: "bg-emerald-500/12 text-emerald-700 border border-emerald-200/70",
-    blue: "bg-blue-500/12 text-blue-700 border border-blue-200/70",
-    amber: "bg-amber-500/12 text-amber-700 border border-amber-200/70",
-    zinc: "bg-slate-500/12 text-slate-700 border border-slate-200/80",
+    green: "bg-[#607938]/15 text-[#4e632d] border border-[#607938]/30",
+    blue: "bg-[#607938]/15 text-[#4e632d] border border-[#607938]/30",
+    amber: "bg-[#b45309]/15 text-[#92400e] border border-[#b45309]/30",
+    zinc: "bg-[#dfd2bc] text-[#2D2B22] border border-[#2D2B22]/15",
   };
 
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold cursor-pointer transition-all hover:brightness-95 active:scale-95 ${tones[tone]}`}
+      >
+        {children}
+      </button>
+    );
+  }
+
   return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${tones[tone]}`}>
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${tones[tone]}`}>
       {children}
     </span>
   );
 };
 
-const OverviewRow = ({ icon: Icon, label, value, valueTone = "green" }) => (
+const OverviewRow = ({ icon: Icon, label, value, valueTone = "green", onValueClick }) => (
   <div className="flex items-center justify-between gap-4 py-3">
-    <div className="flex items-center gap-3 text-sm text-slate-600">
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+    <div className="flex items-center gap-3 text-sm font-medium text-[#6E6A59]">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dfd2bc] text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.14)]">
         <Icon size={16} />
       </span>
       <span>{label}</span>
     </div>
     {typeof value === "string" && ["green", "blue", "amber", "zinc"].includes(valueTone) ? (
-      <StatusPill tone={valueTone}>{value}</StatusPill>
+      <StatusPill tone={valueTone} onClick={onValueClick}>{value}</StatusPill>
     ) : (
-      <span className="text-sm font-semibold text-slate-900">{value}</span>
+      <span className="text-sm font-bold text-[#2D2B22]">{value}</span>
     )}
   </div>
 );
@@ -141,26 +156,28 @@ const OverviewRow = ({ icon: Icon, label, value, valueTone = "green" }) => (
 const SectionShell = ({ icon: Icon, title, children, className = "" }) => (
   <Card
     padding="none"
-    className={`overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl ${className}`}
+    className={`flex h-full flex-col overflow-visible rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3] ${className}`}
   >
-    <div className="flex items-center gap-3 border-b border-slate-100 px-7 py-6">
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#EEF4FF_0%,#F5F9FF_100%)] text-[#235BFF] shadow-[0_10px_28px_rgba(37,99,235,0.12)]">
+    <div className="flex items-center gap-3 rounded-t-[24px] border-b border-[#2D2B22]/10 px-7 py-5">
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#dfd2bc] text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)]">
         <Icon size={19} />
       </span>
-      <h2 className="text-[1.35rem] font-bold tracking-tight text-slate-900">{title}</h2>
+      <h2 className="text-[1.3rem] font-extrabold tracking-tight text-[#2D2B22]">{title}</h2>
     </div>
-    <div className="px-7 py-7">{children}</div>
+    <div className="flex flex-1 flex-col px-7 py-6">{children}</div>
   </Card>
 );
 
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     user,
     updateProfile,
     requestProfilePhoneOtp,
     verifyProfilePhoneOtp,
     uploadProfileImage,
+    removeProfileImage,
     changeUserPassword,
     deleteAccount,
     sendDeleteOtp,
@@ -172,9 +189,18 @@ const ProfilePage = () => {
   const { showToast } = useUIStore();
   const { authControls } = useAuthControls();
 
-  const fileInputRef = useRef(null);
   const countryCodeDropdownRef = useRef(null);
+  const genderDropdownRef = useRef(null);
+  const phoneInputRef = useRef(null);
   const [profileCopy, setProfileCopy] = useState(DEFAULT_PROFILE_PAGE_COPY);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+
+  const resolvedProfileImageUrl = getFileUrl(user?.profileImage);
+
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [resolvedProfileImageUrl]);
 
   useEffect(() => {
     let alive = true;
@@ -199,6 +225,8 @@ const ProfilePage = () => {
     };
   }, []);
   const [isEditing, setIsEditing] = useState(false);
+  const [genderOpen, setGenderOpen] = useState(false);
+  const [activeSectionTab, setActiveSectionTab] = useState("profile");
   const [isUploading, setIsUploading] = useState(false);
   const [countryCodeOpen, setCountryCodeOpen] = useState(false);
   const [countryCodeSearch, setCountryCodeSearch] = useState("");
@@ -390,6 +418,9 @@ const ProfilePage = () => {
       if (!countryCodeDropdownRef.current?.contains(event.target)) {
         setCountryCodeOpen(false);
       }
+      if (!genderDropdownRef.current?.contains(event.target)) {
+        setGenderOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handlePointerDown);
@@ -397,7 +428,10 @@ const ProfilePage = () => {
   }, []);
 
   const handleBack = () => {
-    if (window.history.state && window.history.state.idx > 0) {
+    const returnTo = location.state?.from;
+    if (returnTo && returnTo !== location.pathname) {
+      navigate(returnTo);
+    } else if (window.history.state && window.history.state.idx > 0) {
       navigate(-1);
     } else {
       navigate("/dashboard", { replace: true });
@@ -546,31 +580,38 @@ const ProfilePage = () => {
   };
 
   const handleImageClick = () => {
-    fileInputRef.current?.click();
+    setShowPhotoModal(true);
   };
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.match(/image\/(jpeg|jpg|png)/)) {
-      showToast("Only JPG and PNG images are allowed", "error");
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      showToast("Image size must be less than 2MB", "error");
-      return;
-    }
-
+  const handleCroppedImageUpload = async (compressedFile, sizeMeta) => {
     setIsUploading(true);
-    const { success } = await uploadProfileImage(file);
+    const result = await uploadProfileImage(compressedFile);
     setIsUploading(false);
 
-    if (success) {
-      showToast("Profile image updated!");
-    } else {
-      showToast("Failed to upload image", "error");
+    if (result?.success) {
+      setAvatarLoadError(false);
+      const kb = Math.max(1, Math.round((sizeMeta?.compressedSize || compressedFile.size) / 1024));
+      showToast(`Profile image updated (${kb} KB)!`, "success");
+      return true;
     }
+
+    showToast("Failed to upload image", "error");
+    return false;
+  };
+
+  const handleRemoveProfileImage = async () => {
+    setIsUploading(true);
+    const result = await removeProfileImage();
+    setIsUploading(false);
+
+    if (result?.success) {
+      setAvatarLoadError(false);
+      showToast("Profile photo removed", "success");
+      return true;
+    }
+
+    showToast("Failed to remove profile photo", "error");
+    return false;
   };
 
   const handleChangePassword = async () => {
@@ -650,118 +691,107 @@ const ProfilePage = () => {
     : (profileCopy.addPhoneButtonText || "Add mobile no.");
 
   const memberSince = formatMemberSince(user.createdAt);
+  const hasProfileChanges =
+    String(formData.name || "") !== String(user.name || "") ||
+    String(formData.age ?? "") !== String(user.age ?? "") ||
+    String(formData.gender || "Other") !== String(user.gender || "Other");
 
   return (
-    <div className="min-h-screen bg-white pb-16">
+    <div className="compact-application min-h-screen bg-[#EEDFC7] text-[#2D2B22] flex flex-col">
       <Navbar />
 
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-7 px-4 py-7 sm:px-6 lg:px-10">
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-5 pb-12 sm:px-6 lg:px-10">
         <div className="flex items-center justify-between gap-4">
           <button
             type="button"
             onClick={handleBack}
-            className="inline-flex items-center gap-2 text-sm font-medium text-[#235BFF] transition-colors hover:text-[#1746D8]"
+            className="group inline-flex h-[38px] items-center gap-2 rounded-[12px] border-0 bg-[#EEDFC7] pl-3 pr-4 text-[14px] font-semibold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.16),0_1px_2px_rgba(45,43,34,0.1)] transition-all hover:text-[#607938] hover:shadow-[2px_4px_10px_rgba(45,43,34,0.22)] active:translate-y-0 active:bg-[#dfd2bc] active:shadow-[inset_2px_3px_5px_rgba(45,43,34,0.24)]"
+            aria-label="Go back"
           >
-            <ArrowLeft size={16} />
-            {profileCopy.backToDashboardText || "Back to Dashboard"}
+            <ArrowLeft size={16} strokeWidth={2.2} className="group-hover:-translate-x-[3px] transition-transform duration-150" />
+            <span>Back</span>
           </button>
         </div>
 
-        <Card className="relative overflow-hidden rounded-[2.4rem] border border-white/70 bg-white/85 p-0 shadow-[0_28px_80px_rgba(15,23,42,0.1)] backdrop-blur-xl">
-          <div className="absolute inset-y-0 right-0 w-[48%] bg-[radial-gradient(circle_at_top_right,rgba(83,125,255,0.18),transparent_40%),linear-gradient(140deg,rgba(244,247,255,0)_0%,rgba(224,234,255,0.52)_45%,rgba(213,226,255,0.8)_100%)]" />
-          <div className="absolute -right-12 top-0 h-[110%] w-[42%] rounded-l-[8rem] bg-white/25 blur-[1px]" />
-          <div className="absolute right-[12%] top-0 h-full w-px bg-white/35" />
-
-          <div className="relative z-10 flex flex-col gap-8 px-8 py-8 sm:px-10 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-              <div className="relative mx-auto sm:mx-0">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[290px_minmax(0,1fr)] items-start">
+          {/* Profile Sidebar: Compact Identity Card + Navigation */}
+          <aside className="rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-5 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3] lg:sticky lg:top-24 space-y-5">
+            <div className="flex flex-col items-center text-center">
+              <div className="relative mb-3.5">
                 <button
                   type="button"
                   onClick={handleImageClick}
-                  className="group relative flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-[7px] border-white bg-slate-100 shadow-[0_22px_50px_rgba(15,23,42,0.14)]"
+                  title="Update profile photo"
+                  className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-[#EEDFC7] bg-[#dfd2bc] shadow-[inset_2px_3px_8px_rgba(45,43,34,0.2),4px_4px_12px_rgba(45,43,34,0.2)]"
                 >
                   {isUploading ? (
-                    <Loader2 className="animate-spin text-[#235BFF]" size={34} />
-                  ) : user.profileImage ? (
-                    <img src={user.profileImage} alt="Profile" className="h-full w-full object-cover" />
+                    <Loader2 className="animate-spin text-[#607938]" size={26} />
+                  ) : resolvedProfileImageUrl && !avatarLoadError ? (
+                    <img
+                      src={resolvedProfileImageUrl}
+                      alt="Profile"
+                      onError={() => setAvatarLoadError(true)}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
-                    <User size={62} className="text-slate-400" />
+                    <User size={40} className="text-[#607938]" />
                   )}
-                  <span className="absolute inset-0 bg-slate-900/0 transition-colors group-hover:bg-slate-900/20" />
                 </button>
-
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/png, image/jpeg, image/jpg"
-                  onChange={handleFileChange}
-                />
-              </div>
-
-              <div className="space-y-4 text-center sm:text-left">
-                <h1 className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-4xl font-bold tracking-tight text-slate-950">
-                  <span className="break-words text-center sm:text-left">{user.name}</span>
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#235BFF] text-white shadow-[0_10px_24px_rgba(37,99,235,0.28)]">
-                    <BadgeCheck size={18} />
-                  </span>
-                </h1>
-
-                <StatusPill tone="green">{profileCopy.profileActiveBadgeText || "Profile Active"}</StatusPill>
-
-                <div className="space-y-3 text-[1.02rem] text-slate-600">
-                  <div className="flex items-center justify-center sm:justify-start gap-3">
-                    <Mail size={18} className="text-slate-500" />
-                    <span>{user.email || profileCopy.noEmailText || "No email added"}</span>
-                  </div>
-                  <div className="flex items-center justify-center sm:justify-start gap-3">
-                    <Phone size={18} className="text-slate-500" />
-                    <span>{displayPhone}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 lg:self-start">
-              {!isEditing ? (
-                <Button
-                  variant="primary"
-                  size="lg"
-                  leftIcon={<Edit3 size={18} />}
-                  onClick={() => setIsEditing(true)}
-                  className="rounded-2xl bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)] px-7 py-4 text-white shadow-[0_20px_45px_rgba(37,99,235,0.26)] hover:bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)]"
+                <button
+                  type="button"
+                  onClick={handleImageClick}
+                  aria-label="Upload photo"
+                  className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#EEDFC7] bg-[#607938] text-white shadow-[2px_3px_6px_rgba(45,43,34,0.28)] transition-transform hover:scale-105 active:scale-95"
                 >
-                  {profileCopy.editProfileButtonText || "Edit Profile"}
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    leftIcon={<X size={18} />}
-                    onClick={handleCancel}
-                    className="rounded-2xl border border-slate-200 bg-white/85 px-6 py-4 text-slate-700 hover:bg-slate-50"
-                  >
-                    {profileCopy.cancelButtonText || "Cancel"}
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    leftIcon={<Save size={18} />}
-                    onClick={handleSave}
-                    loading={isLoading}
-                    className="rounded-2xl bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)] px-7 py-4 text-white shadow-[0_20px_45px_rgba(37,99,235,0.26)] hover:bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)]"
-                  >
-                    {profileCopy.saveChangesButtonText || "Save Changes"}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </Card>
+                  <Camera size={12} />
+                </button>
+              </div>
 
-        <div className="grid grid-cols-1 gap-7 xl:grid-cols-[minmax(0,1.85fr)_360px]">
-          <SectionShell icon={User} title={profileCopy.personalInfoTitle || "Personal Information"}>
+              <h1 className="flex items-center justify-center gap-2 text-xl font-extrabold tracking-tight text-[#2D2B22]">
+                <span className="break-words">{user.name}</span>
+                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#607938] text-white">
+                  <BadgeCheck size={12} />
+                </span>
+              </h1>
+
+              <div className="mt-2">
+                <StatusPill tone="green">{profileCopy.profileActiveBadgeText || "Profile Active"}</StatusPill>
+              </div>
+            </div>
+
+            <div className="border-t border-[#2D2B22]/10 pt-4 flex flex-row lg:flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveSectionTab("profile")}
+                className={`flex flex-1 lg:w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold transition-all ${
+                  activeSectionTab === "profile"
+                    ? "bg-[#dfd2bc] text-[#607938] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22)]"
+                    : "text-[#6E6A59] hover:bg-[#dfd2bc]/55 hover:text-[#2D2B22]"
+                }`}
+              >
+                <User size={17} className="shrink-0" />
+                <span className="truncate">Profile & Overview</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSectionTab("security")}
+                className={`flex flex-1 lg:w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold transition-all ${
+                  activeSectionTab === "security"
+                    ? "bg-[#dfd2bc] text-[#607938] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22)]"
+                    : "text-[#6E6A59] hover:bg-[#dfd2bc]/55 hover:text-[#2D2B22]"
+                }`}
+              >
+                <Shield size={17} className="shrink-0" />
+                <span className="truncate">Security & Privacy</span>
+              </button>
+            </div>
+          </aside>
+
+          {/* Active Tab Content */}
+          <div className="min-w-0">
+            {activeSectionTab === "profile" ? (
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_340px] items-stretch">
+                <SectionShell icon={User} title={profileCopy.personalInfoTitle || "Personal Information"}>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <Input
                 label={profileCopy.fullNameLabel || "Full Name"}
@@ -769,8 +799,7 @@ const ProfilePage = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                disabled={!isEditing}
-                className={`rounded-2xl border-slate-200 bg-white px-5 py-4 text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] ${!isEditing ? "cursor-default bg-slate-50 text-slate-700 opacity-80" : ""}`}
+                className="h-12 rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc]/85 px-4 py-0 text-sm font-medium text-[#2D2B22] transition-all ![box-shadow:var(--is)] focus:ring-0 focus:border-[#607938] focus:bg-[#EEDFC7]"
               />
 
               <Input
@@ -782,23 +811,33 @@ const ProfilePage = () => {
                 onChange={handleChange}
                 disabled
                 helper={profileCopy.emailHelperText || "Email cannot be changed"}
-                className="rounded-2xl border-slate-200 bg-slate-100 px-5 py-4 text-base opacity-80"
+                className="h-12 rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc]/75 px-4 py-0 text-sm font-medium text-[#2D2B22] opacity-85 ![box-shadow:var(--is)] focus:ring-0"
               />
 
               <div className="sm:col-span-2 flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-text-secondary">{profileCopy.mobileNumberLabel || "Mobile Number"}</label>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[230px_minmax(0,1fr)]">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div ref={countryCodeDropdownRef} className="relative">
                     <button
                       type="button"
-                      disabled={phoneInputLocked}
+                      disabled={phoneOtpSent}
                       onClick={() => {
-                        if (phoneInputLocked) return;
+                        if (!phoneOtpActive) {
+                          handleStartPhoneChange();
+                          setCountryCodeOpen(true);
+                          setCountryCodeSearch("");
+                          return;
+                        }
+                        if (phoneOtpSent) return;
                         setCountryCodeOpen((prev) => !prev);
                         setCountryCodeSearch("");
                       }}
-                      className={`flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 shadow-sm transition-all ${
-                        phoneInputLocked ? "cursor-default bg-slate-50 opacity-80" : "hover:border-[#235BFF]/40 focus:outline-none focus:ring-2 focus:ring-[#235BFF]/20"
+                      className={`flex h-12 w-full items-center justify-between gap-3 rounded-xl border px-4 text-sm font-medium text-[#2D2B22] ![box-shadow:var(--is)] transition-all ${
+                        phoneOtpSent
+                          ? "cursor-default border-[#2D2B22]/15 bg-[#dfd2bc]/75 opacity-85"
+                          : phoneOtpActive
+                            ? "border-[#607938] bg-[#EEDFC7]"
+                            : "cursor-pointer border-[#2D2B22]/15 bg-[#dfd2bc]/85 hover:border-[#607938]/50"
                       }`}
                     >
                       <span className="truncate text-left flex items-center gap-2">
@@ -809,23 +848,26 @@ const ProfilePage = () => {
                         ) : null}
                         <span>{selectedCountryOption?.value || "+91"}</span>
                       </span>
-                      <ChevronDown size={18} className={`shrink-0 transition-transform ${countryCodeOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown size={18} className={`shrink-0 text-[#6E6A59] transition-transform ${countryCodeOpen ? "rotate-180" : ""}`} />
                     </button>
 
-                    {countryCodeOpen && !phoneInputLocked && (
-                      <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)]">
-                        <div className="relative border-b border-slate-100 p-3">
-                          <Search size={14} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" />
+                      {countryCodeOpen && !phoneOtpSent && (
+                      <div className="absolute z-40 mt-2 w-full overflow-hidden rounded-2xl border border-[#2D2B22]/15 bg-[#EEDFC7] shadow-[0_18px_40px_rgba(45,43,34,0.28)]">
+                        <div className="relative border-b border-[#2D2B22]/10 p-3">
+                          <Search size={14} className="absolute left-6 top-1/2 -translate-y-1/2 text-[#6E6A59]" />
                           <input
                             type="text"
                             value={countryCodeSearch}
                             onChange={(e) => setCountryCodeSearch(e.target.value)}
                             placeholder={profileCopy.phoneCountrySearchPlaceholder || "Search country"}
                             autoFocus
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#235BFF] focus:outline-none focus:ring-2 focus:ring-[#235BFF]/15"
+                            className="w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] py-2 pl-9 pr-3 text-sm text-[#2D2B22] placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none"
                           />
                         </div>
-                        <div className="max-h-64 overflow-y-auto py-2">
+                        <div
+                          className="max-h-60 overflow-y-auto py-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#607938]/45 hover:[&::-webkit-scrollbar-thumb]:bg-[#607938]/70"
+                          style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(96, 121, 56, 0.5) transparent" }}
+                        >
                           {filteredCountryOptions.length ? (
                             filteredCountryOptions.map((option) => (
                               <button
@@ -838,8 +880,8 @@ const ProfilePage = () => {
                                 }}
                                 className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
                                   formData.phoneCountryCode === option.value
-                                    ? "bg-[#235BFF]/8 text-[#235BFF]"
-                                    : "text-slate-800 hover:bg-slate-50"
+                                    ? "bg-[#607938]/15 text-[#4e632d] font-bold"
+                                    : "text-[#2D2B22] hover:bg-[#dfd2bc]/70"
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
@@ -853,32 +895,56 @@ const ProfilePage = () => {
                               </button>
                             ))
                           ) : (
-                            <p className="px-4 py-3 text-sm text-slate-500">No countries found.</p>
+                            <p className="px-4 py-3 text-sm text-[#6E6A59]">No countries found.</p>
                           )}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <Input
-                    name="phone"
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    placeholder={profileCopy.phonePlaceholder || "Enter phone number"}
-                    value={formData.phone}
-                    onChange={(e) => {
-                      const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
-                      setFormData((prev) => ({ ...prev, phone: digitsOnly }));
+                  <div
+                    onClick={() => {
+                      if (!phoneOtpActive) {
+                        handleStartPhoneChange();
+                        setTimeout(() => phoneInputRef.current?.focus(), 0);
+                      }
                     }}
-                    disabled={phoneInputLocked}
-                    className={`rounded-2xl border-slate-200 bg-white px-5 py-4 text-base ${phoneInputLocked ? "cursor-default bg-slate-50 opacity-80" : ""}`}
-                  />
+                    className="w-full"
+                  >
+                    <input
+                      ref={phoneInputRef}
+                      name="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      placeholder={profileCopy.phonePlaceholder || "Enter phone number"}
+                      value={formData.phone}
+                      readOnly={!phoneOtpActive}
+                      disabled={phoneOtpSent}
+                      onFocus={() => {
+                        if (!phoneOtpActive) {
+                          handleStartPhoneChange();
+                        }
+                      }}
+                      onChange={(e) => {
+                        if (!phoneOtpActive) return;
+                        const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setFormData((prev) => ({ ...prev, phone: digitsOnly }));
+                      }}
+                      className={`h-12 w-full rounded-xl border px-4 text-sm font-medium text-[#2D2B22] placeholder:text-[#6E6A59]/75 ![box-shadow:var(--is)] focus:outline-none focus:border-[#607938] transition-all ${
+                        phoneOtpSent
+                          ? "cursor-default border-[#2D2B22]/15 bg-[#dfd2bc]/75 opacity-85"
+                          : phoneOtpActive
+                            ? "border-[#607938] bg-[#EEDFC7]"
+                            : "cursor-pointer border-[#2D2B22]/15 bg-[#dfd2bc]/85 hover:border-[#607938]/50"
+                      }`}
+                    />
+                  </div>
                 </div>
                 {phoneChangeError ? (
-                  <p className="mt-1 text-xs text-red-500">{phoneChangeError}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#9a3b2a]">{phoneChangeError}</p>
                 ) : (
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[#6E6A59]">
                     {phoneOtpActive
                       ? phoneOtpSent
                         ? (profileCopy.phoneOtpEnterHelperText || "Enter the OTP sent to this mobile number.")
@@ -887,93 +953,84 @@ const ProfilePage = () => {
                   </p>
                 )}
 
-                {!phoneOtpActive ? (
-                  <button
-                    type="button"
-                    onClick={handleStartPhoneChange}
-                    className="mt-1 inline-flex w-fit items-center justify-center self-start rounded-xl border border-[#235BFF]/20 bg-[#235BFF]/5 px-3 py-1.5 text-xs font-semibold text-[#235BFF] transition-colors hover:bg-[#235BFF]/10"
-                  >
-                    {phoneActionLabel}
-                  </button>
-                ) : (
-                  <div className="mt-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
-                    {!phoneOtpSent ? (
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-slate-600">
-                          {profileCopy.phoneOtpConfirmPrompt || "Send an OTP to confirm this mobile number."}
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={handleCancelPhoneChange}
-                            className="rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="primary"
-                            loading={isLoading}
-                            onClick={handleSendPhoneOtp}
-                            className="rounded-2xl bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)] text-white hover:bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)]"
-                          >
-                            {profileCopy.sendOtpButtonText || "Send OTP"}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-sm font-medium text-slate-700">
-                            OTP sent{phoneOtpChannel ? ` via ${phoneOtpChannel}` : ""}.
+                {phoneOtpActive &&
+                  (phoneOtpSent ||
+                    (String(formData.phone || "").replace(/\D/g, "").length === 10 &&
+                      String(formData.phone || "").replace(/\D/g, "") !==
+                        String(user.phone || "").replace(/\D/g, "").slice(-10))) && (
+                  <div className="mt-3 rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc]/60 p-4 ![box-shadow:var(--is)]">
+                      {!phoneOtpSent ? (
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-sm font-medium text-[#2D2B22] leading-snug">
+                            {profileCopy.phoneOtpConfirmPrompt || "Send an OTP to confirm this mobile number."}
                           </p>
-                          <button
-                            type="button"
-                            onClick={handleSendPhoneOtp}
-                            className="w-fit text-sm font-semibold text-[#235BFF] hover:text-[#1746D8]"
-                          >
-                            {profileCopy.phoneResendOtpText || "Resend OTP"}
-                          </button>
-                        </div>
-                        {phoneDevOtp && (
-                          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                            Test OTP:{" "}
+                          <div className="flex shrink-0 items-center gap-2.5">
                             <button
                               type="button"
-                              className="font-bold underline"
-                              onClick={() => setPhoneOtpDigits(phoneDevOtp.split("").slice(0, phoneOtpLength))}
+                              onClick={handleCancelPhoneChange}
+                              className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#2D2B22]/15 bg-[#EEDFC7] px-4 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.14)] transition-all hover:bg-[#d5c5ab] active:translate-y-[1px]"
                             >
-                              {phoneDevOtp}
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isLoading}
+                              onClick={handleSendPhoneOtp}
+                              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#607938] px-5 text-sm font-bold text-white shadow-[2px_4px_10px_rgba(45,43,34,0.28)] transition-all hover:bg-[#536930] active:translate-y-[1px] disabled:opacity-60"
+                            >
+                              {isLoading && <Loader2 size={15} className="animate-spin" />}
+                              {profileCopy.sendOtpButtonText || "Send OTP"}
                             </button>
                           </div>
-                        )}
-                        <OtpInput value={phoneOtpDigits} onChange={setPhoneOtpDigits} disabled={isLoading} length={phoneOtpLength} />
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            fullWidth
-                            onClick={handleCancelPhoneChange}
-                            className="rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="primary"
-                            fullWidth
-                            loading={isLoading}
-                            disabled={phoneOtpDigits.join("").length !== phoneOtpLength}
-                            onClick={handleVerifyPhoneOtp}
-                            className="rounded-2xl bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)] text-white hover:bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)]"
-                          >
-                            {profileCopy.phoneVerifySaveButtonText || "Verify & Save"}
-                          </Button>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-sm font-semibold text-[#2D2B22]">
+                              OTP sent{phoneOtpChannel ? ` via ${phoneOtpChannel}` : ""}.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleSendPhoneOtp}
+                              className="w-fit text-sm font-bold text-[#607938] hover:text-[#4e632d]"
+                            >
+                              {profileCopy.phoneResendOtpText || "Resend OTP"}
+                            </button>
+                          </div>
+                          {phoneDevOtp && (
+                            <div className="rounded-xl border border-[#b45309]/30 bg-[#b45309]/10 px-4 py-3 text-sm text-[#92400e]">
+                              Test OTP:{" "}
+                              <button
+                                type="button"
+                                className="font-bold underline"
+                                onClick={() => setPhoneOtpDigits(phoneDevOtp.split("").slice(0, phoneOtpLength))}
+                              >
+                                {phoneDevOtp}
+                              </button>
+                            </div>
+                          )}
+                          <OtpInput value={phoneOtpDigits} onChange={setPhoneOtpDigits} disabled={isLoading} length={phoneOtpLength} />
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={handleCancelPhoneChange}
+                              className="inline-flex h-10 flex-1 items-center justify-center whitespace-nowrap rounded-xl border border-[#2D2B22]/15 bg-[#EEDFC7] px-4 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.14)] transition-all hover:bg-[#d5c5ab] active:translate-y-[1px]"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isLoading || phoneOtpDigits.join("").length !== phoneOtpLength}
+                              onClick={handleVerifyPhoneOtp}
+                              className="inline-flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#607938] px-5 text-sm font-bold text-white shadow-[2px_4px_10px_rgba(45,43,34,0.28)] transition-all hover:bg-[#536930] active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-55"
+                            >
+                              {isLoading && <Loader2 size={15} className="animate-spin" />}
+                              {profileCopy.phoneVerifySaveButtonText || "Verify & Save"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                 )}
               </div>
 
@@ -985,172 +1042,256 @@ const ProfilePage = () => {
                 placeholder={profileCopy.agePlaceholder || "Enter your age"}
                 value={formData.age}
                 onChange={handleChange}
-                disabled={!isEditing}
-                className={`rounded-2xl border-slate-200 bg-white px-5 py-4 text-base ${!isEditing ? "cursor-default bg-slate-50 opacity-80" : ""}`}
+                className="h-12 rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc]/85 px-4 py-0 text-sm font-medium text-[#2D2B22] transition-all ![box-shadow:var(--is)] focus:ring-0 focus:border-[#607938] focus:bg-[#EEDFC7]"
               />
 
-              <Select
-                label={profileCopy.genderLabel || "Gender"}
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                disabled={!isEditing}
-                options={[
-                  { value: "Male", label: profileCopy.genderOptionMale || "Male" },
-                  { value: "Female", label: profileCopy.genderOptionFemale || "Female" },
-                  { value: "Other", label: profileCopy.genderOptionOther || "Other" },
-                ]}
-                className={`rounded-2xl border-slate-200 bg-white px-5 py-4 text-base ${!isEditing ? "cursor-default bg-slate-50 opacity-80" : ""}`}
-              />
-            </div>
-          </SectionShell>
+              <div ref={genderDropdownRef} className="relative flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-text-secondary">
+                  {profileCopy.genderLabel || "Gender"}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setGenderOpen((prev) => !prev)}
+                  className={`flex h-12 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 text-sm font-medium text-[#2D2B22] transition-all ![box-shadow:var(--is)] focus:outline-none ${
+                    genderOpen
+                      ? "border-[#607938] bg-[#EEDFC7]"
+                      : "border-[#2D2B22]/15 bg-[#dfd2bc]/85 hover:border-[#607938]/50"
+                  }`}
+                >
+                  <span>
+                    {formData.gender === "Male"
+                      ? (profileCopy.genderOptionMale || "Male")
+                      : formData.gender === "Female"
+                        ? (profileCopy.genderOptionFemale || "Female")
+                        : (profileCopy.genderOptionOther || "Other")}
+                  </span>
+                  <ChevronDown
+                    size={18}
+                    className={`shrink-0 text-[#6E6A59] transition-transform ${genderOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
 
-          <div className="space-y-7">
-            <SectionShell icon={BadgeCheck} title={profileCopy.accountOverviewTitle || "Account Overview"}>
-              <div className="divide-y divide-slate-100">
-                <OverviewRow icon={CalendarDays} label={profileCopy.memberSinceLabel || "Member Since"} value={memberSince} valueTone="zinc" />
-                <OverviewRow icon={Mail} label={profileCopy.accountEmailLabel || "Email Address"} value={user.email ? (profileCopy.badgeAddedText || "Added") : (profileCopy.badgeAddEmailText || "Add email")} valueTone={user.email ? "green" : "amber"} />
-                <OverviewRow icon={Phone} label={profileCopy.accountPhoneLabel || "Phone Number"} value={displayPhoneDigits ? (profileCopy.badgeAddedText || "Added") : (profileCopy.badgeAddPhoneText || "Add phone")} valueTone={displayPhoneDigits ? "green" : "amber"} />
-                <OverviewRow icon={Shield} label={profileCopy.accountStatusLabel || "Account Status"} value={profileCopy.accountStatusValue || "Active"} valueTone="green" />
-              </div>
-            </SectionShell>
-
-            {authControls.passwordEnabled && (
-            <SectionShell icon={Shield} title={profileCopy.securityTitle || "Security"}>
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <p className="text-sm text-slate-600">
-                    {isCreatingPassword
-                      ? (profileCopy.createPasswordDescription || "Create a password so this account can also sign in with email and password.")
-                      : (profileCopy.securityDescription || "Keep your account secure with a strong password.")}
-                  </p>
-                </div>
-
-                {!showSecurityForm ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowSecurityForm(true)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#235BFF]/20 bg-[#235BFF]/5 px-5 py-4 text-sm font-semibold text-[#235BFF] transition-colors hover:bg-[#235BFF]/10"
-                  >
-                    <KeyRound size={16} />
-                    {isCreatingPassword ? (profileCopy.createPasswordButtonText || "Create Password") : (profileCopy.changePasswordButtonText || "Change Password")}
-                  </button>
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="space-y-4"
-                  >
-                    {!isCreatingPassword && (
-                      <Input
-                        label="Current Password"
-                        type="password"
-                        name="currentPassword"
-                        value={passwordForm.currentPassword}
-                        onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
-                        placeholder="........"
-                        error={passwordErrors.currentPassword}
-                        className="rounded-2xl border-slate-200 bg-white px-5 py-4"
-                      />
-                    )}
-
-                    <Input
-                      label={isCreatingPassword ? "Create Password" : "New Password"}
-                      type="password"
-                      name="newPassword"
-                      value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
-                      placeholder="........"
-                      helper="Min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char"
-                      error={passwordErrors.newPassword}
-                      className="rounded-2xl border-slate-200 bg-white px-5 py-4"
-                    />
-
-                    <Input
-                      label={isCreatingPassword ? "Re-enter Password" : "Confirm New Password"}
-                      type="password"
-                      name="confirmPassword"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                      placeholder="........"
-                      error={passwordErrors.confirmPassword}
-                      className="rounded-2xl border-slate-200 bg-white px-5 py-4"
-                    />
-
-                    <div className="flex gap-3">
-                      <Button
-                        variant="ghost"
-                        fullWidth
-                        onClick={() => {
-                          setShowSecurityForm(false);
-                          setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                          setPasswordErrors({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                        }}
-                        className="rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="primary"
-                        fullWidth
-                        leftIcon={<KeyRound size={16} />}
-                        onClick={handleChangePassword}
-                        loading={isChangingPassword}
-                        className="rounded-2xl bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)] text-white hover:bg-[linear-gradient(135deg,#235BFF_0%,#2F6BFF_100%)]"
-                      >
-                        {isCreatingPassword ? "Create Password" : "Update Password"}
-                      </Button>
-                    </div>
-                  </motion.div>
+                {genderOpen && (
+                  <div className="absolute left-0 top-full z-40 mt-2 w-full overflow-hidden rounded-2xl border border-[#2D2B22]/15 bg-[#EEDFC7] py-1.5 shadow-[0_18px_40px_rgba(45,43,34,0.28)]">
+                    {[
+                      { value: "Male", label: profileCopy.genderOptionMale || "Male" },
+                      { value: "Female", label: profileCopy.genderOptionFemale || "Female" },
+                      { value: "Other", label: profileCopy.genderOptionOther || "Other" },
+                    ].map((opt) => {
+                      const selected = (formData.gender || "Other") === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, gender: opt.value }));
+                            setGenderOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
+                            selected
+                              ? "bg-[#607938]/15 font-bold text-[#4e632d]"
+                              : "font-medium text-[#2D2B22] hover:bg-[#dfd2bc]/75"
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          {selected && <BadgeCheck size={15} className="text-[#607938]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-            </SectionShell>
-            )}
+            </div>
 
-            <SectionShell icon={AlertTriangle} title={profileCopy.deletionTitle || "Account Deletion"} className="border-red-100 bg-red-50/30">
-              <div className="space-y-4">
-                <p className="text-sm text-slate-600">
-                  {profileCopy.deletionDescription || "Permanently delete your account and all associated profile data."}
-                </p>
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowDeleteModal(true)}
-                  className="rounded-2xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 w-full sm:w-auto"
+            {hasProfileChanges && (
+              <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-[#2D2B22]/10 pt-5">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 py-2.5 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.14)] transition-all hover:bg-[#d5c5ab] active:translate-y-[1px]"
                 >
-                  {profileCopy.deleteAccountButtonText || "Delete Account"}
-                </Button>
+                  <X size={16} />
+                  {profileCopy.cancelButtonText || "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#607938] px-6 py-2.5 text-sm font-bold text-white shadow-[2px_4px_12px_rgba(45,43,34,0.3)] transition-all hover:bg-[#536930] active:translate-y-[1px] disabled:opacity-60"
+                >
+                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {profileCopy.saveChangesButtonText || "Save Changes"}
+                </button>
               </div>
-            </SectionShell>
+            )}
+          </SectionShell>
 
+                <SectionShell icon={BadgeCheck} title={profileCopy.accountOverviewTitle || "Account Overview"}>
+                  <div className="divide-y divide-[#2D2B22]/10">
+                    <OverviewRow icon={CalendarDays} label={profileCopy.memberSinceLabel || "Member Since"} value={memberSince} valueTone="zinc" />
+                    <OverviewRow icon={Mail} label={profileCopy.accountEmailLabel || "Email Address"} value={user.email ? (profileCopy.badgeAddedText || "Added") : (profileCopy.badgeAddEmailText || "Add email")} valueTone={user.email ? "green" : "amber"} />
+                    <OverviewRow
+                      icon={Phone}
+                      label={profileCopy.accountPhoneLabel || "Phone Number"}
+                      value={displayPhoneDigits ? (profileCopy.badgeAddedText || "Added") : (profileCopy.badgeAddPhoneText || "Add phone")}
+                      valueTone={displayPhoneDigits ? "green" : "amber"}
+                      onValueClick={
+                        !displayPhoneDigits
+                          ? () => {
+                              setActiveSectionTab("profile");
+                              if (!phoneOtpActive) handleStartPhoneChange();
+                              setTimeout(() => {
+                                phoneInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                phoneInputRef.current?.focus();
+                              }, 60);
+                            }
+                          : undefined
+                      }
+                    />
+                    <OverviewRow icon={Shield} label={profileCopy.accountStatusLabel || "Account Status"} value={profileCopy.accountStatusValue || "Active"} valueTone="green" />
+                  </div>
+                </SectionShell>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 items-stretch">
+                {authControls.passwordEnabled && (
+                  <SectionShell icon={Shield} title={profileCopy.securityTitle || "Security"}>
+                    <div className="flex flex-1 flex-col justify-between gap-5">
+                      <div className="space-y-2">
+                        <p className="text-sm leading-relaxed text-[#6E6A59]">
+                          {isCreatingPassword
+                            ? (profileCopy.createPasswordDescription || "Create a password so this account can also sign in with email and password.")
+                            : (profileCopy.securityDescription || "Keep your account secure with a strong password.")}
+                        </p>
+                      </div>
+
+                      {!showSecurityForm ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowSecurityForm(true)}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#607938]/30 bg-[#607938]/15 px-5 py-3 text-sm font-bold text-[#4e632d] shadow-[2px_3px_6px_rgba(45,43,34,0.12)] transition-all hover:bg-[#607938]/25 active:translate-y-[1px]"
+                        >
+                          <KeyRound size={16} />
+                          {isCreatingPassword ? (profileCopy.createPasswordButtonText || "Create Password") : (profileCopy.changePasswordButtonText || "Change Password")}
+                        </button>
+                      ) : (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="space-y-4"
+                        >
+                          {!isCreatingPassword && (
+                            <Input
+                              label="Current Password"
+                              type="password"
+                              name="currentPassword"
+                              value={passwordForm.currentPassword}
+                              onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
+                              placeholder="........"
+                              error={passwordErrors.currentPassword}
+                              className="rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc] px-4 py-3.5 text-[#2D2B22]"
+                            />
+                          )}
+
+                          <Input
+                            label={isCreatingPassword ? "Create Password" : "New Password"}
+                            type="password"
+                            name="newPassword"
+                            value={passwordForm.newPassword}
+                            onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
+                            placeholder="........"
+                            helper="Min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char"
+                            error={passwordErrors.newPassword}
+                            className="rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc] px-4 py-3.5 text-[#2D2B22]"
+                          />
+
+                          <Input
+                            label={isCreatingPassword ? "Re-enter Password" : "Confirm New Password"}
+                            type="password"
+                            name="confirmPassword"
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                            placeholder="........"
+                            error={passwordErrors.confirmPassword}
+                            className="rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc] px-4 py-3.5 text-[#2D2B22]"
+                          />
+
+                          <div className="flex gap-3">
+                            <Button
+                              variant="ghost"
+                              fullWidth
+                              onClick={() => {
+                                setShowSecurityForm(false);
+                                setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                                setPasswordErrors({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                              }}
+                              className="rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] text-[#2D2B22] hover:bg-[#d5c5ab]"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="primary"
+                              fullWidth
+                              leftIcon={<KeyRound size={16} />}
+                              onClick={handleChangePassword}
+                              loading={isChangingPassword}
+                              className="rounded-xl bg-[#607938] text-white hover:bg-[#536930]"
+                            >
+                              {isCreatingPassword ? "Create Password" : "Update Password"}
+                            </Button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </SectionShell>
+                )}
+
+                <SectionShell icon={AlertTriangle} title={profileCopy.deletionTitle || "Account Deletion"} className="border-[#9a3b2a]/20">
+                  <div className="flex flex-1 flex-col justify-between gap-5">
+                    <p className="text-sm leading-relaxed text-[#6E6A59]">
+                      {profileCopy.deletionDescription || "Permanently delete your account and all associated profile data."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteModal(true)}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#9a3b2a]/30 bg-[#9a3b2a]/15 px-5 py-3 text-sm font-bold text-[#9a3b2a] shadow-[2px_3px_6px_rgba(45,43,34,0.12)] transition-all hover:bg-[#9a3b2a]/25 active:translate-y-[1px]"
+                    >
+                      <AlertTriangle size={16} />
+                      {profileCopy.deleteAccountButtonText || "Delete Account"}
+                    </button>
+                  </div>
+                </SectionShell>
+              </div>
+            )}
           </div>
         </div>
       </main>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#2D2B22]/45 px-4 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl bg-white shadow-2xl"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[24px] border border-[#2D2B22]/15 bg-[#EEDFC7] text-[#2D2B22] shadow-[0_24px_64px_rgba(45,43,34,0.35)]"
           >
             <div className="p-6 sm:p-8">
               {!showFinalDeleteConfirm ? (
                 <>
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#9a3b2a]/15 text-[#9a3b2a]">
                     <AlertTriangle size={24} />
                   </div>
-                  <h3 className="mb-2 text-center text-xl font-bold text-slate-900">
+                  <h3 className="mb-2 text-center text-xl font-extrabold text-[#2D2B22]">
                     {profileCopy.deleteModalTitle || "Verify Your Identity"}
                   </h3>
-                  <p className="text-center text-sm text-slate-600 mb-6">
+                  <p className="text-center text-sm text-[#6E6A59] mb-6">
                     {profileCopy.deleteModalSubtitle || "For your security, please verify your identity before permanently deleting your account."}
                   </p>
 
                   <div className="space-y-5 text-left">
                     {/* 1. Registered Phone Number */}
                     <div className="space-y-3">
-                      <label className="text-sm font-semibold text-slate-900">1. Registered Phone Number</label>
+                      <label className="text-sm font-bold text-[#2D2B22]">1. Registered Phone Number</label>
                       <div className="flex gap-2">
                         <Input
                           type="text"
@@ -1161,27 +1302,27 @@ const ProfilePage = () => {
                           }}
                           placeholder="Enter your registered phone number"
                           disabled={deleteOtpSent || Boolean(deleteToken)}
-                          className="flex-1 rounded-xl"
+                          className="flex-1 rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc] text-[#2D2B22]"
                         />
                         <Button 
                           onClick={handleSendDeleteOtp}
                           disabled={(deleteOtpSent && deleteOtpCountdown > 0) || Boolean(deleteToken) || isLoading}
                           loading={isLoading && !isDeletingAccount && !deleteOtpSent}
-                          className="rounded-xl px-4 shrink-0"
+                          className="rounded-xl bg-[#607938] text-white hover:bg-[#536930] px-4 shrink-0"
                         >
                           {deleteOtpCountdown > 0 ? `Resend (${deleteOtpCountdown}s)` : (deleteOtpSent ? "Resend OTP" : "Send OTP")}
                         </Button>
                       </div>
-                      {deletePhoneError && <p className="text-sm text-red-500">{deletePhoneError}</p>}
-                      {deleteOtpSent && !deletePhoneError && <p className="text-sm text-emerald-600">OTP sent successfully.</p>}
+                      {deletePhoneError && <p className="text-sm text-[#9a3b2a]">{deletePhoneError}</p>}
+                      {deleteOtpSent && !deletePhoneError && <p className="text-sm text-[#4e632d] font-medium">OTP sent successfully.</p>}
                     </div>
 
                     {/* 2. OTP Verification */}
                     {deleteOtpSent && (
-                      <div className="space-y-3 mt-4 pt-4 border-t border-slate-100">
-                        <label className="text-sm font-semibold text-slate-900 flex justify-between items-center">
+                      <div className="space-y-3 mt-4 pt-4 border-t border-[#2D2B22]/10">
+                        <label className="text-sm font-bold text-[#2D2B22] flex justify-between items-center">
                           2. OTP Verification
-                          {deleteToken && <BadgeCheck size={18} className="text-emerald-500" />}
+                          {deleteToken && <BadgeCheck size={18} className="text-[#607938]" />}
                         </label>
                         <OtpInput
                           length={4}
@@ -1195,24 +1336,24 @@ const ProfilePage = () => {
                           }}
                           disabled={Boolean(deleteToken)}
                         />
-                        {deleteOtpError && <p className="text-sm text-red-500 text-center">{deleteOtpError}</p>}
+                        {deleteOtpError && <p className="text-sm text-[#9a3b2a] text-center">{deleteOtpError}</p>}
                       </div>
                     )}
 
                     {/* 3. CAPTCHA Verification */}
-                    <div className="space-y-3 mt-4 pt-4 border-t border-slate-100">
-                      <label className="text-sm font-semibold text-slate-900">3. CAPTCHA Verification</label>
+                    <div className="space-y-3 mt-4 pt-4 border-t border-[#2D2B22]/10">
+                      <label className="text-sm font-bold text-[#2D2B22]">3. CAPTCHA Verification</label>
                       <div className="flex gap-3 items-center">
-                        <div className="flex-1 h-14 bg-slate-50 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center relative">
+                        <div className="flex-1 h-14 bg-[#dfd2bc] rounded-xl overflow-hidden border border-[#2D2B22]/15 flex items-center justify-center relative">
                           {isGeneratingCaptcha ? (
-                            <Loader2 className="animate-spin text-slate-400" size={20} />
+                            <Loader2 className="animate-spin text-[#607938]" size={20} />
                           ) : captchaData.image ? (
                             <div dangerouslySetInnerHTML={{ __html: captchaData.image }} className="w-full h-full flex justify-center items-center [&>svg]:w-full [&>svg]:h-full" />
                           ) : null}
                         </div>
                         <button 
                           onClick={loadCaptcha}
-                          className="p-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
+                          className="p-3 text-[#6E6A59] hover:text-[#2D2B22] hover:bg-[#dfd2bc] rounded-xl transition-colors shrink-0"
                           title="Refresh CAPTCHA"
                           disabled={isGeneratingCaptcha}
                         >
@@ -1227,7 +1368,7 @@ const ProfilePage = () => {
                         }}
                         placeholder="Enter CAPTCHA text"
                         error={captchaError}
-                        className={`rounded-xl transition-all ${captchaError ? 'border-2 border-red-500 bg-red-50' : ''}`}
+                        className={`rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc] text-[#2D2B22] transition-all ${captchaError ? 'border-2 border-[#9a3b2a]' : ''}`}
                       />
                     </div>
                   </div>
@@ -1238,7 +1379,7 @@ const ProfilePage = () => {
                       fullWidth
                       onClick={() => setShowDeleteModal(false)}
                       disabled={isDeletingAccount}
-                      className="rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      className="rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] text-[#2D2B22] hover:bg-[#d5c5ab]"
                     >
                       Cancel
                     </Button>
@@ -1248,7 +1389,7 @@ const ProfilePage = () => {
                       loading={isDeletingAccount}
                       onClick={handleVerifyAndNext}
                       disabled={!deleteToken || !captchaInput}
-                      className="rounded-2xl bg-[#235BFF] text-white hover:bg-[#1a4acc] disabled:opacity-50 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
+                      className="rounded-xl bg-[#607938] text-white hover:bg-[#536930] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Next
                     </Button>
@@ -1256,13 +1397,13 @@ const ProfilePage = () => {
                 </>
               ) : (
                 <>
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#9a3b2a]/15 text-[#9a3b2a]">
                     <AlertTriangle size={24} />
                   </div>
-                  <h3 className="mb-2 text-center text-xl font-bold text-slate-900">
+                  <h3 className="mb-2 text-center text-xl font-extrabold text-[#2D2B22]">
                     {profileCopy.deleteConfirmTitle || "Are you sure?"}
                   </h3>
-                  <p className="text-center text-sm text-slate-600 mb-6">
+                  <p className="text-center text-sm text-[#6E6A59] mb-6">
                     {profileCopy.deleteConfirmSubtitle || "This action cannot be undone. All your profile data, applications, and history will be permanently deleted."}
                   </p>
                   <div className="flex flex-col gap-3 sm:flex-row mt-8">
@@ -1271,7 +1412,7 @@ const ProfilePage = () => {
                       fullWidth
                       onClick={() => setShowDeleteModal(false)}
                       disabled={isDeletingAccount}
-                      className="rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      className="rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] text-[#2D2B22] hover:bg-[#d5c5ab]"
                     >
                       Cancel
                     </Button>
@@ -1280,7 +1421,7 @@ const ProfilePage = () => {
                       fullWidth
                       loading={isDeletingAccount}
                       onClick={handleDeleteAccount}
-                      className="rounded-2xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                      className="rounded-xl bg-[#9a3b2a] text-white hover:bg-[#7d2e20] disabled:opacity-50"
                     >
                       Delete Account
                     </Button>
@@ -1291,6 +1432,15 @@ const ProfilePage = () => {
           </motion.div>
         </div>
       )}
+      <ProfileImageUploadModal
+        isOpen={showPhotoModal}
+        onClose={() => setShowPhotoModal(false)}
+        onUpload={handleCroppedImageUpload}
+        onRemove={handleRemoveProfileImage}
+        currentImage={avatarLoadError ? "" : resolvedProfileImageUrl}
+      />
+
+      <Footer />
     </div>
   );
 };

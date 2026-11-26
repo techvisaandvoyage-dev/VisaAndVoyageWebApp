@@ -21,14 +21,14 @@ export const getFileUrl = (filePath) => {
     return filePath;
   }
 
-  // If we are in dev or if VITE_API_URL is set, use it.
-  const API_BASE_URL =
+  // If we are in dev or if VITE_API_URL is set, use it (strip trailing /api so static /uploads paths resolve at server root).
+  const rawBaseUrl =
     import.meta.env.VITE_API_BASE_URL ||
     import.meta.env.VITE_API_URL ||
-    "http://localhost:5000";
+    (import.meta.env.PROD ? "https://api.visavo.in" : "http://localhost:5000");
 
-  // Remove any trailing slash from base url
-  const baseUrl = API_BASE_URL.replace(/\/+$/, "");
+  // Remove any trailing slash or /api suffix from base url
+  const baseUrl = String(rawBaseUrl).trim().replace(/\/+$/, "").replace(/\/api$/i, "");
 
   const normalizedPath = filePath.startsWith("/")
     ? filePath

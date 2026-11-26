@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, CalendarDays, Check, ChevronDown, Eye, FileText, Info, Link2, Loader2, Minus, Plus, RefreshCw, ShieldCheck, Trash2, UploadCloud, Users } from "lucide-react";
+import { AlertCircle, ArrowLeft, CalendarDays, Check, ChevronDown, Eye, FileText, Info, Link2, Loader2, Minus, Plus, RefreshCw, ShieldCheck, Trash2, UploadCloud, Users } from "lucide-react";
 import { getFileValidationRules } from "../../utils/fileValidation";
 import { getUploadLimitForDocType, FINAL_UPLOAD_TARGET_BYTES } from "../../utils/optimizeUploadFile";
 import CompactDateRangePicker from "./CompactDateRangePicker";
 import "./compactApplication.css";
 
 const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
+const formatFileSize = (bytes) => {
+  const n = Number(bytes || 0);
+  if (!n || n <= 0) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round((n / 1024) * 10) / 10} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+};
 const displayName = (field, copy = {}, isFileUploadOn = false) => {
   if (field.key === "passport") {
     return copy?.passportUploadLabel || (isFileUploadOn ? (field.label || "Passport") : "Passport photo");
@@ -71,9 +78,9 @@ function CompactFeeTooltipRow({
   );
 }
 
-function Card({ title, icon: Icon, children, optional, optionalText = "Optional", optionalTooltip, className = "" }) {
+function Card({ id, title, icon: Icon, children, optional, optionalText = "Optional", optionalTooltip, className = "" }) {
   return (
-    <section className={`ca-card ${className}`}>
+    <section id={id} className={`ca-card ${className}`}>
       <h2>
         <Icon size={20} />
         <span>{title}</span>
@@ -130,6 +137,8 @@ function UploadField({
   );
 
   const filename = file?.name || detail?.fileName || (hasFile ? labelText : "");
+  const fileSizeBytes = (file && typeof file === "object" && Number(file.size)) || Number(detail?.fileSize || 0) || 0;
+  const formattedSize = formatFileSize(fileSizeBytes);
   const uploadButtonLabel = copy?.uploadButtonText || "Upload";
 
   const handlePreview = (e) => {
@@ -168,24 +177,38 @@ function UploadField({
         {/* Content area: Busy state, Uploaded file state, or Empty state */}
         {busy ? (
           <div className="ca-upload-busy-info">
-            <Loader2 size={17} className="ca-upload-spinner animate-spin" />
+            <span className="ca-upload-spinner-badge" aria-hidden="true">
+              <Loader2 size={15} className="ca-upload-spinner" />
+            </span>
             <span className="ca-upload-busy-text">
-              {optimizing[key] ? "Compressing file…" : "Uploading file…"}
+              {optimizing[key] ? "Optimizing file…" : "Uploading document…"}
+            </span>
+            <span className="ca-upload-busy-pill">
+              <span className="ca-upload-busy-dot" />
+              {optimizing[key] ? "Compressing" : "Saving"}
             </span>
           </div>
         ) : hasFile ? (
-          <div className="ca-file-info" title={filename}>
+          <div className="ca-file-info" tabIndex={0} aria-label={`${filename}${formattedSize ? ` (${formattedSize})` : ""}`}>
             <field.Icon size={18} className="ca-file-icon" />
             <span className="ca-file-check-pill">
               <Check size={12} strokeWidth={2.5} />
             </span>
             <span className="ca-filename-text">{filename}</span>
+            <div className="ca-file-tooltip" role="tooltip">
+              <div className="ca-file-tooltip-name">{filename}</div>
+              {formattedSize && (
+                <div className="ca-file-tooltip-size">
+                  Size: <b>{formattedSize}</b>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="ca-upload-empty-info">
             <field.Icon size={18} className="ca-file-icon" />
             <small title={`${labelText} · max ${getUploadLimitForDocType(field.key).label}`}>
-              {labelText} · max ${getUploadLimitForDocType(field.key).label}
+              {labelText} · max {getUploadLimitForDocType(field.key).label}
             </small>
           </div>
         )}
@@ -295,6 +318,7 @@ export default function CompactApplication({
   optionalDocs = [],
   onDriveFocus,
   driveInputRef,
+  validationAttempted = false,
 }) {
   const [open, setOpen] = useState(0);
   const [visaDropdownOpen, setVisaDropdownOpen] = useState(false);
@@ -367,21 +391,26 @@ export default function CompactApplication({
   );
 
   const travelerPrefix = startAppCopy?.travelerPrefix || "Traveler";
+  const missingTravelDate = validationAttempted && (!flowDateFrom || !flowDateTo);
 
-  const nameInput = (traveler, index, inline = false) => (
-    <input
-      id={`ca-name-${index}`}
-      ref={(el) => {
-        if (nameRefs?.current) nameRefs.current[index] = el;
-      }}
-      className={inline ? "ca-inline-name" : "ca-input"}
-      aria-label={inline ? `${travelerPrefix} ${index + 1} full name` : undefined}
-      value={traveler.name}
-      onClick={(event) => event.stopPropagation()}
-      onChange={(event) => onName(index, event.target.value)}
-      placeholder={inline ? `${travelerPrefix} ${index + 1} – full name` : (startAppCopy?.fullNamePlaceholder || "e.g. Rahul Sharma")}
-    />
-  );
+  const nameInput = (traveler, index, inline = false) => {
+    const isMissingName = validationAttempted && !String(traveler.name || "").trim();
+    return (
+      <input
+        id={`ca-name-${index}`}
+        ref={(el) => {
+          if (nameRefs?.current) nameRefs.current[index] = el;
+        }}
+        className={`${inline ? "ca-inline-name" : "ca-input"} ${isMissingName ? "is-invalid" : ""}`}
+        aria-invalid={isMissingName || undefined}
+        aria-label={inline ? `${travelerPrefix} ${index + 1} full name` : undefined}
+        value={traveler.name}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => onName(index, event.target.value)}
+        placeholder={inline ? `${travelerPrefix} ${index + 1} – full name` : (startAppCopy?.fullNamePlaceholder || "e.g. Rahul Sharma")}
+      />
+    );
+  };
 
   return (
     <main className="ca-page">
@@ -443,19 +472,32 @@ export default function CompactApplication({
               </div>
             </Card>
 
-            <Card title={startAppCopy?.calendarHeading || "Select Travel Date"} icon={CalendarDays}>
-              <CompactDateRangePicker
-                departureDate={flowDateFrom || ""}
-                returnDate={flowDateTo || ""}
-                minDate={today}
-                departureLabel={startAppCopy?.departureLabel || "DEPARTURE"}
-                returnLabel={startAppCopy?.returnLabel || "RETURN"}
-                departurePlaceholder={startAppCopy?.departurePlaceholder || "dd-mm-yyyy"}
-                returnPlaceholder={startAppCopy?.returnPlaceholder || "dd-mm-yyyy"}
-                onDateChange={(field, value) => {
-                  onFlowChange(field === "departure" ? "travelDateFrom" : "travelDateTo", value);
-                }}
-              />
+            <Card
+              id="ca-travel-date-card"
+              className={missingTravelDate ? "is-invalid-card" : ""}
+              title={startAppCopy?.calendarHeading || "Select Travel Date"}
+              icon={CalendarDays}
+            >
+              <div>
+                <CompactDateRangePicker
+                  departureDate={flowDateFrom || ""}
+                  returnDate={flowDateTo || ""}
+                  minDate={today}
+                  departureLabel={startAppCopy?.departureLabel || "DEPARTURE"}
+                  returnLabel={startAppCopy?.returnLabel || "RETURN"}
+                  departurePlaceholder={startAppCopy?.departurePlaceholder || "dd-mm-yyyy"}
+                  returnPlaceholder={startAppCopy?.returnPlaceholder || "dd-mm-yyyy"}
+                  onDateChange={(field, value) => {
+                    onFlowChange(field === "departure" ? "travelDateFrom" : "travelDateTo", value);
+                  }}
+                />
+                {missingTravelDate && (
+                  <div role="alert" className="ca-inline-alert mt-2.5">
+                    <AlertCircle size={15} />
+                    <span>Please select both departure and return travel dates.</span>
+                  </div>
+                )}
+              </div>
             </Card>
           </div>
 
@@ -501,7 +543,6 @@ export default function CompactApplication({
                           !docErrors[`${index}-${field.key}`] &&
                           !docUploading[`${index}-${field.key}`])
                     ).length;
-                    const complete = Boolean(traveler.name.trim()) && count === enabledDocs.length;
                     const travelerLabel = `${travelerPrefix} ${index + 1}`;
 
                     return (
@@ -523,13 +564,6 @@ export default function CompactApplication({
                           {nameInput(traveler, index, true)}
                           <span className="ca-pill">
                             {count} of {enabledDocs.length} uploaded
-                          </span>
-                          <span
-                            className={`ca-status ${complete ? "is-complete" : ""}`}
-                            role="img"
-                            aria-label={complete ? "Complete" : "Incomplete"}
-                          >
-                            {complete && <Check size={16} />}
                           </span>
                           {open === index && travelers.length > 1 && (
                             <button
@@ -559,6 +593,12 @@ export default function CompactApplication({
                             <ChevronDown size={18} />
                           </button>
                         </div>
+                        {validationAttempted && !String(traveler.name || "").trim() && (
+                          <div role="alert" className="ca-inline-alert ca-accordion-alert">
+                            <AlertCircle size={14} />
+                            <span>Please enter {travelerLabel} full name.</span>
+                          </div>
+                        )}
                         <div
                           id={`ca-panel-${index}`}
                           role="region"
@@ -603,6 +643,12 @@ export default function CompactApplication({
                             {startAppCopy?.fullNameLabel || "Full name (same as in passport)"}
                           </label>
                           {nameInput(traveler, index)}
+                          {validationAttempted && !String(traveler.name || "").trim() && (
+                            <div role="alert" className="ca-inline-alert mt-1.5">
+                              <AlertCircle size={14} />
+                              <span>Please enter {travelerLabel} full name.</span>
+                            </div>
+                          )}
                         </div>
                         {upload(traveler, index, passportField)}
                       </article>

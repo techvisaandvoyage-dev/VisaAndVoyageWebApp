@@ -68,55 +68,55 @@ const BlogCard = ({ post, index }) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.45, delay: Math.min(index * 0.04, 0.4), ease: "easeOut" }}
-      className="group bg-surface rounded-3xl overflow-hidden shadow-card hover:shadow-cyan-glow transition-all duration-300 flex flex-col"
+      className="group flex flex-col overflow-hidden rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3] transition-all duration-300 hover:-translate-y-1 hover:shadow-[8px_10px_24px_#8c8273,-6px_-6px_18px_#d6c9b3]"
     >
-      <Link to={`/blog/${post.slug}`} className="block relative">
+      <Link to={`/blog/${post.slug}`} className="relative block overflow-hidden bg-[#dfd2bc]">
         <ImageWithShimmer
           src={thumbSrc}
           alt={post.title}
-          className="w-full aspect-[16/10] sm:aspect-[4/3]"
+          className="w-full aspect-[16/10] sm:aspect-[4/3] transition-transform duration-500 group-hover:scale-[1.03]"
           width={640}
           sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
           priority={index < 3}
         />
         {dateBits.day ? (
-          <div className="absolute top-3 left-3 z-30 bg-gold text-white rounded-xl shadow-md w-12 h-14 flex flex-col items-center justify-center leading-none">
-            <span className="text-lg font-bold">{dateBits.day}</span>
-            <span className="text-[10px] font-semibold tracking-wider">{dateBits.month}</span>
+          <div className="absolute top-3.5 left-3.5 z-30 flex h-14 w-12 flex-col items-center justify-center rounded-2xl border border-[#EEDFC7]/30 bg-[#2D2B22]/85 text-[#EEDFC7] leading-none shadow-md backdrop-blur-sm">
+            <span className="text-lg font-extrabold">{dateBits.day}</span>
+            <span className="mt-0.5 text-[10px] font-bold tracking-wider text-[#dfd2bc]">{dateBits.month}</span>
           </div>
         ) : null}
         {categoryLabel ? (
-          <span className="absolute top-3 right-3 z-30 bg-cyan/95 text-white text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full">
+          <span className="absolute top-3.5 right-3.5 z-30 rounded-full border border-white/20 bg-[#607938]/95 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-sm backdrop-blur-sm">
             {categoryLabel}
           </span>
         ) : null}
       </Link>
 
-      <div className="flex-1 flex flex-col p-5">
-        <h3 className="text-base sm:text-lg font-bold text-text-primary line-clamp-2 group-hover:text-cyan transition-colors">
+      <div className="flex flex-1 flex-col p-6">
+        <h3 className="text-base sm:text-lg font-extrabold text-[#2D2B22] line-clamp-2 transition-colors group-hover:text-[#607938]">
           <Link to={`/blog/${post.slug}`}>{post.title}</Link>
         </h3>
-        <p className="text-sm text-text-secondary mt-2 line-clamp-3 leading-relaxed">
+        <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-[#6E6A59]">
           {post.shortDescription || ""}
         </p>
 
-        <div className="mt-4 flex items-center gap-4 text-xs text-text-muted">
-          <span className="inline-flex items-center gap-1">
-            <Heart size={14} /> {post.likesCount || 0}
+        <div className="mt-4 flex items-center gap-4 text-xs font-semibold text-[#6E6A59]">
+          <span className="inline-flex items-center gap-1.5">
+            <Heart size={14} className="text-[#607938]" /> {post.likesCount || 0}
           </span>
-          <span className="inline-flex items-center gap-1">
-            <MessageCircle size={14} /> {post.commentsCount || 0}
+          <span className="inline-flex items-center gap-1.5">
+            <MessageCircle size={14} className="text-[#607938]" /> {post.commentsCount || 0}
           </span>
-          <span className="inline-flex items-center gap-1 ml-auto">
-            <Calendar size={14} />
+          <span className="ml-auto inline-flex items-center gap-1.5">
+            <Calendar size={14} className="text-[#607938]" />
             {formatDate(post.publishedAt || post.createdAt)}
           </span>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-border-light">
+        <div className="mt-4 border-t border-[#2D2B22]/10 pt-4">
           <Link
             to={`/blog/${post.slug}`}
-            className="inline-flex items-center gap-1 text-sm font-semibold text-cyan hover:text-cyan-dim"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-[#607938] transition-colors hover:text-[#4e632d]"
           >
             Learn more
             <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
@@ -128,13 +128,13 @@ const BlogCard = ({ post, index }) => {
 };
 
 const SkeletonCard = () => (
-  <div className="bg-surface rounded-3xl overflow-hidden shadow-card">
-    <div className="aspect-[4/3] glass-shimmer bg-surface-3" />
-    <div className="p-5 space-y-3">
-      <div className="h-4 rounded bg-surface-3 w-3/4" />
-      <div className="h-3 rounded bg-surface-3 w-full" />
-      <div className="h-3 rounded bg-surface-3 w-5/6" />
-      <div className="h-3 rounded bg-surface-3 w-1/2 mt-4" />
+  <div className="overflow-hidden rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3]">
+    <div className="aspect-[4/3] animate-pulse bg-[#dfd2bc]" />
+    <div className="space-y-3 p-6">
+      <div className="h-4 w-3/4 animate-pulse rounded-lg bg-[#dfd2bc]" />
+      <div className="h-3 w-full animate-pulse rounded-lg bg-[#dfd2bc]" />
+      <div className="h-3 w-5/6 animate-pulse rounded-lg bg-[#dfd2bc]" />
+      <div className="mt-4 h-3 w-1/2 animate-pulse rounded-lg bg-[#dfd2bc]" />
     </div>
   </div>
 );
@@ -233,11 +233,11 @@ const BlogListingPage = () => {
   const hasMore = pagination.page < pagination.pages;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-[#EEDFC7] text-[#2D2B22] flex flex-col">
       <Navbar />
 
       {/* ── Hero banner ─────────────────────────────────────── */}
-      <section className="relative">
+      <section className="relative overflow-hidden">
         <div className="absolute inset-0">
           <img
             src={DEFAULT_HERO_IMAGE}
@@ -245,22 +245,22 @@ const BlogListingPage = () => {
             className="w-full h-full object-cover"
             loading="eager"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan/80 via-cyan-dim/70 to-black/60" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#2D2B22]/85 via-[#2D2B22]/72 to-[#4e632d]/80" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-24 sm:py-32 text-center text-white">
+        <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-20 sm:px-6 sm:pt-36 sm:pb-24 text-center text-white">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            <p className="text-xs sm:text-sm uppercase tracking-[0.4em] text-white/80 mb-3">
-              Visa & Voyage
+            <p className="mb-3 inline-flex items-center rounded-full border border-[#EEDFC7]/25 bg-[#EEDFC7]/10 px-4 py-1 text-[11px] font-bold uppercase tracking-[0.28em] text-[#EEDFC7] backdrop-blur-sm">
+              Visa &amp; Voyage Journal
             </p>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
-              Blog <span className="italic font-light text-gold">&amp; Article</span>
+            <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-[#EEDFC7] sm:text-5xl lg:text-6xl">
+              Blog <span className="italic font-light text-[#dfd2bc]">&amp; Articles</span>
             </h1>
-            <p className="mt-5 max-w-2xl mx-auto text-sm sm:text-base text-white/85 leading-relaxed">
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[#EEDFC7]/85 sm:text-base">
               Visa updates, country guides, and travel tips from our team — handpicked to help you
               plan smarter and travel further.
             </p>
@@ -269,9 +269,9 @@ const BlogListingPage = () => {
           {/* Search */}
           <form
             onSubmit={handleSearchSubmit}
-            className="mt-8 max-w-xl mx-auto flex items-center gap-2 bg-white/95 backdrop-blur rounded-2xl shadow-card p-1.5"
+            className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-2xl border border-[#2D2B22]/15 bg-[#EEDFC7]/95 p-1.5 shadow-[0_14px_36px_rgba(25,24,18,0.35)] backdrop-blur"
           >
-            <span className="pl-3 text-text-muted">
+            <span className="pl-3 text-[#607938]">
               <Search size={18} />
             </span>
             <input
@@ -279,76 +279,73 @@ const BlogListingPage = () => {
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
               placeholder="Search articles, countries, visa types…"
-              className="flex-1 bg-transparent border-none outline-none px-2 py-2.5 text-sm text-text-primary placeholder-text-muted"
+              className="flex-1 border-none bg-transparent px-2 py-2.5 text-sm font-medium text-[#2D2B22] placeholder-[#6E6A59] outline-none"
               aria-label="Search blog posts"
             />
-            <Button type="submit" variant="primary" size="sm" className="rounded-xl">
+            <button
+              type="submit"
+              className="rounded-xl bg-[#607938] px-5 py-2.5 text-sm font-bold text-white shadow-[2px_3px_6px_rgba(45,43,34,0.22)] transition-all hover:bg-[#536930] active:translate-y-[1px]"
+            >
               Search
-            </Button>
+            </button>
           </form>
         </div>
 
         {/* Soft separator under hero */}
-        <div className="absolute -bottom-px left-0 right-0 h-10 bg-background [clip-path:polygon(0_70%,25%_30%,50%_70%,75%_30%,100%_70%,100%_100%,0_100%)]" />
+        <div className="absolute -bottom-px left-0 right-0 h-8 bg-[#EEDFC7] [clip-path:polygon(0_70%,25%_30%,50%_70%,75%_30%,100%_70%,100%_100%,0_100%)]" />
       </section>
 
       {/* ── Category bar ────────────────────────────────────── */}
-      <div className="bg-surface border-b border-border sticky top-16 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-1 overflow-x-auto no-scrollbar">
+      <div className="sticky top-[72px] z-30 bg-[#dfd2bc] shadow-[0_10px_20px_-6px_rgba(45,43,34,0.14)]">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-4 py-2.5 sm:px-6 no-scrollbar">
           {navItems.map((item) => {
             const isActive = activeCategory === item.slug || activeCategory === item._id;
             return (
               <button
                 key={item._id}
                 onClick={() => setParam("category", item.slug)}
-                className={`relative whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors ${
+                className={`flex-none whitespace-nowrap h-[44px] px-[18px] rounded-[14px] text-[15px] transition-all duration-200 ${
                   isActive
-                    ? "text-cyan"
-                    : "text-text-secondary hover:text-text-primary"
+                    ? "bg-[#EEDFC7] font-semibold text-[#607938] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.28),inset_-1px_-1px_3px_rgba(110,106,89,0.25)]"
+                    : "bg-transparent font-medium text-[#6E6A59] hover:text-[#2D2B22]"
                 }`}
               >
                 {item.name}
-                {isActive && (
-                  <motion.span
-                    layoutId="blogCategoryUnderline"
-                    className="absolute bottom-0 left-3 right-3 h-0.5 bg-cyan rounded-full"
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                )}
               </button>
             );
           })}
-
         </div>
       </div>
 
       {/* ── Grid ────────────────────────────────────────────── */}
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-          <div className="flex items-end justify-between mb-8">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+          <div className="mb-8 flex items-end justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-text-primary">Latest News &amp; Articles</h2>
-              <p className="text-sm text-text-muted mt-1">
+              <h2 className="text-2xl font-extrabold tracking-tight text-[#2D2B22]">
+                Latest News &amp; Articles
+              </h2>
+              <p className="mt-1 text-sm font-medium text-[#6E6A59]">
                 {pagination.total ? `${pagination.total} stories` : "Curated travel & visa stories"}
               </p>
             </div>
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <SkeletonCard key={i} />
               ))}
             </div>
           ) : posts.length === 0 ? (
-            <div className="bg-surface rounded-3xl shadow-card py-20 text-center">
-              <p className="text-base font-semibold text-text-primary">No articles yet.</p>
-              <p className="text-sm text-text-muted mt-1">
+            <div className="rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] py-20 text-center shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3]">
+              <p className="text-base font-extrabold text-[#2D2B22]">No articles yet.</p>
+              <p className="mt-1 text-sm text-[#6E6A59]">
                 Check back soon or try a different category.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {posts.map((post, i) => (
                 <BlogCard key={post._id} post={post} index={i} />
               ))}
@@ -362,7 +359,7 @@ const BlogListingPage = () => {
                 size="lg"
                 onClick={handleLoadMore}
                 loading={loadingMore}
-                className="rounded-full px-8"
+                className="rounded-xl bg-[#607938] px-8 text-white shadow-[2px_3px_8px_rgba(45,43,34,0.22)] hover:bg-[#536930]"
               >
                 Load more
               </Button>
@@ -370,8 +367,8 @@ const BlogListingPage = () => {
           ) : null}
 
           {loadingMore && !hasMore ? (
-            <div className="mt-10 flex justify-center text-text-muted">
-              <Loader2 className="w-5 h-5 animate-spin" />
+            <div className="mt-10 flex justify-center text-[#607938]">
+              <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : null}
         </div>

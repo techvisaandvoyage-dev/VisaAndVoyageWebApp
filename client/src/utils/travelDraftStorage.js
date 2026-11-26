@@ -6,34 +6,36 @@ export const travelDraftStorageKey = (countryId) =>
 export function saveTravelDraft(countryId, draft) {
   if (!countryId || !draft) return;
   try {
+    const existing = loadTravelDraft(countryId) || {};
+    const merged = { ...existing, ...draft };
     const payload = JSON.stringify({
-      applicationId: draft.applicationId ?? "",
-      travelDateFrom: draft.travelDateFrom ?? "",
-      travelDateTo: draft.travelDateTo ?? "",
-      visaOption: draft.visaOption ?? "e-Visa",
-      sharedDriveLink: draft.sharedDriveLink ?? "",
-      travelers: Array.isArray(draft.travelers)
-        ? draft.travelers.map((traveler) => ({
+      applicationId: merged.applicationId ?? "",
+      travelDateFrom: merged.travelDateFrom ?? "",
+      travelDateTo: merged.travelDateTo ?? "",
+      visaOption: merged.visaOption ?? "e-Visa",
+      sharedDriveLink: merged.sharedDriveLink ?? "",
+      travelers: Array.isArray(merged.travelers)
+        ? merged.travelers.map((traveler) => ({
             ...traveler,
             name: traveler?.name ?? traveler?.fullName ?? "",
           }))
         : [],
-      passportSuccesses: typeof draft.passportSuccesses === "object" && draft.passportSuccesses
-        ? draft.passportSuccesses
+      passportSuccesses: typeof merged.passportSuccesses === "object" && merged.passportSuccesses
+        ? merged.passportSuccesses
         : {},
-      passportDetails: typeof draft.passportDetails === "object" && draft.passportDetails
-        ? draft.passportDetails
+      passportDetails: typeof merged.passportDetails === "object" && merged.passportDetails
+        ? merged.passportDetails
         : {},
-      hiddenPassportTravelerNos: typeof draft.hiddenPassportTravelerNos === "object" && draft.hiddenPassportTravelerNos
-        ? draft.hiddenPassportTravelerNos
+      hiddenPassportTravelerNos: typeof merged.hiddenPassportTravelerNos === "object" && merged.hiddenPassportTravelerNos
+        ? merged.hiddenPassportTravelerNos
         : {},
-      uploadedDocSuccesses: typeof draft.uploadedDocSuccesses === "object" && draft.uploadedDocSuccesses
-        ? draft.uploadedDocSuccesses
+      uploadedDocSuccesses: typeof merged.uploadedDocSuccesses === "object" && merged.uploadedDocSuccesses
+        ? merged.uploadedDocSuccesses
         : {},
-      uploadedDocDetails: typeof draft.uploadedDocDetails === "object" && draft.uploadedDocDetails
-        ? draft.uploadedDocDetails
+      uploadedDocDetails: typeof merged.uploadedDocDetails === "object" && merged.uploadedDocDetails
+        ? merged.uploadedDocDetails
         : {},
-      showTravelDetails: draft.showTravelDetails !== false,
+      showTravelDetails: merged.showTravelDetails !== false,
     });
     localStorage.setItem(travelDraftStorageKey(countryId), payload);
     sessionStorage.setItem(travelDraftStorageKey(countryId), payload);

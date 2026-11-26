@@ -219,6 +219,8 @@ app.get('/api/config/customer-chat', getCustomerChatConfig);
 app.get('/api/config/footer', getFooterConfig);
 app.get('/api/config/seo', getSeoConfig);
 app.get('/api/config/country-codes', getPublicCountryCodeSettings);
+const { validateCoupon } = require('./controllers/paymentController');
+app.post('/api/coupons/validate', validateCoupon);
 
 // Public Countries Routes
 const { getCountries, getCountryBySlug, getPopularCountries, trackCountryVisit } = require('./controllers/countryController');

@@ -8,6 +8,10 @@ const {
   normalizeUrl,
   buildSeoPublicConfig,
 } = require('../utils/seoSettings');
+const {
+  DEFAULT_PAYMENT_SUMMARY_PAGE_CONFIG,
+  sanitizePaymentSummaryPageConfig,
+} = require('../utils/couponUtils');
 
 /** Strip secret JSON from admin API; expose whether server env supplies the Admin SDK key. */
 const sanitizeSettingsForAdminResponse = (doc) => {
@@ -597,6 +601,10 @@ const normalizeSettingsUpdatePayload = (body = {}) => ({
     body.userDashboardPageCopy === undefined
       ? undefined
       : sanitizeUserDashboardPageCopy(body.userDashboardPageCopy),
+  paymentSummaryPageConfig:
+    body.paymentSummaryPageConfig === undefined
+      ? undefined
+      : sanitizePaymentSummaryPageConfig(body.paymentSummaryPageConfig),
   showPopularCountries:
     body.showPopularCountries === undefined
       ? undefined
@@ -766,6 +774,7 @@ const updateSettings = async (req, res) => {
       startApplicationPageCopy,
       userProfilePageCopy,
       userDashboardPageCopy,
+      paymentSummaryPageConfig,
     } = safePayload;
     console.log('Admin updating settings:', {
       razorpayKeyId,
@@ -947,6 +956,10 @@ const updateSettings = async (req, res) => {
         }
       }
       settings.userProfilePageCopy = merged;
+    }
+    if (paymentSummaryPageConfig !== undefined) {
+      settings.paymentSummaryPageConfig = sanitizePaymentSummaryPageConfig(paymentSummaryPageConfig);
+      settings.markModified('paymentSummaryPageConfig');
     }
     if (userDashboardPageCopy !== undefined) {
       const current = settings.userDashboardPageCopy
@@ -1179,6 +1192,21 @@ const getDestinationPageContent = async (req, res) => {
         userDashboardPageCopy: {
           ...USER_DASHBOARD_PAGE_COPY_FALLBACK,
           ...(settings?.userDashboardPageCopy ? (settings.userDashboardPageCopy.toObject ? settings.userDashboardPageCopy.toObject() : settings.userDashboardPageCopy) : {}),
+        },
+        paymentSummaryPageConfig: {
+          couponsEnabled:
+            settings?.paymentSummaryPageConfig?.couponsEnabled !== undefined
+              ? Boolean(settings.paymentSummaryPageConfig.couponsEnabled)
+              : DEFAULT_PAYMENT_SUMMARY_PAGE_CONFIG.couponsEnabled,
+          couponSectionLabel:
+            settings?.paymentSummaryPageConfig?.couponSectionLabel ||
+            DEFAULT_PAYMENT_SUMMARY_PAGE_CONFIG.couponSectionLabel,
+          couponPlaceholder:
+            settings?.paymentSummaryPageConfig?.couponPlaceholder ||
+            DEFAULT_PAYMENT_SUMMARY_PAGE_CONFIG.couponPlaceholder,
+          couponApplyButtonText:
+            settings?.paymentSummaryPageConfig?.couponApplyButtonText ||
+            DEFAULT_PAYMENT_SUMMARY_PAGE_CONFIG.couponApplyButtonText,
         },
       },
     });

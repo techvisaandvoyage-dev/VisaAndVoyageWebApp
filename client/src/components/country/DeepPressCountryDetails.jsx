@@ -167,6 +167,10 @@ export default function DeepPressCountryDetails(props) {
   };
 
   const [active, setActive] = useState("info");
+  const [openFaqs, setOpenFaqs] = useState({});
+  const toggleFaq = (faqKey) => {
+    setOpenFaqs((prev) => ({ ...prev, [faqKey]: !prev[faqKey] }));
+  };
   const activeRef = useRef("info");
   const targetTabRef = useRef(null);
   const clickTimeoutRef = useRef(null);
@@ -223,10 +227,13 @@ export default function DeepPressCountryDetails(props) {
       body.style.setProperty("--dp-fade-top", `${overflows ? Math.min(20, body.scrollTop) : 0}px`);
     };
 
+    const getStackBaseTop = () => (window.innerWidth >= 1200 ? 94 : 157);
+
     const measure = () => {
+      const baseStackTop = getStackBaseTop();
       const bottomSpace = window.innerWidth <= 1000 ? 112 : 24;
       cards.forEach((node, index) => {
-        const top = 157 + index * 14;
+        const top = baseStackTop + index * 14;
         node.style.setProperty("--dp-stack-top", `${top}px`);
         node.style.zIndex = index + 1;
         const available = Math.max(180, window.innerHeight - top - bottomSpace);
@@ -264,87 +271,128 @@ export default function DeepPressCountryDetails(props) {
       }
     };
 
+    const appliedOffsets = new WeakMap();
+    const appliedClips = new WeakMap();
+
     const updateActive = () => {
       frame = 0;
-      let next = tabs[0]?.[0] || "";
-      nodes.forEach((node, index) => {
-        const top = 157 + (index + 1) * 14;
-        const start = node.previousElementSibling.getBoundingClientRect().top;
-        const distance = Number(node.dataset.scrollDistance || 0);
-        node.children[1].scrollTop = Math.min(distance, Math.max(0, top - start));
-        updateFade(node.children[1]);
-        if (start <= top + 24) next = node.id;
-      });
+      const baseStackTop = getStackBaseTop();
 
+      // 1. Batch ALL DOM reads first (zero forced synchronous reflow)
+      const startTops = nodes.map((node) => node.previousElementSibling.getBoundingClientRect().top);
       const last = nodes[nodes.length - 1];
       const rail = layout?.lastElementChild;
-      // Read every position before applying this frame's transforms. Use the
-      // rendered translation, not the requested offset: fractional pixels and
-      // browser zoom can otherwise feed a small error into the next frame.
       const geometry = new Map([...cards, rail].filter(Boolean).map((node) => {
         const rect = node.getBoundingClientRect();
-        const transform = window.getComputedStyle(node).transform;
-        const translation = transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m42;
+        const translation = appliedOffsets.get(node) || 0;
         return [node, { top: rect.top - translation, height: rect.height }];
       }));
+
+      // 2. Compute active tab & scroll distances
+      let next = tabs[0]?.[0] || "";
+      const bodyScrollTargets = nodes.map((node, index) => {
+        const top = baseStackTop + (index + 1) * 14;
+        const start = startTops[index];
+        const distance = Number(node.dataset.scrollDistance || 0);
+        if (start <= top + 24) next = node.id;
+        return Math.min(distance, Math.max(0, top - start));
+      });
+
       const lastGeometry = geometry.get(last);
       const lastRect = lastGeometry && {
         top: lastGeometry.top,
         bottom: lastGeometry.top + lastGeometry.height,
       };
-      const lastTargetTop = 157 + nodes.length * 14;
-      // When the last card reaches its stack position and user continues scrolling,
-      // commonShift becomes negative. Both the left cards stack AND the right rail
-      // scroll up together in lockstep.
+      const lastTargetTop = baseStackTop + nodes.length * 14;
       const commonShift = lastRect ? Math.min(0, lastRect.top - lastTargetTop) : 0;
 
-      cards.forEach((node, index) => {
+      // 3. Batch ALL DOM writes after reads
+      nodes.forEach((node, index) => {
+        const body = node.children[1];
+        const targetScroll = bodyScrollTargets[index];
+        if (Math.abs(body.scrollTop - targetScroll) > 0.25) {
+          body.scrollTop = targetScroll;
+          updateFade(body);
+        }
+      });
+
+      const cardPositions = cards.map((node, index) => {
+        const naturalTop = geometry.get(node).top;
+        const height = geometry.get(node).height;
+
+        let rawOffset = 0;
+        if (node === last) {
+          rawOffset = 0;
+        } else if (commonShift < 0) {
+          rawOffset = (baseStackTop + index * 14 + commonShift) - naturalTop;
+        } else {
+          rawOffset = Math.max(0, (baseStackTop + index * 14 + commonShift) - naturalTop);
+        }
+        const offset = Math.abs(rawOffset) < 0.05 ? 0 : Number(rawOffset.toFixed(2));
+        return {
+          node,
+          offset,
+          top: naturalTop + offset,
+          bottom: naturalTop + offset + height,
+        };
+      });
+
+      cardPositions.forEach(({ node, offset, top: currentTop, bottom: cardBottom }, index) => {
         if (reducedMotion.matches) {
-          node.style.transform = "";
-          node.style.clipPath = "";
+          if (appliedOffsets.has(node)) {
+            node.style.transform = "";
+            appliedOffsets.delete(node);
+          }
+          if (appliedClips.has(node)) {
+            node.style.clipPath = "";
+            appliedClips.delete(node);
+          }
           return;
         }
 
-        const baseTop = 157 + index * 14;
-        const targetTop = baseTop + commonShift;
-        const naturalTop = geometry.get(node).top;
-
-        let offset = 0;
-        if (node === last) {
-          offset = 0;
-        } else if (commonShift < 0) {
-          // Last scroll / footer scroll: lock all cards into the stack moving together!
-          // No card ever moves up ahead of another card or peeks out unexpectedly.
-          offset = targetTop - naturalTop;
-        } else {
-          // Normal scroll: prevent any card from escaping upwards early
-          offset = Math.max(0, targetTop - naturalTop);
+        const prevOffset = appliedOffsets.get(node);
+        if (prevOffset !== offset) {
+          node.style.transform = `translate3d(0, ${offset}px, 0)`;
+          appliedOffsets.set(node, offset);
         }
 
-        node.style.transform = `translate3d(0, ${offset}px, 0)`;
-
-        // Clip the bottom of earlier cards so they NEVER poke out below the last card (FAQ)
-        const currentTop = naturalTop + offset;
-        const cardBottom = currentTop + geometry.get(node).height;
-        const hiddenBottom = lastRect && cardBottom > lastRect.bottom
-          ? cardBottom - lastRect.bottom
+        // Clip the bottom of earlier cards against any later card stacked on top of them
+        // so taller earlier cards never poke out behind shorter cards (e.g. What's Included or FAQs).
+        let coverBottom = Infinity;
+        for (let j = index + 1; j < cardPositions.length; j += 1) {
+          const later = cardPositions[j];
+          if (later.top <= currentTop + 96) {
+            coverBottom = Math.min(coverBottom, later.bottom);
+          }
+        }
+        const rawHiddenBottom = Number.isFinite(coverBottom) && cardBottom > coverBottom
+          ? cardBottom - coverBottom
           : 0;
-        node.style.clipPath = hiddenBottom > 0 ? `inset(0 0 ${hiddenBottom}px 0 round 26px)` : "";
+        const hiddenBottom = rawHiddenBottom > 0.5 ? Math.ceil(rawHiddenBottom) : 0;
+        const prevClip = appliedClips.get(node) || 0;
+        if (prevClip !== hiddenBottom) {
+          node.style.clipPath = hiddenBottom > 0 ? `inset(0 0 ${hiddenBottom}px 0 round 26px)` : "";
+          appliedClips.set(node, hiddenBottom);
+        }
       });
 
-      // Synchronize the right-side price card rail: once the last stack position is reached,
-      // the right card scrolls up together with the stack into the footer.
+      // Synchronize the right-side price card rail
       if (rail && !reducedMotion.matches && window.innerWidth > 1000) {
         if (commonShift < 0) {
           const railNaturalTop = geometry.get(rail).top;
-          const railTargetTop = 157 + commonShift;
-          const railOffset = railTargetTop - railNaturalTop;
-          rail.style.transform = `translate3d(0, ${railOffset}px, 0)`;
-        } else {
-          rail.style.transform = "";
+          const railTargetTop = baseStackTop + commonShift;
+          const railOffset = Number((railTargetTop - railNaturalTop).toFixed(2));
+          if (appliedOffsets.get(rail) !== railOffset) {
+            rail.style.transform = `translate3d(0, ${railOffset}px, 0)`;
+            appliedOffsets.set(rail, railOffset);
+          }
+        } else if (appliedOffsets.get(rail)) {
+          rail.style.transform = "translate3d(0, 0, 0)";
+          appliedOffsets.set(rail, 0);
         }
-      } else if (rail) {
+      } else if (rail && appliedOffsets.get(rail)) {
         rail.style.transform = "";
+        appliedOffsets.set(rail, 0);
       }
 
       // Smooth tab activation: if a tab was clicked, hold that tab active during the smooth scroll
@@ -367,7 +415,7 @@ export default function DeepPressCountryDetails(props) {
     };
 
     const onScroll = () => {
-      if (!frame) frame = window.requestAnimationFrame(updateActive);
+      updateActive();
     };
 
     const onUserInterrupt = () => {
@@ -424,11 +472,12 @@ export default function DeepPressCountryDetails(props) {
     }, 850);
 
     const btn = tabButtonsRef.current?.[id];
-    if (btn?.scrollIntoView) {
+    if (btn && btn.offsetParent !== null && btn.scrollIntoView) {
       btn.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
     }
 
-    const top = parseFloat(node.style.getPropertyValue("--dp-stack-top")) || 157;
+    const fallbackTop = window.innerWidth >= 1200 ? 94 : 157;
+    const top = parseFloat(node.style.getPropertyValue("--dp-stack-top")) || fallbackTop;
     const startEl = node.previousElementSibling;
     const targetY = window.scrollY + (startEl ? startEl.getBoundingClientRect().top : 0) - top;
 
@@ -448,9 +497,31 @@ export default function DeepPressCountryDetails(props) {
     />
   );
 
+  const getInlineTabLabel = (id, label) => {
+    if (id === "faqs" || String(label).toLowerCase() === "frequently asked questions") {
+      return "FAQs";
+    }
+    return label;
+  };
+
+  const inlineTabsNav = (
+    <nav className="dp-tabs-inline" aria-label="Country detail sections">
+      {tabs.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          className={active === id ? "is-active" : ""}
+          onClick={() => visit(id)}
+        >
+          {getInlineTabLabel(id, label)}
+        </button>
+      ))}
+    </nav>
+  );
+
   return (
     <div className="deep-press-country">
-      <Navbar />
+      <Navbar centerContent={inlineTabsNav} />
       <nav className="dp-tabs" aria-label="Country detail sections">
         <div>
           {tabs.map(([id, label]) => (
@@ -623,15 +694,28 @@ export default function DeepPressCountryDetails(props) {
             {faqs.length > 0 && display?.showFaqs !== false && (
               <Section id="faqs" title={sectionHeadings?.faqsHeading || "FAQs"} className="dp-faq">
                 {anchor("faqs")}
-                {faqs.map((faq) => (
-                  <details key={key(faq, faq.question)}>
-                    <summary>
-                      {faq.question}
-                      <ChevronDown size={20} />
-                    </summary>
-                    <p>{faq.answer}</p>
-                  </details>
-                ))}
+                {faqs.map((faq, idx) => {
+                  const faqKey = key(faq, `${faq.question}-${idx}`);
+                  const isOpen = Boolean(openFaqs[faqKey]);
+                  return (
+                    <div key={faqKey} className={`dp-faq-item ${isOpen ? "is-open" : ""}`}>
+                      <button
+                        type="button"
+                        className="dp-faq-trigger"
+                        aria-expanded={isOpen}
+                        onClick={() => toggleFaq(faqKey)}
+                      >
+                        <span>{faq.question}</span>
+                        <ChevronDown size={20} className="dp-faq-chevron" />
+                      </button>
+                      <div className="dp-faq-panel">
+                        <div className="dp-faq-panel-inner">
+                          <p>{faq.answer}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </Section>
             )}
           </div>

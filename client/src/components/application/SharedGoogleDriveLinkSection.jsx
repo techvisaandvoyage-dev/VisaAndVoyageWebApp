@@ -96,19 +96,19 @@ export default function SharedGoogleDriveLinkSection({
 
   return (
     <div
-      className={`rounded-2xl border border-border bg-surface p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)] ${className}`}
+      className={`rounded-[20px] border border-[#2D2B22]/12 bg-[#EEDFC7] p-5 shadow-[4px_4px_14px_#948a7b,-4px_-4px_14px_#d6c9b3] ${className}`}
     >
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#607938]/25 bg-[#dfd2bc] text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.14)]">
           <Link2 size={18} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h4 className="text-lg font-semibold text-text-primary">Google Drive Link (for all travelers)</h4>
+            <h4 className="text-lg font-bold text-[#2D2B22]">Google Drive Link (for all travelers)</h4>
             <span className="group relative inline-flex align-middle">
               <button
                 type="button"
-                className="inline-flex rounded-full p-0.5 text-text-muted transition-all duration-150 hover:bg-cyan/10 hover:text-cyan focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan/40"
+                className="inline-flex rounded-full p-0.5 text-[#6E6A59] transition-all duration-150 hover:bg-[#607938]/12 hover:text-[#607938] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#607938]/40"
                 aria-label="How to share your Google Drive folder"
               >
                 <Info size={14} />
@@ -116,23 +116,23 @@ export default function SharedGoogleDriveLinkSection({
               <DriveShareGuidePopover showSkipHint={showSkipHint} />
             </span>
           </div>
-          <p className="mt-1 text-sm text-text-secondary">
+          <p className="mt-1 text-sm text-[#6E6A59]">
             Add a single Google Drive link containing all required documents.
           </p>
 
           {showSaved ? (
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-[#607938]/25 bg-[#607938]/[0.08] px-3 py-2.5">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-400">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#607938]/15 text-[#607938]">
                   <CheckCircle size={14} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-text-primary">Google Drive link saved</p>
+                  <p className="text-xs font-bold text-[#2D2B22]">Google Drive link saved</p>
                   <a
                     href={trimmedSaved || value}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="text-[10px] text-cyan hover:underline truncate block max-w-full"
+                    className="text-[11px] font-semibold text-[#607938] hover:underline truncate block max-w-full"
                   >
                     {trimmedSaved || value}
                   </a>
@@ -148,12 +148,12 @@ export default function SharedGoogleDriveLinkSection({
             placeholder="https://drive.google.com/your-folder-link"
             disabled={disabled || loading || localSaving}
             autoComplete="off"
-            className="mt-4 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-cyan/50 disabled:opacity-50"
+            className="mt-4 w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-4 py-3 text-sm font-medium text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] outline-none transition-all placeholder:text-[#6E6A59] focus:border-[#607938] focus:ring-2 focus:ring-[#607938]/25 disabled:opacity-50"
           />
 
           {localSaving && !showSaved ? (
-            <div className="mt-2 text-xs text-cyan animate-pulse flex items-center gap-1.5 px-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan inline-block animate-ping"></span>
+            <div className="mt-2 text-xs font-semibold text-[#607938] animate-pulse flex items-center gap-1.5 px-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#607938] inline-block animate-ping"></span>
               Auto-saving link...
             </div>
           ) : null}

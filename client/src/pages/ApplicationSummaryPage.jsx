@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle, CreditCard, Loader2, ShieldCheck, Info, FileText, CreditCard as CreditCardIcon, ImageIcon } from "lucide-react";
+import { ArrowLeft, CheckCircle, CreditCard, Loader2, ShieldCheck, Info, FileText, CreditCard as CreditCardIcon, ImageIcon, Tag, X } from "lucide-react";
 import SharedGoogleDriveLinkSection from "../components/application/SharedGoogleDriveLinkSection";
 import PassportUploadRow from "../components/application/PassportUploadRow";
 import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import { api, SERVER_URL, useAuthStore } from "../store/authStore";
@@ -421,6 +422,19 @@ const ApplicationSummaryPage = () => {
       return {};
     }
   });
+  const [paymentSummaryConfig, setPaymentSummaryConfig] = useState(() => {
+    try {
+      const cached = localStorage.getItem("vb-destination-content");
+      const parsed = cached ? JSON.parse(cached) : null;
+      return parsed?.paymentSummaryPageConfig || { couponsEnabled: true };
+    } catch {
+      return { couponsEnabled: true };
+    }
+  });
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -450,6 +464,9 @@ const ApplicationSummaryPage = () => {
           }
           if (data.config.startApplicationPageCopy) {
             setStartAppCopy(data.config.startApplicationPageCopy);
+          }
+          if (data.config.paymentSummaryPageConfig) {
+            setPaymentSummaryConfig(data.config.paymentSummaryPageConfig);
           }
         }
       } catch {
@@ -1361,8 +1378,55 @@ const ApplicationSummaryPage = () => {
     navigate("/", { replace: true });
   };
 
-  const resolvePayAmountRupees = (appDoc) => {
-    return totalAmount;
+  const payableAmount = useMemo(() => {
+    if (!appliedCoupon || !appliedCoupon.discountAmount) return totalAmount;
+    return Math.max(1, totalAmount - Number(appliedCoupon.discountAmount || 0));
+  }, [totalAmount, appliedCoupon]);
+
+  const handleApplyCoupon = async (e) => {
+    e?.preventDefault?.();
+    const code = String(couponInput || "").trim().toUpperCase();
+    if (!code) {
+      setCouponError("Please enter a coupon code.");
+      return;
+    }
+    setApplyingCoupon(true);
+    setCouponError("");
+    try {
+      const { data } = await api.post("/coupons/validate", {
+        code,
+        totalAmount,
+        serviceFee,
+        taxes,
+      });
+      if (data?.success && data.coupon) {
+        setAppliedCoupon({
+          ...data.coupon,
+          discountAmount: Number(data.discountAmount || 0),
+          finalAmount: Number(data.finalAmount || totalAmount),
+        });
+        setCouponInput(data.coupon.code);
+        showToast(`Coupon ${data.coupon.code} applied! You saved ₹${Number(data.discountAmount || 0).toLocaleString("en-IN")}.`, "success");
+      } else {
+        setAppliedCoupon(null);
+        setCouponError(data?.message || "Invalid coupon code.");
+      }
+    } catch (err) {
+      setAppliedCoupon(null);
+      setCouponError(err?.response?.data?.message || "Invalid coupon code.");
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError("");
+  };
+
+  const resolvePayAmountRupees = () => {
+    return payableAmount;
   };
 
   const handlePay = async () => {
@@ -1384,6 +1448,7 @@ const ApplicationSummaryPage = () => {
       await openRazorpayForApplication({
         applicationId: appId,
         amountRupees,
+        couponCode: appliedCoupon?.code || undefined,
         description: `${app.countryName || "Visa"} — total payment`,
         applicantName: user?.name || "Applicant",
         applicantEmail: user?.email || "",
@@ -1411,19 +1476,23 @@ const ApplicationSummaryPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-cyan animate-spin" />
+      <div className="min-h-screen bg-[#EEDFC7] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-[#607938] animate-spin" />
       </div>
     );
   }
 
   if (!application) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="compact-application min-h-screen bg-[#EEDFC7] text-[#2D2B22] flex flex-col">
         <Navbar />
         <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
-          <p className="text-text-primary font-semibold">Application not found.</p>
-          <Button variant="secondary" onClick={handleBack}>
+          <p className="text-[#2D2B22] font-semibold">Application not found.</p>
+          <Button
+            variant="secondary"
+            className="rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] text-[#2D2B22] font-semibold shadow-[2px_3px_6px_rgba(45,43,34,0.16)] hover:bg-[#d5c5ab]"
+            onClick={handleBack}
+          >
             Back to Dashboard
           </Button>
         </div>
@@ -1432,220 +1501,330 @@ const ApplicationSummaryPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-20">
+    <div className="compact-application min-h-screen bg-[#EEDFC7] text-[#2D2B22] flex flex-col">
       <Navbar />
-      <main className="flex-1 px-4 sm:px-6 py-8">
+      <main className="flex-1 mx-auto w-full max-w-[1120px] px-4 sm:px-6 py-4 sm:py-6 flex flex-col justify-center">
+        {/* Top Header Row */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3.5">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="group inline-flex items-center gap-1.5 rounded-xl border-0 bg-[#EEDFC7] px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.16),0_1px_2px_rgba(45,43,34,0.1)] transition-all hover:text-[#607938] active:translate-y-[1px] active:bg-[#dfd2bc] active:shadow-[inset_2px_3px_5px_rgba(45,43,34,0.24)]"
+            >
+              <ArrowLeft size={15} className="pointer-events-none group-hover:-translate-x-0.5 transition-transform" />
+              Back
+            </button>
 
-        {/* Back */}
-        <button
-          type="button"
-          onClick={handleBack}
-          className="group flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-cyan transition-colors mb-6 w-fit"
-        >
-          <ArrowLeft size={16} className="pointer-events-none group-hover:-translate-x-1 transition-transform" />
-          Back
-        </button>
-
-        <div className="max-w-lg w-full mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-cyan">
-            <CountryFlagBadge countryName={application.countryName} flagEmoji={application.flagEmoji} sizeClass="h-5 w-5" className="text-lg" />
-            <span>{application.countryName}</span>
-          </div>
-          <h1 className="text-2xl font-bold text-text-primary">Payment Summary</h1>
-          <p className="text-sm text-text-secondary mt-1">{application.visaType}</p>
-          <p className="text-xs font-mono text-text-muted mt-2">
-            Application ID: {application.applicationId || application._id || "Will be assigned on application creation"}
-          </p>
-        </div>
-
-        {/* Travel Details */}
-        <div className="rounded-2xl border border-border bg-white p-5 space-y-2">
-          <h3 className="text-sm font-semibold text-text-primary mb-3">Travel Details</h3>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-text-secondary">Visa type</span>
-            <span className="font-medium text-text-primary">{summaryVisaType}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-text-secondary">Travel dates</span>
-            <span className="font-medium text-text-primary text-right">{summaryTravelRange}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-text-secondary">Travelers</span>
-            <span className="font-medium text-text-primary">{travelerCount}</span>
-          </div>
-          <div className="border-t border-border pt-3 mt-3">
-            <h4 className="text-sm font-semibold text-text-primary mb-3">Traveler Details</h4>
-          {travelerNames.map((name, idx) => (
-            <div key={idx} className="flex items-center justify-between text-sm">
-              <span className="text-text-secondary">Traveler {idx + 1}</span>
-              <span className="font-medium text-text-primary">{name}</span>
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#607938]">
+                <CountryFlagBadge countryName={application.countryName} flagEmoji={application.flagEmoji} sizeClass="h-4 w-4" className="text-base" />
+                <span>{application.countryName}</span>
+                <span className="text-[#6E6A59]/60">·</span>
+                <span className="normal-case font-semibold text-[#6E6A59]">{summaryVisaType}</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#2D2B22] leading-tight">
+                Payment Summary
+              </h1>
             </div>
-          ))}
           </div>
         </div>
-        {!docsUploaded ? (
-          <>
-            <div className="rounded-2xl border border-border bg-white p-5">
-          <Button
-            variant="secondary"
-            size="md"
-            fullWidth
-            onClick={openUploadDocumentsModal}
-          >
-            {docsUploaded ? "Review Uploaded documents" : "Upload Doc Now"}
-          </Button>
-        </div>
 
-            <div className="rounded-2xl border border-cyan/30 bg-cyan/5 p-4">
-              <div className="flex items-start gap-3">
-                <Info size={18} className="text-cyan mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-text-primary">
-                    {startAppCopy?.summaryDocNoticeTitle || "No worries — you can upload your documents anytime later."}
-                  </p>
-                  <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
-                    {(() => {
-                      const text =
-                        startAppCopy?.summaryDocNoticeDescription ||
-                        "After payment, your application will remain available in My Dashboard → Open Your Application → Upload Documents, where you can upload documents for each traveler whenever it’s convenient for you.";
-                      const target = "My Dashboard → Open Your Application → Upload Documents";
-                      if (text.includes(target)) {
-                        const parts = text.split(target);
-                        return (
-                          <>
-                            {parts[0]}
-                            <span className="text-text-primary font-medium">{target}</span>
-                            {parts.slice(1).join(target)}
-                          </>
-                        );
-                      }
-                      return text;
-                    })()}
-                  </p>
+        {/* Two-Column Split Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-5 items-start">
+          {/* Left Column: Travel Details + Document Status */}
+          <div className="space-y-4">
+            {/* Travel & Traveler Details Card */}
+            <section className="rounded-[22px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-5 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3]">
+              <h3 className="text-base font-extrabold text-[#2D2B22] mb-3.5">Travel Details</h3>
+
+              <div className="rounded-2xl border border-[#2D2B22]/10 bg-[#dfd2bc]/65 p-4 space-y-2.5 shadow-[inset_1px_2px_5px_rgba(45,43,34,0.14)]">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-[#6E6A59]">Visa type</span>
+                  <span className="font-bold text-[#2D2B22]">{summaryVisaType}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm gap-4">
+                  <span className="font-medium text-[#6E6A59]">Travel dates</span>
+                  <span className="font-bold text-[#2D2B22] text-right">{summaryTravelRange}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-[#6E6A59]">Travelers</span>
+                  <span className="font-bold text-[#2D2B22]">{travelerCount}</span>
                 </div>
               </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="rounded-2xl border border-border bg-white p-5">
-              <Button
-                variant="secondary"
-                size="md"
-                fullWidth
-                onClick={openUploadDocumentsModal}
-              >
-                {docsUploaded ? "Review Uploaded documents" : "Upload Doc Now"}
-              </Button>
-            </div>
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-2 text-emerald-600 font-medium text-sm justify-center">
-              <CheckCircle size={18} />
-              All documents submitted
-            </div>
-          </>
-        )}
 
-        {/* Billing */}
-        <div className="rounded-2xl border border-border bg-white p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-text-primary mb-1">Billing</h3>
+              <div className="mt-4 pt-3.5 border-t border-dashed border-[#2D2B22]/15">
+                <h4 className="text-sm font-bold text-[#2D2B22] mb-2.5">Traveler Details</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {travelerNames.map((name, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between gap-2 rounded-xl border border-[#2D2B22]/10 bg-[#dfd2bc]/55 px-3.5 py-2 text-sm shadow-[inset_1px_2px_4px_rgba(45,43,34,0.1)]"
+                    >
+                      <span className="text-xs font-semibold text-[#6E6A59]">Traveler {idx + 1}</span>
+                      <span className="truncate font-bold text-[#2D2B22]">{name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
 
-          <div className="flex justify-between text-sm">
-            <div>
-              <span className="text-text-secondary">Government Fee</span>
-              {travelerCount > 1 && (
-                <p className="text-xs text-text-muted mt-0.5">x{travelerCount}</p>
-              )}
-            </div>
-            <span className="text-text-primary">₹{governmentFeeTotal.toLocaleString("en-IN")}</span>
-          </div>
-          <div className="group relative flex justify-between text-sm">
-            <div>
-              <span className="text-text-secondary">Our Service Fee</span>
-              {travelerCount > 1 && (
-                <p className="text-xs text-text-muted mt-0.5">x{travelerCount}</p>
-              )}
-            </div>
-            <span className="text-text-primary">₹{(effectiveGstEnabled ? serviceFee + taxes : serviceFee).toLocaleString("en-IN")}</span>
-            {effectiveGstEnabled && (
-              <div className="pointer-events-none absolute right-0 top-full z-10 mt-2 w-64 rounded-2xl border border-cyan/20 bg-surface px-3 py-3 opacity-0 shadow-lg transition duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between gap-3 text-text-secondary">
-                    <span>Our Service Fee</span>
-                    <span className="font-semibold text-text-primary">₹{serviceFee.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-text-secondary">
-                    <span>GST</span>
-                    <span className="font-semibold text-text-primary">₹{taxes.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="border-t border-border pt-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold text-text-primary">Our Service + GST</span>
-                      <span className="font-bold text-cyan">₹{(serviceFee + taxes).toLocaleString("en-IN")}</span>
+            {/* Documents Upload / Notice Card */}
+            <section className="rounded-[22px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-5 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3] space-y-3.5">
+              {!docsUploaded ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={openUploadDocumentsModal}
+                    className="w-full h-11 rounded-xl border border-[#607938]/40 bg-[#dfd2bc]/75 text-sm font-bold text-[#607938] shadow-[2px_3px_6px_rgba(45,43,34,0.14),0_1px_2px_rgba(45,43,34,0.08)] transition-all hover:bg-[#dfd2bc] active:translate-y-[1px] active:bg-[#d5c5ab] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.24)]"
+                  >
+                    Upload Doc Now
+                  </button>
+
+                  <div className="rounded-2xl border border-[#607938]/20 bg-[#607938]/[0.07] p-3.5">
+                    <div className="flex items-start gap-2.5">
+                      <Info size={17} className="text-[#607938] mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-[#2D2B22]">
+                          {startAppCopy?.summaryDocNoticeTitle || "No worries — you can upload your documents anytime later."}
+                        </p>
+                        <p className="text-[11.5px] text-[#6E6A59] mt-1 leading-relaxed">
+                          {(() => {
+                            const text =
+                              startAppCopy?.summaryDocNoticeDescription ||
+                              "After payment, your application will remain available in My Dashboard → Open Your Application → Upload Documents, where you can upload documents for each traveler whenever it’s convenient for you.";
+                            const target = "My Dashboard → Open Your Application → Upload Documents";
+                            if (text.includes(target)) {
+                              const parts = text.split(target);
+                              return (
+                                <>
+                                  {parts[0]}
+                                  <span className="text-[#2D2B22] font-semibold">{target}</span>
+                                  {parts.slice(1).join(target)}
+                                </>
+                              );
+                            }
+                            return text;
+                          })()}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-[#607938]/30 bg-[#607938]/15 px-4 py-2.5 flex items-center gap-2 text-[#4e632d] font-bold text-sm justify-center">
+                    <CheckCircle size={17} />
+                    All documents submitted
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openUploadDocumentsModal}
+                    className="w-full h-11 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc]/75 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.14)] transition-all hover:bg-[#dfd2bc] active:translate-y-[1px] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.24)]"
+                  >
+                    Review Uploaded documents
+                  </button>
+                </>
+              )}
+            </section>
+          </div>
+
+          {/* Right Column: Billing & Payment Checkout */}
+          <aside className="rounded-[22px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-5 sm:p-6 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3] space-y-4">
+            {/* Highlighted Amount Box */}
+            <div className="rounded-2xl bg-[#607938] px-5 py-4 text-center text-white shadow-[inset_2px_3px_8px_rgba(0,0,0,0.25),2px_4px_10px_rgba(45,43,34,0.22)]">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-white/85">
+                Amount to be paid now
+              </p>
+              <div className="mt-1 flex items-baseline justify-center gap-2">
+                {appliedCoupon && (
+                  <span className="text-lg font-bold text-white/60 line-through">
+                    ₹{totalAmount.toLocaleString("en-IN")}
+                  </span>
+                )}
+                <p className="text-3xl font-extrabold tracking-tight">
+                  ₹{payableAmount.toLocaleString("en-IN")}
+                </p>
+              </div>
+              <p className="mt-0.5 text-xs font-medium text-white/85">
+                {travelerCount} {travelerCount === 1 ? "traveler" : "travelers"}
+                {appliedCoupon ? ` · Saved ₹${appliedCoupon.discountAmount.toLocaleString("en-IN")}` : ""}
+              </p>
+            </div>
+
+            {/* Billing Breakdown */}
+            <div className="space-y-2.5 pt-1">
+              <h3 className="text-sm font-extrabold text-[#2D2B22]">Billing Breakdown</h3>
+
+              <div className="flex justify-between text-sm">
+                <div>
+                  <span className="font-medium text-[#6E6A59]">Government Fee</span>
+                  {travelerCount > 1 && (
+                    <span className="ml-1.5 text-xs text-[#6E6A59]/80">×{travelerCount}</span>
+                  )}
                 </div>
+                <span className="font-bold text-[#2D2B22]">₹{governmentFeeTotal.toLocaleString("en-IN")}</span>
+              </div>
+
+              <div className="group relative flex justify-between text-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-[#6E6A59]">Our Service Fee</span>
+                  {effectiveGstEnabled && <Info size={13} className="text-[#6E6A59]" />}
+                  {travelerCount > 1 && (
+                    <span className="text-xs text-[#6E6A59]/80">×{travelerCount}</span>
+                  )}
+                </div>
+                <span className="font-bold text-[#2D2B22]">
+                  ₹{(effectiveGstEnabled ? serviceFee + taxes : serviceFee).toLocaleString("en-IN")}
+                </span>
+
+                {effectiveGstEnabled && (
+                  <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-60 rounded-2xl border border-[#2D2B22]/15 bg-[#EEDFC7] px-3.5 py-3 opacity-0 shadow-[0_12px_28px_rgba(45,43,34,0.28)] transition duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+                    <div className="space-y-2 text-xs">
+                      <div className="flex items-center justify-between gap-3 text-[#6E6A59]">
+                        <span>Our Service Fee</span>
+                        <span className="font-semibold text-[#2D2B22]">₹{serviceFee.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-[#6E6A59]">
+                        <span>GST</span>
+                        <span className="font-semibold text-[#2D2B22]">₹{taxes.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="border-t border-[#2D2B22]/15 pt-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-bold text-[#2D2B22]">Our Service + GST</span>
+                          <span className="font-extrabold text-[#607938]">₹{(serviceFee + taxes).toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {appliedCoupon && (
+                <div className="flex justify-between text-sm text-[#4e632d]">
+                  <span className="font-semibold flex items-center gap-1.5">
+                    <Tag size={13} className="text-[#607938]" />
+                    Coupon ({appliedCoupon.code})
+                  </span>
+                  <span className="font-bold">−₹{appliedCoupon.discountAmount.toLocaleString("en-IN")}</span>
+                </div>
+              )}
+
+              <div className="border-t border-dashed border-[#2D2B22]/20 pt-2.5 flex justify-between text-base font-extrabold">
+                <span className="text-[#2D2B22]">Total Amount</span>
+                <span className="text-[#607938]">₹{payableAmount.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+
+            {/* Coupon Code Box */}
+            {paymentSummaryConfig?.couponsEnabled !== false && (
+              <div className="rounded-xl border border-[#2D2B22]/10 bg-[#dfd2bc]/60 p-3 shadow-[inset_1px_2px_4px_rgba(45,43,34,0.12)] space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2D2B22]">
+                    <Tag size={13} className="text-[#607938]" />
+                    {paymentSummaryConfig?.couponSectionLabel || "Have a coupon code?"}
+                  </span>
+                </div>
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-[#607938]/30 bg-[#607938]/15 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-extrabold text-[#4e632d] tracking-wide">
+                        {appliedCoupon.code} APPLIED
+                      </p>
+                      <p className="text-[11px] font-medium text-[#4f4c3f] truncate">
+                        {appliedCoupon.description || `You saved ₹${appliedCoupon.discountAmount.toLocaleString("en-IN")} on this order`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[#2D2B22]/15 bg-[#EEDFC7] px-2.5 py-1 text-[11px] font-bold text-[#9a3b2a] shadow-[1px_2px_4px_rgba(45,43,34,0.14)] hover:bg-[#dfd2bc] transition-all cursor-pointer"
+                    >
+                      <X size={12} />
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleApplyCoupon} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value.toUpperCase());
+                        if (couponError) setCouponError("");
+                      }}
+                      placeholder={paymentSummaryConfig?.couponPlaceholder || "Enter coupon code"}
+                      className="h-9 min-w-0 flex-1 rounded-lg border border-[#2D2B22]/15 bg-[#EEDFC7] px-3 text-xs font-bold uppercase tracking-wider text-[#2D2B22] placeholder:normal-case placeholder:tracking-normal placeholder:font-medium placeholder:text-[#6E6A59]/75 shadow-[inset_1px_2px_4px_rgba(45,43,34,0.12)] focus:border-[#607938] focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={applyingCoupon || !couponInput.trim()}
+                      className="h-9 shrink-0 rounded-lg bg-[#607938] px-3.5 text-xs font-bold text-white shadow-[2px_3px_6px_rgba(45,43,34,0.22)] transition-all hover:bg-[#536930] active:translate-y-[1px] active:shadow-[inset_1px_2px_4px_rgba(0,0,0,0.4)] disabled:cursor-not-allowed disabled:opacity-55 cursor-pointer"
+                    >
+                      {applyingCoupon ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        paymentSummaryConfig?.couponApplyButtonText || "Apply"
+                      )}
+                    </button>
+                  </form>
+                )}
+                {couponError && (
+                  <p className="text-[11px] font-semibold text-[#9a3b2a]">{couponError}</p>
+                )}
               </div>
             )}
-          </div>
-          <div className="border-t border-border pt-3 flex justify-between text-base font-semibold">
-            <span className="text-text-primary">Total Amount</span>
-            <span className="text-cyan">₹{totalAmount.toLocaleString("en-IN")}</span>
-          </div>
-        </div>
 
-        {/* T&C + Pay */}
-        <div className="rounded-2xl border border-border bg-white p-5 space-y-4">
-          <label className="flex items-start gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={termsAccepted}
-              onChange={(e) => setTermsAccepted(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-border text-cyan accent-cyan"
-            />
-            <span className="text-sm text-text-secondary leading-snug">
-              I agree to the{" "}
-              <button
-                type="button"
-                className="text-cyan hover:underline font-medium bg-transparent border-0 p-0 cursor-pointer inline align-baseline"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setTermsModalOpen(true);
-                }}
-              >
-                terms and conditions
-              </button>{" "}
-              and understand that the amount above is the total payment shown in this summary.
-            </span>
-          </label>
-
-          {!razorpayReady && (
-            <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-500/10 rounded-xl px-3 py-2">
-              <ShieldCheck size={14} className="mt-0.5 shrink-0" />
-              {razorpayMessage || "Payment gateway is not configured. Contact support."}
+            {/* T&C Checkbox */}
+            <div className="rounded-xl border border-[#2D2B22]/10 bg-[#dfd2bc]/60 p-3.5 shadow-[inset_1px_2px_4px_rgba(45,43,34,0.12)]">
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#2D2B22]/30 accent-[#607938] cursor-pointer"
+                />
+                <span className="text-xs text-[#4f4c3f] leading-relaxed">
+                  I agree to the{" "}
+                  <button
+                    type="button"
+                    className="text-[#607938] hover:underline font-bold bg-transparent border-0 p-0 cursor-pointer inline align-baseline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setTermsModalOpen(true);
+                    }}
+                  >
+                    terms and conditions
+                  </button>{" "}
+                  and understand that the amount above is the total payment shown in this summary.
+                </span>
+              </label>
             </div>
-          )}
 
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            leftIcon={<CreditCard size={18} />}
-            loading={paying}
-            disabled={!termsAccepted || !razorpayReady || paying}
-            onClick={handlePay}
-          >
-            Proceed to Payment
-          </Button>
+            {!razorpayReady && (
+              <div className="flex items-start gap-2 text-xs font-medium text-[#92400e] bg-[#f59e0b]/15 border border-[#f59e0b]/30 rounded-xl px-3 py-2">
+                <ShieldCheck size={14} className="mt-0.5 shrink-0" />
+                {razorpayMessage || "Payment gateway is not configured. Contact support."}
+              </div>
+            )}
 
-          <p className="text-xs text-text-muted text-center">
-            Secured by Razorpay · Your payment info is never stored
-          </p>
+            <button
+              type="button"
+              disabled={!termsAccepted || !razorpayReady || paying}
+              onClick={handlePay}
+              className="flex w-full h-12 items-center justify-center gap-2 rounded-xl bg-[#607938] text-[15px] font-bold text-white shadow-[2px_4px_12px_rgba(45,43,34,0.34),0_2px_4px_rgba(0,0,0,0.18)] transition-all hover:bg-[#536930] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.5),inset_0_1px_3px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {paying ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+              <span>{paying ? "Processing..." : "Proceed to Payment"}</span>
+            </button>
+
+            <p className="flex items-center justify-center gap-1.5 text-[11.5px] font-medium text-[#6E6A59] text-center">
+              <ShieldCheck size={14} className="text-[#607938]" />
+              Secured by Razorpay · Your payment info is never stored
+            </p>
+          </aside>
         </div>
-        </div>
-
       </main>
 
       <Modal
@@ -1657,33 +1836,41 @@ const ApplicationSummaryPage = () => {
         footer={
           isFullySubmitted ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button variant="primary" size="md" onClick={() => {
-                setDocsSkipped(false);
-                closeUploadDocumentsModal();
-              }} className="min-w-[120px]">
+              <button
+                type="button"
+                onClick={() => {
+                  setDocsSkipped(false);
+                  closeUploadDocumentsModal();
+                }}
+                className="min-w-[140px] h-11 rounded-xl bg-[#607938] px-5 text-sm font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.5)]"
+              >
                 Done
-              </Button>
+              </button>
             </div>
           ) : (
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button variant="secondary" size="md" onClick={closeUploadDocumentsModal}>
+              <button
+                type="button"
+                onClick={closeUploadDocumentsModal}
+                className="h-11 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc]/80 px-5 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.16),0_1px_2px_rgba(45,43,34,0.1)] transition-all hover:bg-[#dfd2bc] active:translate-y-[1px] active:bg-[#d5c5ab] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.26)]"
+              >
                 Skip, I'll upload later
-              </Button>
+              </button>
             </div>
           )
         }
       >
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-cyan/20 bg-cyan/5 px-4 py-3">
-            <div className="flex items-center gap-2 text-sm text-text-secondary">
-              <ShieldCheck size={16} className="text-cyan shrink-0" />
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-[#607938]/25 bg-[#607938]/[0.07] px-4 py-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-[#2D2B22]">
+              <ShieldCheck size={16} className="text-[#607938] shrink-0" />
               <span>Your documents are safe and secure with us.</span>
             </div>
           </div>
 
           <div>
-            <h3 className="text-2xl font-bold text-text-primary">Travelers ({travelerCount})</h3>
-            <p className="mt-2 text-sm text-text-secondary">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-[#2D2B22]">Travelers ({travelerCount})</h3>
+            <p className="mt-1 text-sm text-[#6E6A59]">
               Add a single Google Drive link for all travelers if needed.
             </p>
           </div>
@@ -1699,23 +1886,23 @@ const ApplicationSummaryPage = () => {
               return (
                 <div
                   key={`summary-upload-${traveler.id}`}
-                  className="rounded-2xl border border-border bg-surface p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)]"
+                  className="rounded-[20px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-5 shadow-[4px_4px_14px_#948a7b,-4px_-4px_14px_#d6c9b3]"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan/10 text-cyan font-bold">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#607938]/25 bg-[#dfd2bc] text-[#607938] font-extrabold shadow-[inset_1px_2px_4px_rgba(45,43,34,0.14)]">
                       {String(traveler.id).padStart(2, "0")}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="text-lg font-semibold text-text-primary">Traveler {traveler.id}</h4>
+                        <h4 className="text-lg font-bold text-[#2D2B22]">Traveler {traveler.id}</h4>
                         {allDocUploaded ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#607938]/15 px-2.5 py-0.5 text-[11px] font-bold text-[#4e632d]">
                             <CheckCircle size={12} />
                             All documents uploaded
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-0.5 text-sm font-medium text-[#6E6A59]">
                         {traveler.name || `Traveler ${traveler.id}`}
                       </p>
 
@@ -1912,6 +2099,7 @@ const ApplicationSummaryPage = () => {
           )}
         </div>
       </Modal>
+      <Footer />
     </div>
   );
 };

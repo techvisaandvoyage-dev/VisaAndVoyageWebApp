@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { User, LayoutDashboard, LogOut, Menu, X, BookOpen, Search, ChevronRight } from "lucide-react";
+import { User, LayoutDashboard, LogOut, Menu, X, BookOpen, Search, ChevronRight, BadgeCheck } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { useUIStore } from "../../store/uiStore";
 import { getAdminAppUrl } from "../../utils/adminAppUrl";
@@ -8,12 +8,13 @@ import { useSiteLogo } from "../../hooks/useSiteLogo";
 import { useCountries } from "../../hooks/useCountries";
 import { matchesCountrySearch, getCountryFlagEmoji } from "../../utils/countrySearch";
 import { getCountryRouteId } from "../../utils/countryRouting";
+import { getFileUrl } from "../../utils/fileUrl";
 import NotificationBell from "./NotificationBell";
 import brandLogo from "../../assets/visa-voyage-logo.webp";
 
 const AuthPageModal = lazy(() => import("../auth/AuthPageModal"));
 
-const Navbar = () => {
+const Navbar = ({ centerContent = null }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -298,6 +299,13 @@ const Navbar = () => {
             </div>
           )}
 
+          {/* ── Optional center slot for page-specific navigation (e.g. Country Details tabs) ── */}
+          {!isLanding && centerContent && (
+            <div className="nv-center">
+              {centerContent}
+            </div>
+          )}
+
           {/* ── Right side: Blog + Notifications + Account ── */}
           <div className="nr">
             {!isLanding && (
@@ -375,66 +383,133 @@ const Navbar = () => {
                   </button>
 
                   <div
-                    className={`absolute right-0 top-full z-50 w-64 cd transition-all duration-150 overflow-hidden border-none ${
+                    className={`absolute right-0 top-full z-50 w-72 origin-top-right overflow-hidden rounded-[22px] border border-[#2D2B22]/15 bg-[#EEDFC7] text-[#2D2B22] shadow-[0_22px_54px_rgba(45,43,34,0.3),0_4px_12px_rgba(45,43,34,0.14)] transition-all duration-150 ${
                       profileDropdownOpen
-                        ? "visible translate-y-3 opacity-100"
-                        : "invisible translate-y-4 opacity-0"
+                        ? "visible translate-y-3 scale-100 opacity-100"
+                        : "pointer-events-none invisible translate-y-2 scale-95 opacity-0"
                     }`}
                     role="menu"
-                    style={{ background: "var(--bg)", borderRadius: "var(--rb)", boxShadow: "var(--cs)" }}
                   >
-                    <div className="px-4 py-3 border-b border-[#2D2B22]/10">
-                      <p className="text-sm font-semibold truncate text-[var(--ink)]">
-                        {user?.name || "User"}
-                      </p>
-                      {user?.email && (
-                        <p className="text-xs truncate mt-0.5 text-[var(--mu)]">
-                          {user?.email}
-                        </p>
-                      )}
-                      {user?.phone && (
-                        <p className="text-xs truncate mt-0.5 text-[var(--mu)]">
-                          {user?.phone}
-                        </p>
-                      )}
+                    <div className="flex items-center gap-3 border-b border-[#2D2B22]/12 bg-[#e8d7bc]/70 px-4 py-3.5">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#EEDFC7] bg-[#dfd2bc] text-[#607938] shadow-[inset_1px_2px_5px_rgba(45,43,34,0.18),2px_3px_6px_rgba(45,43,34,0.14)]">
+                        {user?.profileImage ? (
+                          <img
+                            src={getFileUrl(user.profileImage)}
+                            alt={user?.name || "Profile"}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm font-extrabold uppercase text-[#607938]">
+                            {(user?.name || "U").trim().charAt(0)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-sm font-extrabold text-[#2D2B22]">
+                            {user?.name || "User"}
+                          </p>
+                          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#607938] text-white">
+                            <BadgeCheck size={10} />
+                          </span>
+                        </div>
+                        {user?.email && (
+                          <p className="mt-0.5 truncate text-xs font-medium text-[#6E6A59]">
+                            {user.email}
+                          </p>
+                        )}
+                        {!user?.email && user?.phone && (
+                          <p className="mt-0.5 truncate text-xs font-medium text-[#6E6A59]">
+                            {user.phone}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="p-2 space-y-1">
+
+                    <div className="space-y-1.5 p-2.5">
                       <button
                         type="button"
                         onClick={() => {
                           setProfileDropdownOpen(false);
-                          navigate("/dashboard/profile", { replace: isTransientPage });
+                          navigate("/dashboard/profile", {
+                            replace: isTransientPage,
+                            state:
+                              location.pathname !== "/dashboard/profile"
+                                ? { from: `${location.pathname}${location.search || ""}` }
+                                : undefined,
+                          });
                         }}
-                        className="flex w-full items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-sm font-semibold transition-all hover:bg-[#607938]/10 text-[var(--ink)]"
+                        className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-bold transition-all active:translate-y-[1px] active:shadow-[inset_1px_2px_5px_rgba(45,43,34,0.18)] ${
+                          location.pathname === "/dashboard/profile"
+                            ? "bg-[#dfd2bc] text-[#4e632d] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)]"
+                            : "text-[#2D2B22] hover:bg-[#dfd2bc]/75 hover:shadow-[2px_3px_8px_rgba(45,43,34,0.1)]"
+                        }`}
                         role="menuitem"
                       >
-                        <User size={15} />
-                        Profile
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors shadow-[inset_1px_2px_4px_rgba(45,43,34,0.15)] ${
+                            location.pathname === "/dashboard/profile"
+                              ? "bg-[#607938] text-white"
+                              : "bg-[#dfd2bc] text-[#607938] group-hover:bg-[#607938] group-hover:text-white"
+                          }`}
+                        >
+                          <User size={15} />
+                        </span>
+                        <span className="flex-1">Profile</span>
+                        <ChevronRight
+                          size={14}
+                          className="text-[#6E6A59] opacity-60 transition-all group-hover:translate-x-0.5 group-hover:text-[#607938] group-hover:opacity-100"
+                        />
                       </button>
+
                       <button
                         type="button"
                         onClick={() => {
                           setProfileDropdownOpen(false);
                           handleDashboardOpen();
                         }}
-                        className="flex w-full items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-sm font-semibold transition-all hover:bg-[#607938]/10 text-[var(--ink)]"
+                        className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-bold transition-all active:translate-y-[1px] active:shadow-[inset_1px_2px_5px_rgba(45,43,34,0.18)] ${
+                          location.pathname === "/dashboard"
+                            ? "bg-[#dfd2bc] text-[#4e632d] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)]"
+                            : "text-[#2D2B22] hover:bg-[#dfd2bc]/75 hover:shadow-[2px_3px_8px_rgba(45,43,34,0.1)]"
+                        }`}
                         role="menuitem"
                       >
-                        <LayoutDashboard size={15} />
-                        Dashboard
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors shadow-[inset_1px_2px_4px_rgba(45,43,34,0.15)] ${
+                            location.pathname === "/dashboard"
+                              ? "bg-[#607938] text-white"
+                              : "bg-[#dfd2bc] text-[#607938] group-hover:bg-[#607938] group-hover:text-white"
+                          }`}
+                        >
+                          <LayoutDashboard size={15} />
+                        </span>
+                        <span className="flex-1">Dashboard</span>
+                        <ChevronRight
+                          size={14}
+                          className="text-[#6E6A59] opacity-60 transition-all group-hover:translate-x-0.5 group-hover:text-[#607938] group-hover:opacity-100"
+                        />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileDropdownOpen(false);
-                          handleLogout();
-                        }}
-                        className="flex w-full items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-sm font-semibold text-red-700 transition-all hover:bg-red-500/10"
-                        role="menuitem"
-                      >
-                        <LogOut size={15} />
-                        Sign Out
-                      </button>
+
+                      <div className="my-1 border-t border-[#2D2B22]/10 pt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileDropdownOpen(false);
+                            handleLogout();
+                          }}
+                          className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-bold text-[#9a3b2a] transition-all hover:bg-[#9a3b2a]/10 active:translate-y-[1px]"
+                          role="menuitem"
+                        >
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#9a3b2a]/12 text-[#9a3b2a] shadow-[inset_1px_2px_4px_rgba(154,59,42,0.12)] transition-colors group-hover:bg-[#9a3b2a] group-hover:text-white">
+                            <LogOut size={15} />
+                          </span>
+                          <span className="flex-1">Sign Out</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -541,7 +616,13 @@ const Navbar = () => {
                 <button
                   onClick={() => {
                     closeMobileMenu();
-                    navigate("/dashboard/profile", { replace: isTransientPage });
+                    navigate("/dashboard/profile", {
+                      replace: isTransientPage,
+                      state:
+                        location.pathname !== "/dashboard/profile"
+                          ? { from: `${location.pathname}${location.search || ""}` }
+                          : undefined,
+                    });
                   }}
                   className="flex w-full items-center gap-2 text-[var(--ink)] font-semibold p-2 rounded-xl hover:bg-[#607938]/10"
                 >

@@ -24,43 +24,43 @@ import {
 } from "../../utils/phoneCountryCodes";
 
 const SecureNote = ({ className = "" }) => (
-  <div className={`flex items-center justify-center gap-2 text-[13px] font-medium text-[#4f5878] ${className}`}>
+  <div className={`flex items-center justify-center gap-2 text-[13px] font-medium text-[#6E6A59] ${className}`}>
     <LockKeyhole size={15} strokeWidth={1.8} />
     <span>Your information is secure with us.</span>
   </div>
 );
 
 const DecorativeSparkles = () => (
-  <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[18px]" aria-hidden="true">
-    <span className="absolute left-[16%] top-[9%] h-1.5 w-1.5 rotate-45 bg-[#78a3ff]" />
-    <span className="absolute right-[38%] top-[7%] h-1.5 w-1.5 rotate-45 bg-[#8cabff]" />
-    <span className="absolute left-[28%] top-[13%] h-1 w-1 rotate-45 bg-[#f7c65c]" />
-    <span className="absolute right-[23%] top-[12%] h-1 w-1 rotate-45 bg-[#78a3ff]" />
+  <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[22px]" aria-hidden="true">
+    <span className="absolute left-[16%] top-[9%] h-1.5 w-1.5 rotate-45 bg-[#607938]/60" />
+    <span className="absolute right-[38%] top-[7%] h-1.5 w-1.5 rotate-45 bg-[#7a944e]/60" />
+    <span className="absolute left-[28%] top-[13%] h-1 w-1 rotate-45 bg-[#948a7b]" />
+    <span className="absolute right-[23%] top-[12%] h-1 w-1 rotate-45 bg-[#607938]/50" />
   </div>
 );
 
 const ModalWave = () => (
-  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 overflow-hidden rounded-b-[18px]" aria-hidden="true">
-    <div className="absolute -bottom-10 left-[-12%] h-24 w-[54%] rounded-[50%] bg-[#f3f7ff]" />
-    <div className="absolute -bottom-12 left-[28%] h-24 w-[58%] rounded-[50%] bg-[#eef4ff]" />
-    <div className="absolute -bottom-10 right-[-13%] h-24 w-[52%] rounded-[50%] bg-[#f3f7ff]" />
+  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 overflow-hidden rounded-b-[22px]" aria-hidden="true">
+    <div className="absolute -bottom-10 left-[-12%] h-24 w-[54%] rounded-[50%] bg-[#e6d5ba]" />
+    <div className="absolute -bottom-12 left-[28%] h-24 w-[58%] rounded-[50%] bg-[#dfd0b6]" />
+    <div className="absolute -bottom-10 right-[-13%] h-24 w-[52%] rounded-[50%] bg-[#e6d5ba]" />
   </div>
 );
 
 const StepIconBubble = ({ children }) => (
-  <div className="relative mb-5 flex h-[92px] w-[92px] items-center justify-center rounded-full bg-[#edf3ff] text-[#0757F9]">
-    <span className="absolute -left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rotate-45 bg-[#7ba5ff]" />
-    <span className="absolute -right-2 top-6 h-1.5 w-1.5 rotate-45 bg-[#7ba5ff]" />
-    <span className="absolute right-3 top-1 h-1 w-1 rotate-45 bg-[#7ba5ff]" />
+  <div className="relative mb-5 flex h-[92px] w-[92px] items-center justify-center rounded-full border border-[#607938]/20 bg-[#607938]/12 text-[#607938] shadow-[inset_2px_2px_5px_rgba(45,43,34,0.12)]">
+    <span className="absolute -left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rotate-45 bg-[#607938]/60" />
+    <span className="absolute -right-2 top-6 h-1.5 w-1.5 rotate-45 bg-[#607938]/60" />
+    <span className="absolute right-3 top-1 h-1 w-1 rotate-45 bg-[#607938]/50" />
     {children}
   </div>
 );
 
 const SuccessArt = () => (
-  <div className="relative mb-11 mt-36 flex h-[134px] w-[134px] items-center justify-center rounded-full bg-[#dce8ff] text-[#0757F9] shadow-[0_24px_50px_rgba(7,87,249,0.16)]">
+  <div className="relative mb-11 mt-36 flex h-[134px] w-[134px] items-center justify-center rounded-full border border-[#607938]/25 bg-[#607938]/15 text-[#607938] shadow-[0_20px_45px_rgba(45,43,34,0.18)]">
     <DecorativeSparkles />
-    <ShieldCheck size={86} strokeWidth={1.3} fill="#edf3ff" />
-    <BadgeCheck size={54} strokeWidth={2.8} className="absolute text-[#0757F9]" />
+    <ShieldCheck size={86} strokeWidth={1.3} fill="#EEDFC7" />
+    <BadgeCheck size={54} strokeWidth={2.8} className="absolute text-[#607938]" />
   </div>
 );
 
@@ -312,20 +312,20 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-0">
       <div 
-        className="absolute inset-0 bg-transparent backdrop-blur-sm transition-opacity" 
+        className="absolute inset-0 bg-[#2D2B22]/35 backdrop-blur-sm transition-opacity" 
         onClick={onClose} 
       />
       
-      <div className="relative min-h-[620px] w-full max-w-[390px] overflow-hidden rounded-[18px] border border-[#dbe5f4] bg-white shadow-[0_22px_70px_rgba(34,71,130,0.14)] animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative min-h-[620px] w-full max-w-[390px] overflow-hidden rounded-[22px] border border-[#2D2B22]/15 bg-[#EEDFC7] text-[#2D2B22] shadow-[0_24px_60px_rgba(45,43,34,0.34),0_4px_12px_rgba(45,43,34,0.16)] animate-in fade-in zoom-in-95 duration-200">
         <ModalWave />
         
         <div className="absolute right-5 top-5 z-10 flex items-center gap-2">
           <button 
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#02071d] transition-colors hover:bg-[#f3f7ff]"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dfd2bc]/70 text-[#2D2B22] shadow-[1px_2px_4px_rgba(45,43,34,0.14)] transition-colors hover:bg-[#dfd2bc]"
             aria-label="Close"
           >
-            <X size={23} strokeWidth={2} />
+            <X size={21} strokeWidth={2.2} />
           </button>
         </div>
 
@@ -336,10 +336,10 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                 setError("");
                 setStep(step === "details" ? "otp" : "phone");
               }}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-[#02071d] transition-colors hover:bg-[#f3f7ff]"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dfd2bc]/70 text-[#2D2B22] shadow-[1px_2px_4px_rgba(45,43,34,0.14)] transition-colors hover:bg-[#dfd2bc]"
               aria-label="Back"
             >
-              <ArrowLeft size={23} strokeWidth={2} />
+              <ArrowLeft size={21} strokeWidth={2.2} />
             </button>
           </div>
         )}
@@ -351,53 +351,131 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
               <StepIconBubble>
                 <Smartphone size={48} strokeWidth={1.7} />
               </StepIconBubble>
-              <h2 className="mb-3 text-[28px] font-extrabold leading-none tracking-normal text-[#05071d]">Welcome</h2>
-              <p className="mb-8 text-center text-[15px] font-medium text-[#4f5878]">Login or sign up with your mobile number</p>
+              <h2 className="mb-3 text-[28px] font-extrabold leading-none tracking-normal text-[#2D2B22]">Welcome</h2>
+              <p className="mb-8 text-center text-[15px] font-medium text-[#6E6A59]">Login or sign up with your mobile number</p>
 
               <div className="w-full space-y-4">
                 <div className="flex flex-col gap-2">
-                  <label className="block text-[14px] font-extrabold text-[#05071d]">Enter Country Code</label>
+                  <label className="block text-[14px] font-extrabold text-[#2D2B22]">Enter Country Code</label>
                   <div ref={countryCodeDropdownRef} className="relative">
-                    <div
-                      className="flex h-[58px] w-full items-center justify-between gap-3 rounded-lg border border-[#d9e2f0] bg-white px-5 text-[15px] font-bold text-[#05071d]"
+                    <button
+                      type="button"
+                      disabled={step !== "phone"}
+                      onClick={() => {
+                        if (step !== "phone") return;
+                        setCountryCodeOpen((prev) => !prev);
+                      }}
+                      aria-expanded={countryCodeOpen}
+                      aria-haspopup="listbox"
+                      className="flex h-[58px] w-full items-center justify-between gap-3 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 text-[15px] font-bold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <span className="min-w-0 flex flex-1 items-center gap-2 text-left">
+                      <span className="min-w-0 flex flex-1 items-center gap-2.5 text-left">
                         {selectedCountryOption?.flagUrl ? (
-                          <img src={selectedCountryOption.flagUrl} alt="" className="w-5 h-3.5 object-cover rounded-[2px]" />
+                          <img src={selectedCountryOption.flagUrl} alt="" className="h-4 w-6 shrink-0 rounded-[2px] object-cover shadow-sm" />
                         ) : selectedCountryOption?.flag ? (
                           <span className="text-lg leading-none">{selectedCountryOption.flag}</span>
                         ) : null}
                         <span className="shrink-0">{selectedCountryOption?.value || "+91"}</span>
                         {selectedCountryName ? (
-                          <span className="min-w-0 flex-1 truncate font-semibold text-[#4f5878]">{selectedCountryName}</span>
+                          <span className="min-w-0 flex-1 truncate font-semibold text-[#6E6A59]">{selectedCountryName}</span>
                         ) : null}
                       </span>
-                    </div>
+                      <ChevronDown
+                        size={18}
+                        className={`shrink-0 text-[#6E6A59] transition-transform duration-200 ${countryCodeOpen ? "rotate-180 text-[#607938]" : ""}`}
+                      />
+                    </button>
+
+                    {countryCodeOpen && step === "phone" && (
+                      <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-xl border border-[#2D2B22]/15 bg-[#EEDFC7] shadow-[0_18px_40px_rgba(45,43,34,0.28)]">
+                        <div className="border-b border-[#2D2B22]/10 p-2.5">
+                          <div className="relative">
+                            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#6E6A59]" />
+                            <input
+                              type="text"
+                              value={countryCodeSearch}
+                              onChange={(e) => setCountryCodeSearch(e.target.value)}
+                              placeholder="Search country or code..."
+                              autoFocus
+                              className="h-10 w-full rounded-lg border border-[#2D2B22]/15 bg-[#dfd2bc] pl-9 pr-3 text-[13px] font-semibold text-[#2D2B22] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)] placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <ul role="listbox" className="max-h-56 overflow-y-auto p-1.5">
+                          {filteredCountryOptions.length === 0 ? (
+                            <li className="px-3 py-4 text-center text-[13px] font-medium text-[#6E6A59]">
+                              No matching countries
+                            </li>
+                          ) : (
+                            filteredCountryOptions.map((option) => {
+                              const isSelected =
+                                option.value === (selectedCountryOption?.value || phoneCountryCode) &&
+                                option.label === selectedCountryOption?.label;
+                              const cleanName = String(option.label || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+                              return (
+                                <li key={`${option.label}-${option.value}`}>
+                                  <button
+                                    type="button"
+                                    role="option"
+                                    aria-selected={isSelected}
+                                    onClick={() => {
+                                      setPhoneCountryCode(option.value);
+                                      setPhoneCountryLabel(option.label);
+                                      setCountryCodeOpen(false);
+                                      setCountryCodeSearch("");
+                                    }}
+                                    className={`flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13.5px] transition-colors ${
+                                      isSelected
+                                        ? "bg-[#607938] font-bold text-white"
+                                        : "font-semibold text-[#2D2B22] hover:bg-[#dfd2bc]"
+                                    }`}
+                                  >
+                                    <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                                      {option.flagUrl ? (
+                                        <img src={option.flagUrl} alt="" className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover" />
+                                      ) : option.flag ? (
+                                        <span className="text-base leading-none">{option.flag}</span>
+                                      ) : null}
+                                      <span className="truncate">{cleanName}</span>
+                                    </span>
+                                    <span className={`shrink-0 font-bold ${isSelected ? "text-white/95" : "text-[#6E6A59]"}`}>
+                                      {option.value}
+                                    </span>
+                                  </button>
+                                </li>
+                              );
+                            })
+                          )}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <label className="block text-[14px] font-extrabold text-[#05071d]">Enter Mobile Number</label>
+                    <label className="block text-[14px] font-extrabold text-[#2D2B22]">Enter Mobile Number</label>
                     {otpSent && (
                       <button
                         type="button"
                         onClick={handleEditPhone}
-                        className="shrink-0 text-[13px] font-bold text-[#0757F9] transition-colors hover:text-[#0048e7]"
+                        className="shrink-0 text-[13px] font-bold text-[#607938] transition-colors hover:text-[#4e632d]"
                       >
                         Edit
                       </button>
                     )}
                   </div>
                   <div className="relative">
-                    <Phone size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#4f5878]" strokeWidth={1.8} />
+                    <Phone size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#6E6A59]" strokeWidth={1.8} />
                     <input 
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 13))}
                       placeholder="Enter mobile number"
                       disabled={step !== "phone"}
-                      className="h-[58px] w-full rounded-lg border border-[#d9e2f0] bg-white px-5 pl-14 text-[15px] font-medium text-[#05071d] transition-all placeholder:text-[#4f5878] focus:border-[#0757F9] focus:outline-none focus:ring-2 focus:ring-[#0757F9]/15 disabled:bg-[#f7f9fd] disabled:opacity-60"
+                      className="h-[58px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pl-14 text-[15px] font-semibold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 disabled:opacity-60"
                     />
                   </div>
                 </div>
@@ -408,7 +486,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       <button
                         onClick={() => handlePhoneSubmit("auto")}
                         disabled={loading || phone.length < 10}
-                        className="h-[54px] w-full rounded-lg bg-[#0757F9] text-[18px] font-bold text-white shadow-[0_12px_24px_rgba(7,87,249,0.18)] transition-colors hover:bg-[#0048e7] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="h-[54px] w-full rounded-xl bg-[#607938] text-[17px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
                       >
                         {loading ? "Sending..." : "Continue"}
                       </button>
@@ -423,8 +501,8 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                             disabled={loading || phone.length < 10}
                             className={
                               isPrimary
-                                ? "h-[54px] w-full rounded-lg bg-[#0757F9] text-[18px] font-bold text-white shadow-[0_12px_24px_rgba(7,87,249,0.18)] transition-colors hover:bg-[#0048e7] disabled:cursor-not-allowed disabled:opacity-50"
-                                : "h-[50px] w-full rounded-lg border border-[#d9e2f0] bg-white text-[15px] font-bold text-[#0757F9] transition-colors hover:bg-[#f6f9ff] disabled:cursor-not-allowed disabled:opacity-50"
+                                ? "h-[54px] w-full rounded-xl bg-[#607938] text-[17px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
+                                : "h-[50px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#EEDFC7] text-[15px] font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.16)] transition-all hover:bg-[#dfd2bc] disabled:cursor-not-allowed disabled:opacity-55"
                             }
                           >
                             {loading 
@@ -440,11 +518,11 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
 
                 <div className={`overflow-hidden transition-all duration-500 ease-in-out ${step === "otp" ? "mt-7 max-h-72 opacity-100" : "mt-0 max-h-0 opacity-0"}`}>
                   <div className="relative pt-7">
-                    <div className="absolute left-0 right-0 top-0 h-px bg-[#d9e2f0]" />
-                    <div className="absolute left-1/2 top-0 h-5 w-12 -translate-x-1/2 -translate-y-1/2 bg-white text-center text-[#d9e2f0]">
+                    <div className="absolute left-0 right-0 top-0 h-px bg-[#2D2B22]/15" />
+                    <div className="absolute left-1/2 top-0 h-5 w-12 -translate-x-1/2 -translate-y-1/2 bg-[#EEDFC7] text-center text-[#2D2B22]/30">
                       <ChevronDown size={28} className="mx-auto" />
                     </div>
-                    <label className="mb-4 block text-[14px] font-extrabold text-[#05071d]">Enter OTP</label>
+                    <label className="mb-4 block text-[14px] font-extrabold text-[#2D2B22]">Enter OTP</label>
                     <div className="mb-5 flex justify-between gap-3">
                       {otp.map((digit, index) => (
                         <input
@@ -455,25 +533,25 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                           value={digit}
                           onChange={(e) => handleOtpChange(index, e.target.value)}
                           onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                          className="h-16 w-12 rounded-lg border border-[#d9e2f0] bg-white text-center text-xl font-bold text-[#0757F9] transition-all focus:border-[#0757F9] focus:outline-none focus:ring-2 focus:ring-[#0757F9]/15"
+                          className="h-16 w-12 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] text-center text-xl font-extrabold text-[#607938] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2)] transition-all focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
                         />
                       ))}
                     </div>
-                    <p className="mb-8 flex items-center justify-center gap-1 text-[13px] font-medium text-[#4f5878]">
+                    <p className="mb-8 flex items-center justify-center gap-1 text-[13px] font-medium text-[#6E6A59]">
                       OTP has been sent via {otpChannelLabel(otpChannel)}
                     </p>
 
                     <button 
                       onClick={handleVerifyOtp}
                       disabled={loading || otp.join("").length < otpLength}
-                      className="h-[54px] w-full rounded-lg bg-[#0757F9] text-[20px] font-bold text-white shadow-[0_12px_24px_rgba(7,87,249,0.18)] transition-colors hover:bg-[#0048e7] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-[54px] w-full rounded-xl bg-[#607938] text-[18px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
                     >
                       {loading ? "Verifying..." : "Verify"}
                     </button>
                   </div>
                 </div>
 
-                {error && <p className="mt-2 text-center text-xs font-semibold text-red-500">{error}</p>}
+                {error && <p className="mt-2 text-center text-xs font-semibold text-[#b91c1c]">{error}</p>}
                 
                 <SecureNote className="mt-6 pt-3" />
               </div>
@@ -485,14 +563,14 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
               <StepIconBubble>
                 <ClipboardList size={50} strokeWidth={1.7} />
               </StepIconBubble>
-              <h2 className="mb-3 text-center text-[27px] font-extrabold leading-tight tracking-normal text-[#05071d]">Complete Your Details</h2>
-              <p className="mb-9 text-center text-[15px] font-medium text-[#4f5878]">Please fill in your details below</p>
+              <h2 className="mb-3 text-center text-[27px] font-extrabold leading-tight tracking-normal text-[#2D2B22]">Complete Your Details</h2>
+              <p className="mb-9 text-center text-[15px] font-medium text-[#6E6A59]">Please fill in your details below</p>
 
               <div className="w-full space-y-6">
                 <div>
-                  <label className="mb-2 block text-[14px] font-extrabold text-[#05071d]">First Name</label>
+                  <label className="mb-2 block text-[14px] font-extrabold text-[#2D2B22]">First Name</label>
                   <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-[#4f5878]">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-[#6E6A59]">
                       <User size={20} strokeWidth={1.8} />
                     </div>
                     <input 
@@ -500,15 +578,15 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="Enter first name"
-                      className="h-[58px] w-full rounded-lg border border-[#d9e2f0] bg-white px-5 pl-14 text-[15px] font-medium text-[#05071d] transition-all placeholder:text-[#4f5878] focus:border-[#0757F9] focus:outline-none focus:ring-2 focus:ring-[#0757F9]/15"
+                      className="h-[58px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pl-14 text-[15px] font-semibold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[14px] font-extrabold text-[#05071d]">Last Name</label>
+                  <label className="mb-2 block text-[14px] font-extrabold text-[#2D2B22]">Last Name</label>
                   <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-[#4f5878]">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-[#6E6A59]">
                       <User size={20} strokeWidth={1.8} />
                     </div>
                     <input 
@@ -516,15 +594,15 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Enter last name"
-                      className="h-[58px] w-full rounded-lg border border-[#d9e2f0] bg-white px-5 pl-14 text-[15px] font-medium text-[#05071d] transition-all placeholder:text-[#4f5878] focus:border-[#0757F9] focus:outline-none focus:ring-2 focus:ring-[#0757F9]/15"
+                      className="h-[58px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pl-14 text-[15px] font-semibold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[14px] font-extrabold text-[#05071d]">Enter Email</label>
+                  <label className="mb-2 block text-[14px] font-extrabold text-[#2D2B22]">Enter Email</label>
                   <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-[#4f5878]">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-[#6E6A59]">
                       <Mail size={20} strokeWidth={1.8} />
                     </div>
                     <input 
@@ -532,17 +610,17 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter email address"
-                      className="h-[58px] w-full rounded-lg border border-[#d9e2f0] bg-white px-5 pl-14 text-[15px] font-medium text-[#05071d] transition-all placeholder:text-[#4f5878] focus:border-[#0757F9] focus:outline-none focus:ring-2 focus:ring-[#0757F9]/15"
+                      className="h-[58px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pl-14 text-[15px] font-semibold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
                     />
                   </div>
                 </div>
 
-                {error && <p className="text-center text-xs font-semibold text-red-500">{error}</p>}
+                {error && <p className="text-center text-xs font-semibold text-[#b91c1c]">{error}</p>}
 
                 <button 
                   onClick={handleDetailsSubmit}
                   disabled={loading}
-                  className="mt-8 h-[54px] w-full rounded-lg bg-[#0757F9] text-[20px] font-bold text-white shadow-[0_12px_24px_rgba(7,87,249,0.18)] transition-colors hover:bg-[#0048e7] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-8 h-[54px] w-full rounded-xl bg-[#607938] text-[18px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   {loading ? "Saving..." : "Continue"}
                 </button>
@@ -556,15 +634,15 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
             <div className="flex min-h-[560px] flex-col items-center">
               <SuccessArt />
               
-              <h2 className="mb-5 text-center text-[28px] font-extrabold leading-none tracking-normal text-[#05071d]">You're All Set!</h2>
-              <p className="px-4 text-center text-[15px] font-medium leading-7 text-[#4f5878]">
+              <h2 className="mb-5 text-center text-[28px] font-extrabold leading-none tracking-normal text-[#2D2B22]">You're All Set!</h2>
+              <p className="px-4 text-center text-[15px] font-medium leading-7 text-[#6E6A59]">
                 Your account has been created successfully.<br />You can now continue.
               </p>
 
               <div className="mt-auto w-full pb-1">
                 <button 
                   onClick={() => onComplete()}
-                  className="h-[54px] w-full rounded-lg bg-[#0757F9] text-[20px] font-bold text-white shadow-[0_12px_24px_rgba(7,87,249,0.18)] transition-colors hover:bg-[#0048e7]"
+                  className="h-[54px] w-full rounded-xl bg-[#607938] text-[18px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)]"
                 >
                   Done
                 </button>
