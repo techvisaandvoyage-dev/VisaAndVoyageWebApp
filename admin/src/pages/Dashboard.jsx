@@ -1433,6 +1433,40 @@ const mapApiSettingsToFormState = (s, activeCountryIds = []) => ({
   customerChatDescription: s.customerChatDescription || "Get instant support from our visa team",
   customerChatHeaderTitle: s.customerChatHeaderTitle || "Chat with us",
   customerChatHeaderSubtitle: s.customerChatHeaderSubtitle || "We typically reply in a few minutes",
+  customerChatQuickTabs:
+    Array.isArray(s.customerChatQuickTabs) && s.customerChatQuickTabs.length > 0
+      ? s.customerChatQuickTabs.map((t) => ({
+          label: t?.label || "",
+          actionType: t?.actionType || "custom_reply",
+          replyText: t?.replyText || "",
+        }))
+      : [
+          { label: "Application Status", actionType: "application_status", replyText: "" },
+          { label: "Require Document Needed", actionType: "required_documents", replyText: "" },
+          { label: "Refund Related", actionType: "refund_policy", replyText: "" },
+          { label: "Talk to Human", actionType: "human_support", replyText: "" },
+        ],
+  frontendTheme: {
+    preset: s.frontendTheme?.preset || "deep-press",
+    bg: s.frontendTheme?.bg || "#EEDFC7",
+    surfaceBg: s.frontendTheme?.surfaceBg || "#D9CCB4",
+    ink: s.frontendTheme?.ink || "#2D2B22",
+    muted: s.frontendTheme?.muted || "#6E6A59",
+    accent: s.frontendTheme?.accent || "#607938",
+    buttonText: s.frontendTheme?.buttonText || "#FFFFFF",
+  },
+  frontendThemePresets: Array.isArray(s.frontendThemePresets)
+    ? s.frontendThemePresets.map((item) => ({
+        preset: item?.preset || "",
+        name: item?.name || "",
+        bg: item?.bg || "#EEDFC7",
+        surfaceBg: item?.surfaceBg || "#D9CCB4",
+        ink: item?.ink || "#2D2B22",
+        muted: item?.muted || "#6E6A59",
+        accent: item?.accent || "#607938",
+        buttonText: item?.buttonText || "#FFFFFF",
+      }))
+    : [],
   footerLogo: s.footerLogo || "",
   footerDescription: s.footerDescription || "",
   footerShowSupportedBy: s.footerShowSupportedBy !== false,
@@ -1973,9 +2007,17 @@ const SupportChatWorkspace = () => {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex justify-between items-baseline mb-1">
+                    <div className="flex justify-between items-baseline mb-0.5">
                       <h4 className="text-xs font-bold text-text-primary truncate">{c.name}</h4>
                       <span className="text-[10px] text-text-muted shrink-0">{lastMsg?.time || "10:00 AM"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-[10px] font-mono font-bold text-cyan bg-cyan/10 px-1.5 py-0.5 rounded">
+                        {c.ticketId || `TKT-${String(c.id || "").slice(-6).toUpperCase()}`}
+                      </span>
+                      <span className="text-[10px] text-text-muted">
+                        {c.messageCount || c.messages?.length || 0} msgs
+                      </span>
                     </div>
                     <p className="text-xs text-text-secondary truncate pr-4">
                       {lastMsg ? lastMsg.text : "No messages yet"}
@@ -2027,8 +2069,11 @@ const SupportChatWorkspace = () => {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
+                  <h3 className="text-sm font-bold text-text-primary flex flex-wrap items-center gap-1.5">
                     {activeConversation.name}
+                    <span className="text-[10px] font-mono font-bold text-cyan bg-cyan/10 px-1.5 py-0.5 rounded">
+                      {activeConversation.ticketId || `TKT-${String(activeConversation.id || "").slice(-6).toUpperCase()}`}
+                    </span>
                     {activeConversation.status === 'AI_PENDING' && <span className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider bg-blue-500/10 px-1.5 py-0.5 rounded">AI Handled</span>}
                     {activeConversation.status === 'HUMAN_PENDING' && <span className="text-[10px] font-semibold text-orange-500 uppercase tracking-wider bg-orange-500/10 px-1.5 py-0.5 rounded animate-pulse">Human Requested</span>}
                     {activeConversation.status === 'HUMAN_CONNECTED' && <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider bg-emerald-500/10 px-1.5 py-0.5 rounded">Agent Active</span>}
@@ -2038,6 +2083,8 @@ const SupportChatWorkspace = () => {
                     <span className="truncate max-w-[150px] sm:max-w-[200px]">{activeConversation.email}</span>
                     <span className="text-border/60">·</span>
                     <span>{activeConversation.phone}</span>
+                    <span className="text-border/60">·</span>
+                    <span>{activeConversation.messageCount || activeConversation.messages?.length || 0} messages</span>
                   </p>
                   {activeConversation.escalationReason && (
                     <p className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
@@ -2410,6 +2457,22 @@ const Dashboard = () => {
     customerChatDescription: "Get instant support from our visa team",
     customerChatHeaderTitle: "Chat with us",
     customerChatHeaderSubtitle: "We typically reply in a few minutes",
+    customerChatQuickTabs: [
+      { label: "Application Status", actionType: "application_status", replyText: "" },
+      { label: "Require Document Needed", actionType: "required_documents", replyText: "" },
+      { label: "Refund Related", actionType: "refund_policy", replyText: "" },
+      { label: "Talk to Human", actionType: "human_support", replyText: "" },
+    ],
+    frontendTheme: {
+      preset: "deep-press",
+      bg: "#EEDFC7",
+      surfaceBg: "#D9CCB4",
+      ink: "#2D2B22",
+      muted: "#6E6A59",
+      accent: "#607938",
+      buttonText: "#FFFFFF",
+    },
+    frontendThemePresets: [],
     footerLogo: "",
     footerDescription: "",
     footerShowSupportedBy: true,
@@ -2428,6 +2491,7 @@ const Dashboard = () => {
   });
   const [otpSettingsForm, setOtpSettingsForm] = useState(DEFAULT_OTP_SETTINGS);
   const [savingSettingsKey, setSavingSettingsKey] = useState(null);
+  const [newThemePresetName, setNewThemePresetName] = useState("");
   const [instantToggleBusyKey, setInstantToggleBusyKey] = useState(null);
   const [newCouponDraft, setNewCouponDraft] = useState({
     editingId: null,
@@ -2705,6 +2769,7 @@ const Dashboard = () => {
           label: "System Display",
           children: [
             { key: "maintenance-mode", label: "Site maintenance mode" },
+            { key: "theme-settings", label: "Theme Settings" },
           ],
         },
         { key: "seo-manager", label: "SEO manager" },
@@ -3508,6 +3573,28 @@ const Dashboard = () => {
               customerChatDescription: s.customerChatDescription || "Get instant support from our visa team",
               customerChatHeaderTitle: s.customerChatHeaderTitle || "Chat with us",
               customerChatHeaderSubtitle: s.customerChatHeaderSubtitle || "We typically reply in a few minutes",
+              customerChatQuickTabs:
+                Array.isArray(s.customerChatQuickTabs) && s.customerChatQuickTabs.length > 0
+                  ? s.customerChatQuickTabs.map((t) => ({
+                      label: t?.label || "",
+                      actionType: t?.actionType || "custom_reply",
+                      replyText: t?.replyText || "",
+                    }))
+                  : [
+                      { label: "Application Status", actionType: "application_status", replyText: "" },
+                      { label: "Require Document Needed", actionType: "required_documents", replyText: "" },
+                      { label: "Refund Related", actionType: "refund_policy", replyText: "" },
+                      { label: "Talk to Human", actionType: "human_support", replyText: "" },
+                    ],
+              frontendTheme: {
+                preset: s.frontendTheme?.preset || "deep-press",
+                bg: s.frontendTheme?.bg || "#EEDFC7",
+                surfaceBg: s.frontendTheme?.surfaceBg || "#D9CCB4",
+                ink: s.frontendTheme?.ink || "#2D2B22",
+                muted: s.frontendTheme?.muted || "#6E6A59",
+                accent: s.frontendTheme?.accent || "#607938",
+                buttonText: s.frontendTheme?.buttonText || "#FFFFFF",
+              },
               footerLogo: s.footerLogo || "",
               footerDescription: s.footerDescription || "",
               whatsappTemplate: s.whatsappTemplate || "",
@@ -10278,20 +10365,20 @@ const Dashboard = () => {
                               onClick={() =>
                                 setNewCouponDraft((d) => ({ ...d, discountType: "percentage" }))
                               }
-                              className={`h-8 rounded-lg text-xs font-semibold transition-colors ${
+                              className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition-all ${
                                 newCouponDraft.discountType === "percentage"
                                   ? "bg-cyan text-white shadow-sm"
                                   : "text-text-muted hover:text-text-primary"
                               }`}
                             >
-                              % Off
+                              % Percentage
                             </button>
                             <button
                               type="button"
                               onClick={() =>
                                 setNewCouponDraft((d) => ({ ...d, discountType: "flat" }))
                               }
-                              className={`h-8 rounded-lg text-xs font-semibold transition-colors ${
+                              className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition-all ${
                                 newCouponDraft.discountType === "flat"
                                   ? "bg-cyan text-white shadow-sm"
                                   : "text-text-muted hover:text-text-primary"
@@ -12176,6 +12263,472 @@ const Dashboard = () => {
               </Card>
             </div>
 
+              <div className={isControlSectionVisible("theme-settings") ? "" : "hidden"}>
+              <SettingsSectionCard
+                title="Frontend Theme & Color Settings"
+                description="Switch the entire public website theme in one click or customize background, surface, accent, and text colors."
+                saveLabel="Save Custom Theme"
+                saveButtonId="save-frontend-theme"
+                isSaving={savingSettingsKey === "frontend-theme"}
+                onSave={() =>
+                  saveSettingsPartial(
+                    "frontend-theme",
+                    { frontendTheme: settingsForm.frontendTheme },
+                    "Frontend theme updated across website.",
+                  )
+                }
+              >
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-bold text-text-primary mb-1">1-Click Theme Presets</h3>
+                    <p className="text-xs text-text-muted mb-3">
+                      Click any preset below to immediately apply and save it to the live website.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {[
+                        {
+                          preset: "ocean-breeze",
+                          name: "Ocean Blue",
+                          bg: "#EEF6FA",
+                          surfaceBg: "#D1DBE0",
+                          ink: "#122D3C",
+                          muted: "#738792",
+                          accent: "#258FC4",
+                          buttonText: "#FFFFFF",
+                          isBuiltIn: true,
+                        },
+                        {
+                          preset: "soft-clay-blue",
+                          name: "Soft Clay Blue",
+                          bg: "#F0F0F0",
+                          surfaceBg: "#D3D5D8",
+                          ink: "#1B2B48",
+                          muted: "#4D5F7A",
+                          accent: "#50729F",
+                          buttonText: "#FFFFFF",
+                          isBuiltIn: true,
+                        },
+                        {
+                          preset: "deep-press",
+                          name: "Olive Sand (Default)",
+                          bg: "#EEDFC7",
+                          surfaceBg: "#D9CCB4",
+                          ink: "#2D2B22",
+                          muted: "#6E6A59",
+                          accent: "#607938",
+                          buttonText: "#FFFFFF",
+                          isBuiltIn: true,
+                        },
+                        ...(Array.isArray(settingsForm.frontendThemePresets)
+                          ? settingsForm.frontendThemePresets.map((p) => ({ ...p, isBuiltIn: false }))
+                          : []),
+                      ].map((item) => {
+                        const isActive = settingsForm.frontendTheme?.preset === item.preset;
+                        return (
+                          <div
+                            key={item.preset}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              if (savingSettingsKey === "frontend-theme") return;
+                              const nextTheme = {
+                                preset: item.preset,
+                                bg: item.bg,
+                                surfaceBg: item.surfaceBg,
+                                ink: item.ink,
+                                muted: item.muted,
+                                accent: item.accent,
+                                buttonText: item.buttonText,
+                              };
+                              setSettingsForm((prev) => ({ ...prev, frontendTheme: nextTheme }));
+                              saveSettingsPartial(
+                                "frontend-theme",
+                                { frontendTheme: nextTheme },
+                                `${item.name} theme applied!`,
+                              );
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.currentTarget.click();
+                              }
+                            }}
+                            className={`cursor-pointer rounded-2xl border p-3.5 text-left transition-all ${
+                              isActive
+                                ? "border-cyan bg-cyan/10 ring-2 ring-cyan/25"
+                                : "border-border bg-surface hover:border-cyan/40"
+                            } ${savingSettingsKey === "frontend-theme" ? "pointer-events-none opacity-60" : ""}`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-2.5">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-xs font-bold text-text-primary truncate">{item.name}</span>
+                                {!item.isBuiltIn && (
+                                  <span className="shrink-0 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-text-muted border border-border">
+                                    Custom
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {isActive && (
+                                  <span className="rounded-full bg-cyan px-2 py-0.5 text-[10px] font-bold text-white">
+                                    Active
+                                  </span>
+                                )}
+                                {!item.isBuiltIn && (
+                                  <button
+                                    type="button"
+                                    title="Delete custom preset"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const nextPresets = (settingsForm.frontendThemePresets || []).filter(
+                                        (p) => p.preset !== item.preset,
+                                      );
+                                      const nextTheme =
+                                        settingsForm.frontendTheme?.preset === item.preset
+                                          ? { ...(settingsForm.frontendTheme || {}), preset: "custom" }
+                                          : settingsForm.frontendTheme;
+                                      setSettingsForm((prev) => ({
+                                        ...prev,
+                                        frontendTheme: nextTheme,
+                                        frontendThemePresets: nextPresets,
+                                      }));
+                                      saveSettingsPartial(
+                                        "frontend-theme",
+                                        {
+                                          frontendTheme: nextTheme,
+                                          frontendThemePresets: nextPresets,
+                                        },
+                                        `Preset "${item.name}" deleted.`,
+                                      );
+                                    }}
+                                    className="rounded-md p-1 text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                                  >
+                                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M3 6h18" />
+                                      <path d="M8 6V4h8v2" />
+                                      <path d="M19 6l-1 14H6L5 6" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {[item.bg, item.surfaceBg, item.accent, item.ink, item.muted].map((hex, i) => (
+                                <span
+                                  key={i}
+                                  className="h-5 w-5 rounded-full border border-black/15 shadow-sm"
+                                  style={{ backgroundColor: hex }}
+                                  title={hex}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border pt-5">
+                    <h3 className="text-sm font-bold text-text-primary mb-3">Custom Colors &amp; Text Colors</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[
+                        { key: "bg", label: "Page & Card Background" },
+                        { key: "surfaceBg", label: "Header / Footer Surface" },
+                        { key: "accent", label: "Primary Accent & Buttons" },
+                        { key: "ink", label: "Primary Text Color" },
+                        { key: "muted", label: "Secondary / Muted Text" },
+                        { key: "buttonText", label: "Button Text Color" },
+                      ].map((field) => {
+                        const val = settingsForm.frontendTheme?.[field.key] || "#000000";
+                        return (
+                          <div key={field.key} className="rounded-xl border border-border bg-surface-2/40 p-3 space-y-2">
+                            <label className="block text-xs font-bold text-text-primary">{field.label}</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={/^#[0-9a-fA-F]{6}$/.test(val) ? val : "#000000"}
+                                onChange={(e) =>
+                                  setSettingsForm((prev) => ({
+                                    ...prev,
+                                    frontendTheme: {
+                                      ...(prev.frontendTheme || {}),
+                                      preset: "custom",
+                                      [field.key]: e.target.value,
+                                    },
+                                  }))
+                                }
+                                className="h-9 w-11 cursor-pointer rounded-lg border border-border bg-transparent p-0.5"
+                              />
+                              <input
+                                type="text"
+                                value={val}
+                                onChange={(e) =>
+                                  setSettingsForm((prev) => ({
+                                    ...prev,
+                                    frontendTheme: {
+                                      ...(prev.frontendTheme || {}),
+                                      preset: "custom",
+                                      [field.key]: e.target.value,
+                                    },
+                                  }))
+                                }
+                                className="flex-1 rounded-lg border border-border bg-surface px-2.5 py-1.5 font-mono text-xs text-text-primary focus:border-cyan focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2.5 rounded-xl border border-dashed border-border bg-surface-2/30 p-3.5">
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-text-primary">Save Current Colors as Custom Preset</p>
+                        <p className="text-[11px] text-text-muted">
+                          Give your current color combination a name to reuse it anytime with 1 click.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newThemePresetName}
+                          onChange={(e) => setNewThemePresetName(e.target.value)}
+                          placeholder="e.g. Brand Gold, Dark Olive"
+                          maxLength={48}
+                          className="w-full sm:w-52 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-primary focus:border-cyan focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          disabled={!newThemePresetName.trim() || savingSettingsKey === "frontend-theme"}
+                          onClick={() => {
+                            const cleanName = newThemePresetName.trim();
+                            if (!cleanName) return;
+                            const presetId = `custom-${Date.now()}`;
+                            const current = settingsForm.frontendTheme || {};
+                            const newPreset = {
+                              preset: presetId,
+                              name: cleanName,
+                              bg: current.bg || "#EEDFC7",
+                              surfaceBg: current.surfaceBg || "#D9CCB4",
+                              ink: current.ink || "#2D2B22",
+                              muted: current.muted || "#6E6A59",
+                              accent: current.accent || "#607938",
+                              buttonText: current.buttonText || "#FFFFFF",
+                            };
+                            const nextPresets = [...(settingsForm.frontendThemePresets || []), newPreset];
+                            const nextTheme = { ...newPreset };
+                            delete nextTheme.name;
+                            setSettingsForm((prev) => ({
+                              ...prev,
+                              frontendTheme: nextTheme,
+                              frontendThemePresets: nextPresets,
+                            }));
+                            setNewThemePresetName("");
+                            saveSettingsPartial(
+                              "frontend-theme",
+                              {
+                                frontendTheme: nextTheme,
+                                frontendThemePresets: nextPresets,
+                              },
+                              `Custom preset "${cleanName}" saved & applied!`,
+                            );
+                          }}
+                          className="shrink-0 rounded-lg bg-surface px-3.5 py-1.5 text-xs font-bold text-text-primary border border-border hover:border-cyan hover:text-cyan disabled:opacity-50 transition-colors"
+                        >
+                          + Save as Preset
+                        </button>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const pv = {
+                        bg: settingsForm.frontendTheme?.bg || "#EEDFC7",
+                        surfaceBg: settingsForm.frontendTheme?.surfaceBg || "#D9CCB4",
+                        ink: settingsForm.frontendTheme?.ink || "#2D2B22",
+                        muted: settingsForm.frontendTheme?.muted || "#6E6A59",
+                        accent: settingsForm.frontendTheme?.accent || "#607938",
+                        buttonText: settingsForm.frontendTheme?.buttonText || "#FFFFFF",
+                      };
+                      return (
+                        <div className="mt-5 rounded-2xl border border-border bg-surface-2/20 p-4">
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <div>
+                              <h4 className="text-xs font-bold text-text-primary">Live Theme Preview</h4>
+                              <p className="text-[11px] text-text-muted">
+                                Real-time preview of how your selected colors look on the public website.
+                              </p>
+                            </div>
+                            <span className="rounded-full bg-surface px-2.5 py-0.5 text-[10px] font-semibold text-text-muted border border-border">
+                              Live
+                            </span>
+                          </div>
+
+                          <div
+                            className="overflow-hidden rounded-2xl border transition-colors"
+                            style={{
+                              backgroundColor: pv.bg,
+                              borderColor: `color-mix(in srgb, ${pv.ink} 14%, transparent)`,
+                              color: pv.ink,
+                            }}
+                          >
+                            {/* Mini Navbar */}
+                            <div
+                              className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b"
+                              style={{
+                                backgroundColor: pv.surfaceBg,
+                                borderColor: `color-mix(in srgb, ${pv.ink} 12%, transparent)`,
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded-lg text-[11px] font-extrabold"
+                                  style={{ backgroundColor: pv.accent, color: pv.buttonText }}
+                                >
+                                  V
+                                </span>
+                                <span className="text-xs font-extrabold" style={{ color: pv.ink }}>
+                                  Visa &amp; Voyage
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="hidden sm:inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-medium"
+                                  style={{
+                                    backgroundColor: pv.bg,
+                                    color: pv.muted,
+                                    boxShadow: `inset 1px 2px 4px color-mix(in srgb, ${pv.ink} 16%, transparent)`,
+                                  }}
+                                >
+                                  Search country...
+                                </span>
+                                <span
+                                  className="rounded-lg px-2.5 py-1 text-[10px] font-semibold"
+                                  style={{
+                                    backgroundColor: pv.bg,
+                                    color: pv.ink,
+                                    boxShadow: `1px 2px 5px color-mix(in srgb, ${pv.ink} 18%, transparent)`,
+                                  }}
+                                >
+                                  Blog
+                                </span>
+                                <span
+                                  className="rounded-lg px-2.5 py-1 text-[10px] font-bold"
+                                  style={{
+                                    backgroundColor: pv.accent,
+                                    color: pv.buttonText,
+                                    boxShadow: `1px 2px 6px color-mix(in srgb, ${pv.ink} 25%, transparent)`,
+                                  }}
+                                >
+                                  Log in
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Mini Body */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4">
+                              {/* Hero / Accent Card */}
+                              <div
+                                className="rounded-xl p-3.5 flex flex-col justify-between gap-3"
+                                style={{
+                                  backgroundColor: pv.accent,
+                                  color: pv.buttonText,
+                                  boxShadow: `4px 5px 14px color-mix(in srgb, ${pv.ink} 22%, transparent)`,
+                                }}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span
+                                    className="rounded-full px-2 py-0.5 text-[9px] font-bold"
+                                    style={{ backgroundColor: pv.bg, color: pv.accent }}
+                                  >
+                                    100% Online
+                                  </span>
+                                  <span className="text-[10px] font-semibold opacity-80">5-10 Days</span>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-extrabold leading-tight">Albania Visa</p>
+                                  <p className="mt-0.5 text-[10px] opacity-85">Tourist &amp; Business e-Visa</p>
+                                </div>
+                              </div>
+
+                              {/* Content Card & Input */}
+                              <div
+                                className="rounded-xl p-3.5 flex flex-col justify-between gap-2.5"
+                                style={{
+                                  backgroundColor: pv.bg,
+                                  boxShadow: `4px 4px 12px color-mix(in srgb, ${pv.surfaceBg} 78%, ${pv.ink})`,
+                                }}
+                              >
+                                <div>
+                                  <p className="text-xs font-extrabold" style={{ color: pv.ink }}>
+                                    Traveler Details
+                                  </p>
+                                  <p className="mt-0.5 text-[10px]" style={{ color: pv.muted }}>
+                                    Secondary muted text preview inside cards.
+                                  </p>
+                                </div>
+                                <div
+                                  className="rounded-lg px-2.5 py-1.5 text-[10px] font-medium border"
+                                  style={{
+                                    backgroundColor: pv.surfaceBg,
+                                    color: pv.ink,
+                                    borderColor: `color-mix(in srgb, ${pv.ink} 15%, transparent)`,
+                                    boxShadow: `inset 2px 2px 5px color-mix(in srgb, ${pv.ink} 18%, transparent)`,
+                                  }}
+                                >
+                                  Sample Input Field
+                                </div>
+                              </div>
+
+                              {/* Price / Action Card */}
+                              <div
+                                className="rounded-xl p-3.5 flex flex-col justify-between gap-2.5"
+                                style={{
+                                  backgroundColor: pv.bg,
+                                  boxShadow: `4px 4px 12px color-mix(in srgb, ${pv.surfaceBg} 78%, ${pv.ink})`,
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-semibold" style={{ color: pv.muted }}>
+                                    Total Fee
+                                  </span>
+                                  <span className="text-sm font-extrabold" style={{ color: pv.ink }}>
+                                    ₹9,605
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="w-full rounded-lg py-1.5 text-[11px] font-bold cursor-default"
+                                  style={{
+                                    backgroundColor: pv.accent,
+                                    color: pv.buttonText,
+                                    boxShadow: `2px 4px 10px color-mix(in srgb, ${pv.surfaceBg} 78%, ${pv.ink})`,
+                                  }}
+                                >
+                                  Start your application
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Mini Footer */}
+                            <div
+                              className="flex items-center justify-between px-4 py-2 border-t text-[10px]"
+                              style={{
+                                backgroundColor: pv.surfaceBg,
+                                borderColor: `color-mix(in srgb, ${pv.ink} 12%, transparent)`,
+                              }}
+                            >
+                              <span className="font-bold" style={{ color: pv.ink }}>
+                                Footer Surface
+                              </span>
+                              <span style={{ color: pv.muted }}>Privacy • Terms • Support</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </SettingsSectionCard>
+            </div>
+
               <div className={isControlSectionVisible("customer-support") ? "" : "hidden"}>
               <SettingsSectionCard
                 title="Customer Support Widget"
@@ -12194,6 +12747,7 @@ const Dashboard = () => {
                       customerChatDescription: settingsForm.customerChatDescription,
                       customerChatHeaderTitle: settingsForm.customerChatHeaderTitle,
                       customerChatHeaderSubtitle: settingsForm.customerChatHeaderSubtitle,
+                      customerChatQuickTabs: settingsForm.customerChatQuickTabs,
                       whatsappTemplate: settingsForm.whatsappTemplate,
                       hideWhatsAppSection: settingsForm.hideWhatsAppSection,
                     },
@@ -12240,10 +12794,120 @@ const Dashboard = () => {
                       />
                     </div>
                     
-                    <div className="flex-1 mt-4 rounded-xl border border-dashed border-border bg-surface-2/50 p-6 flex items-center justify-center text-center">
-                      <p className="text-sm text-text-muted leading-relaxed">
-                        More Live Chat controls will be added here in the future.
-                      </p>
+                    <div className="flex-1 mt-2 rounded-2xl border border-border bg-surface-2/40 p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <h4 className="text-sm font-bold text-text-primary">Quick Reply Tabs (Chat Chips)</h4>
+                          <p className="text-xs text-text-muted">Edit tab labels, choose their behavior, or add new tabs.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSettingsForm((prev) => ({
+                              ...prev,
+                              customerChatQuickTabs: [
+                                ...(Array.isArray(prev.customerChatQuickTabs) ? prev.customerChatQuickTabs : []),
+                                { label: "New Tab", actionType: "custom_reply", replyText: "" },
+                              ],
+                            }))
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-cyan px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-cyan/90 transition-colors shrink-0"
+                        >
+                          <Plus size={14} />
+                          Add Tab
+                        </button>
+                      </div>
+
+                      <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                        {(settingsForm.customerChatQuickTabs || []).map((tab, idx) => (
+                          <div key={idx} className="rounded-xl border border-border bg-surface p-3 space-y-2.5">
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="text"
+                                value={tab.label || ""}
+                                placeholder="Tab button text (e.g. Refund Related)"
+                                onChange={(e) => {
+                                  const next = [...(settingsForm.customerChatQuickTabs || [])];
+                                  next[idx] = { ...next[idx], label: e.target.value };
+                                  setSettingsForm((prev) => ({ ...prev, customerChatQuickTabs: next }));
+                                }}
+                                className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-semibold text-text-primary focus:border-cyan focus:outline-none"
+                              />
+                              <select
+                                value={tab.actionType || "custom_reply"}
+                                onChange={(e) => {
+                                  const next = [...(settingsForm.customerChatQuickTabs || [])];
+                                  next[idx] = { ...next[idx], actionType: e.target.value };
+                                  setSettingsForm((prev) => ({ ...prev, customerChatQuickTabs: next }));
+                                }}
+                                className="rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-text-primary focus:border-cyan focus:outline-none"
+                              >
+                                <option value="application_status">Application Status</option>
+                                <option value="required_documents">Required Documents</option>
+                                <option value="refund_policy">Refund Policy</option>
+                                <option value="human_support">Connect to Human</option>
+                                <option value="custom_reply">Custom Auto-Reply</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = (settingsForm.customerChatQuickTabs || []).filter((_, i) => i !== idx);
+                                  setSettingsForm((prev) => ({ ...prev, customerChatQuickTabs: next }));
+                                }}
+                                title="Remove tab"
+                                className="inline-flex items-center justify-center rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-red-500 hover:bg-red-500/20 transition-colors shrink-0"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            <div className="rounded-lg border border-border/70 bg-surface-2/60 p-2.5 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-bold text-text-secondary">
+                                  {tab.actionType === "custom_reply"
+                                    ? "Bot Reply Message"
+                                    : tab.actionType === "application_status"
+                                    ? "Preset Reply (when no application found — otherwise shows live application cards)"
+                                    : "Preset Bot Reply (leave blank to use default below, or edit to customize)"}
+                                </span>
+                                {tab.actionType !== "custom_reply" && tab.replyText && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next = [...(settingsForm.customerChatQuickTabs || [])];
+                                      next[idx] = { ...next[idx], replyText: "" };
+                                      setSettingsForm((prev) => ({ ...prev, customerChatQuickTabs: next }));
+                                    }}
+                                    className="text-[10px] font-semibold text-cyan hover:underline"
+                                  >
+                                    Reset to default
+                                  </button>
+                                )}
+                              </div>
+                              <textarea
+                                rows={tab.actionType === "required_documents" || tab.actionType === "refund_policy" ? 4 : 2}
+                                value={tab.replyText || ""}
+                                placeholder={
+                                  tab.actionType === "application_status"
+                                    ? "Default: We couldn't find any visa applications under your account yet. You can start a new application from the home page, or connect with a support executive if you applied using a different email."
+                                    : tab.actionType === "required_documents"
+                                    ? "Default: Standard Visa Documents Required: 1. Valid Passport (6+ months validity) 2. Recent Photo 3. Bank Statement / Financial Proof 4. Flight & Hotel Itinerary 5. Employment/Student Proof. (Shows country-specific checklist if application exists.)"
+                                    : tab.actionType === "refund_policy"
+                                    ? "Default: If your visa application is rejected, eligible refund amounts are processed directly to your bank account within 1-3 business days. For cancellations, share your Application ID at support@visavo.in or connect with a live agent."
+                                    : tab.actionType === "human_support"
+                                    ? "Default: I can connect you with one of our visa support executives right away. Click below to notify our team."
+                                    : "Enter automatic reply message when user clicks this tab..."
+                                }
+                                onChange={(e) => {
+                                  const next = [...(settingsForm.customerChatQuickTabs || [])];
+                                  next[idx] = { ...next[idx], replyText: e.target.value };
+                                  setSettingsForm((prev) => ({ ...prev, customerChatQuickTabs: next }));
+                                }}
+                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-primary placeholder:text-text-muted/85 focus:border-cyan focus:outline-none resize-y"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 

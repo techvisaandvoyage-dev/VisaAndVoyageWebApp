@@ -246,10 +246,16 @@ html {
   --cd: var(--bg);
   --bo: 0;
 
-  /* Shadows from reference */
+  /* Master Inner & Outer Drop Shadows */
+  --master-inner-drop-shadow: inset 3px 3px 7px var(--lo), inset -3px -3px 7px var(--hi);
+  --master-outer-drop-shadow: 0 -4px 16px color-mix(in srgb, var(--ink) 18%, transparent), 6px 6px 18px var(--lo);
+  --master-btn-outer-drop-shadow: 2px 3px 8px color-mix(in srgb, var(--ink) 18%, transparent), 0 1px 3px color-mix(in srgb, var(--lo) 45%, transparent);
+  --master-colored-btn-inner-drop-shadow: inset 3px 3px 7px rgba(0, 0, 0, 0.52), inset -2px -2px 6px rgba(0, 0, 0, 0.28);
+  --master-sm-inner-drop-shadow: inset 1.5px 1.5px 4px color-mix(in srgb, var(--lo) 70%, transparent), inset -1.5px -1.5px 4px color-mix(in srgb, var(--hi) 70%, transparent);
+  --master-sm-colored-inner-drop-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.42), inset -1px -1px 3px rgba(0, 0, 0, 0.2);
   --rs: 5px 5px 11px var(--lo), -5px -5px 11px var(--hi);
-  --is: inset 3px 3px 7px var(--lo), inset -3px -3px 7px var(--hi);
-  --cs: 6.5px 6.5px 17.5px var(--lo), -6.5px -6.5px 17.5px var(--hi);
+  --is: var(--master-inner-drop-shadow);
+  --cs: var(--master-outer-drop-shadow);
 
   /* Tailwind CSS mapped tokens */
   --color-background: var(--bg);
@@ -307,17 +313,21 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   font: 600 15px/1 var(--f);
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 2px 5px 14px rgba(45, 43, 34, 0.38), 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: var(--master-btn-outer-drop-shadow) !important;
   transition: transform .2s, filter .2s, box-shadow .2s;
 }
 .b:hover {
   filter: brightness(0.96);
   transform: translateY(-1px);
-  box-shadow: 2px 7px 18px rgba(45, 43, 34, 0.45), 0 3px 6px rgba(0, 0, 0, 0.24) !important;
+  box-shadow: var(--master-btn-outer-drop-shadow) !important;
 }
 .b:active {
-  transform: none;
-  box-shadow: inset 2px 3px 7px rgba(0, 0, 0, 0.55), inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  transform: translateY(1px);
+  box-shadow: var(--master-colored-btn-inner-drop-shadow) !important;
+}
+.b.s:active,
+.b.o:active {
+  box-shadow: var(--master-inner-drop-shadow) !important;
 }
 .b.rb {
   width: 48px;
@@ -363,21 +373,29 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   place-items: center;
   cursor: pointer;
   padding: 0;
-  box-shadow: var(--rs);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   transition: transform .2s, filter .2s;
 }
 .ib:hover {
-  filter: brightness(1.02);
   transform: translateY(-1px);
-  box-shadow: 2px 5px 10px rgba(45, 43, 34, 0.22);
+  color: var(--ac);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 .ib:active {
   transform: translateY(1px);
-  background: #dfd2bc;
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.28), inset 0 1px 2px rgba(45, 43, 34, 0.18);
+  background: var(--surface-bg);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 
 /* Outline on focus-visible */
+[class^="shadow-[inset_"], [class*=" shadow-[inset_"] {
+  box-shadow: var(--master-inner-drop-shadow) !important;
+}
+[class*="rgba(148,138,123"],
+[class*="shadow-"][class*="#948a7b"],
+[class*="shadow-"][class*="#d6c9b3"] {
+  box-shadow: var(--master-outer-drop-shadow) !important;
+}
 .b:focus-visible, .ib:focus-visible, .cc:focus-visible, input:focus-visible {
   outline: 3px solid var(--ac);
   outline-offset: 3px;
@@ -548,17 +566,18 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 .sbx.sbx-compact {
   width: 220px;
-  padding: 3px 3px 3px 14px;
+  height: 48px;
+  padding: 4px 4px 4px 14px;
   gap: 6px;
   border-radius: var(--rb);
 }
 .sbx.sbx-compact input {
   font-size: 14px;
-  height: 32px;
+  height: 40px;
 }
 .sbx.sbx-compact button[type="submit"] {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -584,7 +603,7 @@ input[type="search"]::-webkit-search-results-decoration {
   padding: 0 18px;
   border-radius: var(--rb);
   background: var(--bg);
-  box-shadow: var(--rs);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   font-weight: 600;
   font-size: 14px;
   color: var(--ink);
@@ -594,16 +613,15 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 .nv-blog-btn:hover {
-  filter: brightness(1.02);
   transform: translateY(-1px);
   color: var(--ac);
-  box-shadow: 2px 5px 10px rgba(45, 43, 34, 0.22);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 
 .nv-blog-btn:active {
   transform: translateY(1px);
-  background: #dfd2bc;
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.28), inset 0 1px 2px rgba(45, 43, 34, 0.18);
+  background: var(--surface-bg);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 
 /* Navbar Green Log In Button */
@@ -620,19 +638,19 @@ input[type="search"]::-webkit-search-results-decoration {
   font-size: 14px;
   border: none;
   cursor: pointer;
-  box-shadow: 2px 3px 7px rgba(45, 43, 34, 0.22), 0 1px 2px rgba(45, 43, 34, 0.12);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
 .nv-login-btn:hover {
   transform: translateY(-1px);
   opacity: 0.96;
-  box-shadow: 2px 5px 12px rgba(45, 43, 34, 0.3);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 
 .nv-login-btn:active {
   transform: translateY(1px);
-  box-shadow: inset 2px 3px 6px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--master-colored-btn-inner-drop-shadow);
 }
 
 /* Navbar Search Dropdown */
@@ -861,7 +879,7 @@ section.grid, #grid.grid {
     background-color: var(--bg);
   }
   .cc:hover, .cc:focus-visible {
-    transform: translateY(-8px);
+    transform: scale(1.015);
     box-shadow: var(--cs), 0 20px 44px color-mix(in srgb, var(--acr) 38%, transparent);
   }
   .cc::after {
@@ -1261,4 +1279,48 @@ section.grid, #grid.grid {
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.78), transparent);
   animation: glass-shimmer 1.5s infinite;
+}
+
+/* ── Global Button Master Outer / Inner Drop Shadow ──────── */
+button[class*=" shadow-["]:not([class*=" shadow-[inset_"]),
+button[class^="shadow-["]:not([class^="shadow-[inset_"]),
+a[class*=" shadow-["]:not([class*=" shadow-[inset_"]),
+a[class^="shadow-["]:not([class^="shadow-[inset_"]) {
+  box-shadow: var(--master-btn-outer-drop-shadow) !important;
+}
+
+button[class*=" active:shadow-[inset_"]:active:not(:disabled),
+button[class*=" shadow-["]:active:not(:disabled),
+a[class*=" active:shadow-[inset_"]:active,
+a[class*=" shadow-["]:active {
+  box-shadow: var(--master-inner-drop-shadow) !important;
+}
+
+button[class*="bg-[#607938]"]:active:not(:disabled),
+button[class*="bg-[#25D366]"]:active:not(:disabled),
+button[class*="from-[#"]:active:not(:disabled),
+a[class*="bg-[#607938]"]:active,
+a[class*="bg-[#25D366]"]:active,
+a[class*="from-[#"]:active {
+  box-shadow: var(--master-colored-btn-inner-drop-shadow) !important;
+}
+
+/* ── Small Dropdown Icon Badges (Subtle Inner + Dark Hover) */
+html body .nv-dd-icon {
+  box-shadow: var(--master-sm-inner-drop-shadow) !important;
+}
+html body .group:hover .nv-dd-icon,
+html body .nv-dd-icon.is-colored {
+  box-shadow: var(--master-sm-colored-inner-drop-shadow) !important;
+}
+
+/* ── Prevent Browser Autofill Grey/Blue Box on Theme Inputs ─ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--ink, #2D2B22) !important;
+  box-shadow: var(--master-inner-drop-shadow), 0 0 0 1000px var(--bg, #EEDFC7) inset !important;
+  transition: background-color 5000s ease-in-out 0s;
 }

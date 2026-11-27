@@ -48,7 +48,7 @@ const ModalWave = () => (
 );
 
 const StepIconBubble = ({ children }) => (
-  <div className="relative mb-5 flex h-[92px] w-[92px] items-center justify-center rounded-full border border-[#607938]/20 bg-[#607938]/12 text-[#607938] shadow-[inset_2px_2px_5px_rgba(45,43,34,0.12)]">
+  <div className="relative mb-5 flex h-[92px] w-[92px] items-center justify-center rounded-full border border-[#607938]/20 bg-[#607938]/12 text-[#607938] ![box-shadow:var(--master-sm-inner-drop-shadow)]">
     <span className="absolute -left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rotate-45 bg-[#607938]/60" />
     <span className="absolute -right-2 top-6 h-1.5 w-1.5 rotate-45 bg-[#607938]/60" />
     <span className="absolute right-3 top-1 h-1 w-1 rotate-45 bg-[#607938]/50" />
@@ -322,7 +322,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
         <div className="absolute right-5 top-5 z-10 flex items-center gap-2">
           <button 
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dfd2bc]/70 text-[#2D2B22] shadow-[1px_2px_4px_rgba(45,43,34,0.14)] transition-colors hover:bg-[#dfd2bc]"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--bg,#EEDFC7)] text-[var(--ink,#2D2B22)] ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)]"
             aria-label="Close"
           >
             <X size={21} strokeWidth={2.2} />
@@ -336,7 +336,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                 setError("");
                 setStep(step === "details" ? "otp" : "phone");
               }}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dfd2bc]/70 text-[#2D2B22] shadow-[1px_2px_4px_rgba(45,43,34,0.14)] transition-colors hover:bg-[#dfd2bc]"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--bg,#EEDFC7)] text-[var(--ink,#2D2B22)] ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)]"
               aria-label="Back"
             >
               <ArrowLeft size={21} strokeWidth={2.2} />
@@ -367,7 +367,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       }}
                       aria-expanded={countryCodeOpen}
                       aria-haspopup="listbox"
-                      className="flex h-[58px] w-full items-center justify-between gap-3 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 text-[15px] font-bold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="flex h-[58px] w-full items-center justify-between gap-3 rounded-xl border border-[color:color-mix(in_srgb,var(--ink,#2D2B22)_12%,transparent)] bg-[var(--bg,#EEDFC7)] px-5 text-[15px] font-bold text-[var(--ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)] transition-all focus:border-[var(--ac,#607938)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <span className="min-w-0 flex flex-1 items-center gap-2.5 text-left">
                         {selectedCountryOption?.flagUrl ? (
@@ -397,7 +397,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                               onChange={(e) => setCountryCodeSearch(e.target.value)}
                               placeholder="Search country or code..."
                               autoFocus
-                              className="h-10 w-full rounded-lg border border-[#2D2B22]/15 bg-[#dfd2bc] pl-9 pr-3 text-[13px] font-semibold text-[#2D2B22] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)] placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none"
+                              className="h-10 w-full rounded-lg border border-[color:color-mix(in_srgb,var(--ink,#2D2B22)_12%,transparent)] bg-[var(--bg,#EEDFC7)] pl-9 pr-3 text-[13px] font-semibold text-[var(--ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)] placeholder:text-[var(--mu,#6E6A59)] focus:border-[var(--ac,#607938)] focus:outline-none"
                             />
                           </div>
                         </div>
@@ -475,7 +475,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 13))}
                       placeholder="Enter mobile number"
                       disabled={step !== "phone"}
-                      className="h-[58px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pl-14 text-[15px] font-semibold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 disabled:opacity-60"
+                      className="h-[58px] w-full rounded-xl border border-[color:color-mix(in_srgb,var(--ink,#2D2B22)_12%,transparent)] bg-[var(--bg,#EEDFC7)] px-5 pl-14 text-[15px] font-semibold text-[var(--ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)] transition-all placeholder:text-[var(--mu,#6E6A59)] focus:border-[var(--ac,#607938)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 disabled:opacity-60"
                     />
                   </div>
                 </div>
@@ -486,7 +486,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       <button
                         onClick={() => handlePhoneSubmit("auto")}
                         disabled={loading || phone.length < 10}
-                        className="h-[54px] w-full rounded-xl bg-[#607938] text-[17px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
+                        className="h-[54px] w-full rounded-xl bg-[var(--ac,#607938)] text-[17px] font-bold text-white ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-colored-btn-inner-drop-shadow)] disabled:cursor-not-allowed disabled:opacity-55"
                       >
                         {loading ? "Sending..." : "Continue"}
                       </button>
@@ -501,8 +501,8 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                             disabled={loading || phone.length < 10}
                             className={
                               isPrimary
-                                ? "h-[54px] w-full rounded-xl bg-[#607938] text-[17px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
-                                : "h-[50px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#EEDFC7] text-[15px] font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.16)] transition-all hover:bg-[#dfd2bc] disabled:cursor-not-allowed disabled:opacity-55"
+                                ? "h-[54px] w-full rounded-xl bg-[var(--ac,#607938)] text-[17px] font-bold text-white ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-colored-btn-inner-drop-shadow)] disabled:cursor-not-allowed disabled:opacity-55"
+                                : "h-[50px] w-full rounded-xl border border-[color:color-mix(in_srgb,var(--ink,#2D2B22)_12%,transparent)] bg-[var(--bg,#EEDFC7)] text-[15px] font-bold text-[var(--ink,#2D2B22)] ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)] disabled:cursor-not-allowed disabled:opacity-55"
                             }
                           >
                             {loading 
@@ -533,7 +533,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                           value={digit}
                           onChange={(e) => handleOtpChange(index, e.target.value)}
                           onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                          className="h-16 w-12 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] text-center text-xl font-extrabold text-[#607938] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2)] transition-all focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
+                          className="h-16 w-12 rounded-xl border border-[color:color-mix(in_srgb,var(--ink,#2D2B22)_12%,transparent)] bg-[var(--bg,#EEDFC7)] text-center text-xl font-extrabold text-[var(--ac,#607938)] ![box-shadow:var(--master-inner-drop-shadow)] transition-all focus:border-[var(--ac,#607938)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
                         />
                       ))}
                     </div>
@@ -544,7 +544,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                     <button 
                       onClick={handleVerifyOtp}
                       disabled={loading || otp.join("").length < otpLength}
-                      className="h-[54px] w-full rounded-xl bg-[#607938] text-[18px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
+                      className="h-[54px] w-full rounded-xl bg-[var(--ac,#607938)] text-[18px] font-bold text-white ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-colored-btn-inner-drop-shadow)] disabled:cursor-not-allowed disabled:opacity-55"
                     >
                       {loading ? "Verifying..." : "Verify"}
                     </button>
@@ -578,7 +578,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="Enter first name"
-                      className="h-[58px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pl-14 text-[15px] font-semibold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
+                      className="h-[58px] w-full rounded-xl border border-[color:color-mix(in_srgb,var(--ink,#2D2B22)_12%,transparent)] bg-[var(--bg,#EEDFC7)] px-5 pl-14 text-[15px] font-semibold text-[var(--ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)] transition-all placeholder:text-[var(--mu,#6E6A59)] focus:border-[var(--ac,#607938)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
                     />
                   </div>
                 </div>
@@ -594,7 +594,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Enter last name"
-                      className="h-[58px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pl-14 text-[15px] font-semibold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
+                      className="h-[58px] w-full rounded-xl border border-[color:color-mix(in_srgb,var(--ink,#2D2B22)_12%,transparent)] bg-[var(--bg,#EEDFC7)] px-5 pl-14 text-[15px] font-semibold text-[var(--ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)] transition-all placeholder:text-[var(--mu,#6E6A59)] focus:border-[var(--ac,#607938)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
                     />
                   </div>
                 </div>
@@ -610,7 +610,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter email address"
-                      className="h-[58px] w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 pl-14 text-[15px] font-semibold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
+                      className="h-[58px] w-full rounded-xl border border-[color:color-mix(in_srgb,var(--ink,#2D2B22)_12%,transparent)] bg-[var(--bg,#EEDFC7)] px-5 pl-14 text-[15px] font-semibold text-[var(--ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)] transition-all placeholder:text-[var(--mu,#6E6A59)] focus:border-[var(--ac,#607938)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25"
                     />
                   </div>
                 </div>
@@ -620,7 +620,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
                 <button 
                   onClick={handleDetailsSubmit}
                   disabled={loading}
-                  className="mt-8 h-[54px] w-full rounded-xl bg-[#607938] text-[18px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
+                  className="mt-8 h-[54px] w-full rounded-xl bg-[var(--ac,#607938)] text-[18px] font-bold text-white ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-colored-btn-inner-drop-shadow)] disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   {loading ? "Saving..." : "Continue"}
                 </button>
@@ -642,7 +642,7 @@ const AuthModal = ({ isOpen, onClose, onComplete }) => {
               <div className="mt-auto w-full pb-1">
                 <button 
                   onClick={() => onComplete()}
-                  className="h-[54px] w-full rounded-xl bg-[#607938] text-[18px] font-bold text-white shadow-[1px_3px_8px_rgba(45,43,34,0.32)] transition-all hover:bg-[#536930] active:shadow-[inset_2px_3px_6px_rgba(0,0,0,0.45),inset_0_1px_2px_rgba(0,0,0,0.35)]"
+                  className="h-[54px] w-full rounded-xl bg-[var(--ac,#607938)] text-[18px] font-bold text-white ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-colored-btn-inner-drop-shadow)]"
                 >
                   Done
                 </button>

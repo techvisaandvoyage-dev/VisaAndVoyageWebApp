@@ -17,11 +17,28 @@ import {
   CheckCheck,
   Zap,
   LogOut,
+  History,
+  Plus,
+  Ticket,
 } from "lucide-react";
 import { api, useAuthStore } from "../../store/authStore";
 import { useDataStore } from "../../store/dataStore";
 import { useLocation } from "react-router-dom";
 import { formatOrdinalDate } from "../../utils/dateUtils";
+import {
+  DEFAULT_PHONE_COUNTRY_CODE,
+  filterPhoneCountryOptions,
+  findPhoneCountryOption,
+  getPhoneCountryOptions,
+  loadPhoneCountryOptions,
+} from "../../utils/phoneCountryCodes";
+
+const DEFAULT_QUICK_TABS = [
+  { label: "Application Status", actionType: "application_status", replyText: "" },
+  { label: "Require Document Needed", actionType: "required_documents", replyText: "" },
+  { label: "Refund Related", actionType: "refund_policy", replyText: "" },
+  { label: "Talk to Human", actionType: "human_support", replyText: "" },
+];
 
 const DEFAULT_CHAT_CONFIG = {
   enabled: true,
@@ -32,6 +49,7 @@ const DEFAULT_CHAT_CONFIG = {
   headerTitle: "Chat with us",
   headerSubtitle: "We typically reply in a few minutes",
   whatsappTemplate: "",
+  quickTabs: DEFAULT_QUICK_TABS,
 };
 
 const WhatsAppIcon = ({ className = "h-5 w-5" }) => (
@@ -78,25 +96,38 @@ const getWhatsAppUrl = (value) => {
   return `https://wa.me/918882838383`;
 };
 
-const buildGreetingMessage = (currentUser) => ({
-  id: "m_greet",
-  sender: "support",
-  text: `Hello ${currentUser?.name || "there"}! Welcome to Visa & Voyage Support. How can we help you today?`,
-  type: "chips",
-  options: ["Change Application", "Require Document Needed", "Refund Related", "Application Status"],
-  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-});
+const buildGreetingMessage = (currentUser, quickTabs = DEFAULT_QUICK_TABS) => {
+  const options =
+    Array.isArray(quickTabs) && quickTabs.length > 0
+      ? quickTabs.map((t) => String(t?.label || "").trim()).filter(Boolean)
+      : DEFAULT_QUICK_TABS.map((t) => t.label);
+  return {
+    id: "m_greet",
+    sender: "support",
+    text: `Hello ${currentUser?.name || "there"}! Welcome to Visa & Voyage Support. How can we help you today?`,
+    type: "chips",
+    options,
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  };
+};
 
-const withAutomationGreeting = (conversationMessages = [], currentUser) => {
+const resolveChatEmail = (currentUser) => {
+  if (currentUser?.email) return currentUser.email;
+  const digits = String(currentUser?.phone || "").replace(/\D/g, "");
+  if (digits) return `${digits}@phone.visavo.in`;
+  return "";
+};
+
+const withAutomationGreeting = (conversationMessages = [], currentUser, quickTabs = DEFAULT_QUICK_TABS) => {
   if (!currentUser) return conversationMessages;
   if (!Array.isArray(conversationMessages) || conversationMessages.length === 0) {
-    return [buildGreetingMessage(currentUser)];
+    return [buildGreetingMessage(currentUser, quickTabs)];
   }
 
   const hasSupportReply = conversationMessages.some((msg) => msg.sender !== "user");
   if (hasSupportReply) return conversationMessages;
 
-  return [buildGreetingMessage(currentUser), ...conversationMessages];
+  return [buildGreetingMessage(currentUser, quickTabs), ...conversationMessages];
 };
 
 const CHAT_EMOJIS = ["😀", "😊", "😍", "👍", "🙏", "🎉", "❤️", "😄", "🤝", "✨"];
@@ -127,12 +158,65 @@ export default function SupportChatWidget() {
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
+  const [guestCountryCode, setGuestCountryCode] = useState(DEFAULT_PHONE_COUNTRY_CODE);
+  const [guestPhoneError, setGuestPhoneError] = useState("");
+  const [guestCountryOpen, setGuestCountryOpen] = useState(false);
+  const [guestCountrySearch, setGuestCountrySearch] = useState("");
+  const [phoneCountryOptions, setPhoneCountryOptions] = useState(() => getPhoneCountryOptions());
+  const guestCountryRef = useRef(null);
   const [activeConvo, setActiveConvo] = useState(null);
+  const [tickets, setTickets] = useState([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState("");
+  const [creatingTicket, setCreatingTicket] = useState(false);
+  const [chatError, setChatError] = useState("");
+  const sendingRef = useRef(false);
+  const lastSendAtRef = useRef(0);
+
+  const getActiveChatUser = () => {
+    const authUser = useAuthStore.getState().user;
+    if (authUser) return authUser;
+    if (guestUser) return guestUser;
+    try {
+      const cached = localStorage.getItem("guest_chat_user");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  };
 
   const registeredUser = useAuthStore((state) => state.user);
+  const authIdentity = registeredUser?.id || registeredUser?.email || registeredUser?.phone || "";
+  const prevAuthIdentityRef = useRef(authIdentity);
 
-  // Clear session cross-bleed when current user identity changes (login, logout, or account switches)
   useEffect(() => {
+    let alive = true;
+    loadPhoneCountryOptions().then((opts) => {
+      if (alive && Array.isArray(opts) && opts.length) {
+        setPhoneCountryOptions(opts);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!guestCountryOpen) return;
+    const handleOutside = (e) => {
+      if (guestCountryRef.current && !guestCountryRef.current.contains(e.target)) {
+        setGuestCountryOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [guestCountryOpen]);
+
+  // Clear session cross-bleed ONLY when auth identity actually changes (login, logout, or account switch)
+  useEffect(() => {
+    if (prevAuthIdentityRef.current === authIdentity) return;
+    prevAuthIdentityRef.current = authIdentity;
+
     localStorage.removeItem("guest_chat_user");
     setGuestUser(null);
     setGuestName("");
@@ -140,39 +224,97 @@ export default function SupportChatWidget() {
     setGuestPhone("");
     setActiveConvo(null);
     setMessages([]);
+    setTickets([]);
+    setSelectedTicketId("");
     setView("options");
-  }, [registeredUser?.email]);
+  }, [authIdentity]);
 
-  // Sync client chat feed from backend every 1 second so typing indicators feel live
+  const loadTickets = async (userOverride = null) => {
+    const currentUser = userOverride || getActiveChatUser();
+    const chatEmail = resolveChatEmail(currentUser);
+    if (!chatEmail) return [];
+
+    const isGuestMode = !useAuthStore.getState().user;
+    const guestParam = isGuestMode ? "&guest=1" : "";
+
+    setLoadingTickets(true);
+    try {
+      const { data } = await api.get(
+        `/support/conversations/client/tickets?email=${encodeURIComponent(chatEmail)}${guestParam}`
+      );
+      if (data?.success && Array.isArray(data.tickets)) {
+        setTickets(data.tickets);
+        return data.tickets;
+      }
+    } catch (err) {
+      console.error("Failed to fetch support tickets:", err);
+    } finally {
+      setLoadingTickets(false);
+    }
+    return [];
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadTickets();
+    }
+  }, [isOpen, guestUser]);
+
+  // Sync client chat feed from backend using non-overlapping polling so requests never pile up
   useEffect(() => {
     if (!isOpen || view !== "chat") return;
 
+    let cancelled = false;
+    let timerId = null;
+
     const syncChat = async () => {
-      const currentUser = useAuthStore.getState().user || guestUser;
-      if (!currentUser?.email) return;
+      const currentUser = getActiveChatUser();
+      const chatEmail = resolveChatEmail(currentUser);
+      if (!chatEmail || cancelled) return;
+
+      if (sendingRef.current || Date.now() - lastSendAtRef.current < 1200) {
+        if (!cancelled) timerId = setTimeout(syncChat, 1200);
+        return;
+      }
 
       try {
-        const { data } = await api.get(`/support/conversations/client/chat?email=${encodeURIComponent(currentUser.email)}`);
+        const isGuestMode = !useAuthStore.getState().user;
+        const guestParam = isGuestMode ? "&guest=1" : "";
+        const ticketQuery = selectedTicketId ? `&ticketId=${encodeURIComponent(selectedTicketId)}` : "";
+        const { data } = await api.get(
+          `/support/conversations/client/chat?email=${encodeURIComponent(chatEmail)}${guestParam}${ticketQuery}`
+        );
+        if (cancelled) return;
+        if (sendingRef.current || Date.now() - lastSendAtRef.current < 1200) {
+          timerId = setTimeout(syncChat, 1200);
+          return;
+        }
         if (data?.success) {
           if (data.conversation) {
             setActiveConvo(data.conversation);
-            setMessages(withAutomationGreeting(data.conversation.messages, currentUser));
+            setMessages(withAutomationGreeting(data.conversation.messages, currentUser, chatConfig.quickTabs));
             setAdminIsTyping(Boolean(data.conversation.adminTyping));
           } else {
             setActiveConvo(null);
-            setMessages(withAutomationGreeting([], currentUser));
+            setMessages(withAutomationGreeting([], currentUser, chatConfig.quickTabs));
             setAdminIsTyping(false);
           }
         }
       } catch (err) {
-        console.error("Failed to sync customer chat:", err);
+        if (!cancelled) console.error("Failed to sync customer chat:", err);
+      } finally {
+        if (!cancelled) {
+          timerId = setTimeout(syncChat, 1500);
+        }
       }
     };
 
     syncChat();
-    const interval = setInterval(syncChat, 1000);
-    return () => clearInterval(interval);
-  }, [isOpen, view, guestUser]);
+    return () => {
+      cancelled = true;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [isOpen, view, guestUser, selectedTicketId, chatConfig.quickTabs]);
 
   const getDynamicValues = async (currentLocation) => {
     const values = {
@@ -360,8 +502,8 @@ export default function SupportChatWidget() {
     }
   };
 
-  const handleStartChat = async () => {
-    const currentUser = useAuthStore.getState().user || guestUser;
+  const handleStartChat = async (ticketIdOverride = "", userOverride = null) => {
+    const currentUser = userOverride || getActiveChatUser();
     
     if (!currentUser) {
       setView("guest_onboarding");
@@ -369,21 +511,35 @@ export default function SupportChatWidget() {
     }
 
     // Wipe stale states immediately to eliminate transition glitches and race conditions!
+    setChatError("");
     setActiveConvo(null);
     setMessages([]);
     setAdminIsTyping(false);
+    if (ticketIdOverride) {
+      setSelectedTicketId(ticketIdOverride);
+    } else if (userOverride) {
+      setSelectedTicketId("");
+    }
 
     setView("chat");
     setIsTyping(true);
 
     try {
-      const { data } = await api.get(`/support/conversations/client/chat?email=${encodeURIComponent(currentUser.email)}`);
+      const chatEmail = resolveChatEmail(currentUser);
+      const isGuestMode = !useAuthStore.getState().user;
+      const guestParam = isGuestMode ? "&guest=1" : "";
+      const targetTicketId = userOverride ? "" : (ticketIdOverride || selectedTicketId);
+      const ticketQuery = targetTicketId ? `&ticketId=${encodeURIComponent(targetTicketId)}` : "";
+      const { data } = await api.get(
+        `/support/conversations/client/chat?email=${encodeURIComponent(chatEmail)}${guestParam}${ticketQuery}`
+      );
       if (data?.success && data?.conversation) {
         setActiveConvo(data.conversation);
-        setMessages(withAutomationGreeting(data.conversation.messages, currentUser));
+        setSelectedTicketId(data.conversation.id);
+        setMessages(withAutomationGreeting(data.conversation.messages, currentUser, chatConfig.quickTabs));
         setAdminIsTyping(Boolean(data.conversation.adminTyping));
       } else {
-        setMessages(withAutomationGreeting([], currentUser));
+        setMessages(withAutomationGreeting([], currentUser, chatConfig.quickTabs));
         setAdminIsTyping(false);
       }
     } catch (err) {
@@ -393,21 +549,78 @@ export default function SupportChatWidget() {
     }
   };
 
+  const handleOpenTicketsHistory = async () => {
+    const currentUser = useAuthStore.getState().user || guestUser;
+    if (!currentUser) {
+      setView("guest_onboarding");
+      return;
+    }
+    setView("tickets");
+    await loadTickets();
+  };
+
+  const openTicket = tickets.find((t) => t.status !== "RESOLVED") || null;
+
+  const handleCreateNewTicket = async () => {
+    const currentUser = useAuthStore.getState().user || guestUser;
+    if (!currentUser) {
+      setView("guest_onboarding");
+      return;
+    }
+    if (openTicket) {
+      handleStartChat(openTicket.id);
+      return;
+    }
+    const chatEmail = resolveChatEmail(currentUser);
+    if (!chatEmail || creatingTicket) return;
+
+    setCreatingTicket(true);
+    try {
+      const { data } = await api.post("/support/conversations/client/tickets", {
+        name: currentUser.name,
+        email: chatEmail,
+        phone: currentUser.phone || "Not provided",
+        subject: "New Support Ticket",
+      });
+      if (data?.success && data?.conversation) {
+        setActiveConvo(data.conversation);
+        setSelectedTicketId(data.conversation.id);
+        setMessages(withAutomationGreeting([], currentUser, chatConfig.quickTabs));
+        setAdminIsTyping(false);
+        setView("chat");
+        loadTickets();
+      }
+    } catch (err) {
+      const existing = err?.response?.data?.existingTicket;
+      if (existing?.id) {
+        setActiveConvo(existing);
+        setSelectedTicketId(existing.id);
+        setMessages(withAutomationGreeting(existing.messages, currentUser, chatConfig.quickTabs));
+        setAdminIsTyping(Boolean(existing.adminTyping));
+        setView("chat");
+        loadTickets();
+      } else {
+        console.error("Failed to create new ticket:", err);
+      }
+    } finally {
+      setCreatingTicket(false);
+    }
+  };
+
   const handleOptionClick = (text) => {
-    // Re-use send message logic but without an event
-    const e = { preventDefault: () => {} };
-    const prevInput = inputText;
-    setInputText(text);
-    // Since setInputText is async, we pass text directly to a specialized handler or just duplicate the logic
+    if (activeConvo?.status === "RESOLVED") return;
     handleSendText(text);
   };
 
   const handleSendText = async (textToSend) => {
     if (!textToSend.trim()) return;
+    if (activeConvo?.status === "RESOLVED") return;
 
-    const currentUser = useAuthStore.getState().user || guestUser;
-    if (!currentUser?.email) return;
+    const currentUser = getActiveChatUser();
+    const chatEmail = resolveChatEmail(currentUser);
+    if (!chatEmail) return;
 
+    setChatError("");
     setShowEmojiPicker(false);
     setInputText("");
 
@@ -417,13 +630,15 @@ export default function SupportChatWidget() {
       displayText = `Selected Application: ${appId}`;
     }
 
-    // Optimistically update
+    const optId = "opt_" + Date.now();
     const userMsg = {
-      id: "opt_" + Date.now(),
+      id: optId,
       sender: "user",
       text: displayText,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
+    sendingRef.current = true;
+    lastSendAtRef.current = Date.now();
     setMessages((prev) => [...prev, userMsg]);
 
     try {
@@ -432,16 +647,23 @@ export default function SupportChatWidget() {
         sender: "user",
         text: textToSend,
         name: currentUser.name,
-        email: currentUser.email,
+        email: chatEmail,
         phone: currentUser.phone || "Guest User"
       });
       if (data?.success && data?.conversation) {
         setActiveConvo(data.conversation);
-        setMessages(withAutomationGreeting(data.conversation.messages, currentUser));
+        setSelectedTicketId(data.conversation.id);
+        setMessages(withAutomationGreeting(data.conversation.messages, currentUser, chatConfig.quickTabs));
         setAdminIsTyping(Boolean(data.conversation.adminTyping));
+        loadTickets();
       }
     } catch (err) {
       console.error("Failed to send customer message:", err);
+      setMessages((prev) => prev.filter((m) => m.id !== optId));
+      setChatError(err?.response?.data?.message || "Could not send message. Please try again.");
+    } finally {
+      sendingRef.current = false;
+      lastSendAtRef.current = Date.now();
     }
   };
 
@@ -451,21 +673,32 @@ export default function SupportChatWidget() {
   };
 
   const handleHumanRequest = async () => {
-    const currentUser = useAuthStore.getState().user || guestUser;
-    if (!currentUser?.email) return;
+    if (activeConvo?.status === "RESOLVED") return;
+    const currentUser = getActiveChatUser();
+    const chatEmail = resolveChatEmail(currentUser);
+    if (!chatEmail) return;
 
+    const conversationId = activeConvo?.id || "new";
+    if (conversationId === "new") {
+      await handleSendText("Talk to Human");
+      return;
+    }
+
+    sendingRef.current = true;
+    lastSendAtRef.current = Date.now();
     try {
-      const conversationId = activeConvo?.id || "new";
-      // Ensure conversation exists first
-      if (conversationId === "new") return;
-      
       const { data } = await api.post(`/support/conversations/${conversationId}/human-request`);
       if (data?.success && data?.conversation) {
         setActiveConvo(data.conversation);
-        setMessages(withAutomationGreeting(data.conversation.messages, currentUser));
+        setSelectedTicketId(data.conversation.id);
+        setMessages(withAutomationGreeting(data.conversation.messages, currentUser, chatConfig.quickTabs));
       }
     } catch (err) {
       console.error("Failed to request human:", err);
+      setChatError("Could not notify support team. Please try again.");
+    } finally {
+      sendingRef.current = false;
+      lastSendAtRef.current = Date.now();
     }
   };
 
@@ -478,21 +711,28 @@ export default function SupportChatWidget() {
 
   const handleGuestSubmit = (e) => {
     e.preventDefault();
-    if (!guestName.trim() || !guestEmail.trim()) return;
+    const normalizedEmail = guestEmail.trim().toLowerCase();
+    const phoneDigits = String(guestPhone || "").replace(/\D/g, "");
+    if (!guestName.trim() || !normalizedEmail) return;
+    if (phoneDigits.length !== 10) {
+      setGuestPhoneError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
 
+    setGuestPhoneError("");
     const newGuest = { 
-      name: guestName, 
-      email: guestEmail, 
-      phone: guestPhone.trim() || "Not provided" 
+      name: guestName.trim(), 
+      email: normalizedEmail, 
+      phone: `${guestCountryCode} ${phoneDigits}` 
     };
     localStorage.setItem("guest_chat_user", JSON.stringify(newGuest));
     setGuestUser(newGuest);
-    setView("chat");
-    
-    // Trigger start chat immediately for the newly registered guest
-    setTimeout(() => {
-      handleStartChat();
-    }, 50);
+    setActiveConvo(null);
+    setMessages([]);
+    setTickets([]);
+    setSelectedTicketId("");
+    loadTickets(newGuest);
+    handleStartChat("", newGuest);
   };
 
   if (!chatConfig.enabled) return null;
@@ -516,25 +756,25 @@ export default function SupportChatWidget() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.88, y: 45 }}
             transition={{ type: "spring", stiffness: 350, damping: 28 }}
-            className="fixed bottom-28 right-6 w-[calc(100vw-32px)] max-w-[360px] sm:max-w-[410px] overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_30px_80px_rgba(2,82,213,0.18)] backdrop-blur-xl"
+            className="fixed bottom-24 right-6 w-[calc(100vw-32px)] max-w-[360px] sm:max-w-[400px] overflow-hidden rounded-[26px] border border-[#2D2B22]/15 bg-[#EEDFC7] text-[#2D2B22] shadow-[0_24px_64px_rgba(45,43,34,0.35)]"
           >
             {view === "options" && (
               <div>
-                <div className="relative overflow-hidden bg-[linear-gradient(135deg,#005BEA_0%,#0B63E6_45%,#0C79FF_100%)] px-6 py-6 text-white flex items-center justify-between">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent_35%)] pointer-events-none" />
-                  <div className="flex items-center gap-3 relative z-10">
-                    <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#0252D5] shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
-                      <Headphones className="h-6 w-6" />
-                      <span className="absolute -right-1 bottom-0 h-3.5 w-3.5 rounded-full border-2 border-[#0A66F0] bg-emerald-400" />
+                <div className="relative overflow-hidden bg-gradient-to-br from-[#607938] to-[#4e632d] px-5 py-4.5 text-white flex items-center justify-between" style={{ paddingTop: "18px", paddingBottom: "18px" }}>
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(238,223,199,0.2),transparent_40%)] pointer-events-none" />
+                  <div className="flex items-center gap-3 relative z-10 min-w-0">
+                    <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EEDFC7] text-[#607938] shadow-[2px_4px_10px_rgba(25,24,18,0.25)]">
+                      <Headphones className="h-5 w-5" />
+                      <span className="absolute -right-0.5 bottom-0 h-3 w-3 rounded-full border-2 border-[#4e632d] bg-emerald-400" />
                     </span>
-                    <div>
-                      <h3 className="text-base font-bold tracking-wide">
+                    <div className="min-w-0">
+                      <h3 className="text-base font-extrabold leading-tight tracking-wide text-white truncate">
                         {chatConfig.headerTitle || DEFAULT_CHAT_CONFIG.headerTitle}
                       </h3>
-                      <p className="mt-1 text-sm text-white/90 flex items-center gap-2 font-medium">
-                        <span className="relative flex h-2.5 w-2.5">
+                      <p className="mt-1 text-xs text-[#EEDFC7]/90 flex items-center gap-1.5 font-medium truncate">
+                        <span className="relative flex h-2 w-2 shrink-0">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
                         </span>
                         {chatConfig.headerSubtitle || DEFAULT_CHAT_CONFIG.headerSubtitle}
                       </p>
@@ -542,148 +782,225 @@ export default function SupportChatWidget() {
                   </div>
                   <button
                     onClick={toggleOpen}
-                    className="relative z-10 rounded-full p-1.5 text-white/85 hover:bg-white/15 transition-all cursor-pointer"
+                    aria-label="Minimize chat"
+                    className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white/85 hover:bg-white/15 transition-all cursor-pointer"
                   >
                     <ChevronDown className="h-5 w-5" />
                   </button>
                 </div>
 
-                <div className="space-y-4 max-h-[440px] overflow-y-auto bg-[linear-gradient(180deg,#FFFFFF_0%,#F6FAFF_100%)] p-5">
-                  <div className="rounded-[1.75rem] border border-slate-100 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
-                    <p className="text-[15px] font-semibold text-text-primary">Hi there! 👋</p>
-                    <p className="mt-2 text-[15px] text-slate-700 leading-relaxed">
-                      Need help with your visa application? We&apos;re here to assist you.
+                <div className="space-y-3 max-h-[min(470px,calc(100vh-220px))] overflow-y-auto bg-[#EEDFC7] p-4.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#607938]/35" style={{ padding: "18px" }}>
+                  <div className="px-1 pb-0.5">
+                    <p className="text-sm font-extrabold text-[#2D2B22]">
+                      Hi {(registeredUser?.name || guestUser?.name || "there").split(" ")[0]}! 👋
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#6E6A59]">
+                      How can we help with your visa today?
                     </p>
                   </div>
 
-                  {/* Continue with Chat (Live Interactive Chat) card */}
-                  <div className="rounded-[1.6rem] border border-cyan/20 bg-[linear-gradient(180deg,#F5FAFF_0%,#EBF5FF_100%)] p-4 text-left shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-                    <div className="flex items-center gap-4">
-                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cyan text-white shadow-[0_10px_24px_rgba(6,182,212,0.24)]">
-                        <MessageSquare className="h-6 w-6" />
+                  {/* Card 1: Live Support Chat */}
+                  <div className="rounded-2xl border border-[#2D2B22]/12 bg-[#EEDFC7] p-4 text-left shadow-[4px_4px_12px_rgba(148,138,123,0.45),-4px_-4px_12px_rgba(214,201,179,0.5)]">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#607938] text-white shadow-[2px_3px_8px_rgba(45,43,34,0.2)]">
+                        <MessageSquare className="h-5 w-5" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-[15px] font-bold leading-tight text-slate-900 flex items-center gap-1.5">
-                          Continue with Chat
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan"></span>
-                          </span>
-                        </h4>
-                        <p className="mt-1 text-sm text-slate-600 leading-snug">
-                          Chat live with our customer support team
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-sm font-extrabold leading-tight text-[#2D2B22] flex items-center gap-1.5">
+                            Live Support Chat
+                            <span className="relative flex h-2 w-2 shrink-0">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#607938] opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#607938]"></span>
+                            </span>
+                          </h4>
+                        </div>
+                        <p className="mt-0.5 text-xs text-[#6E6A59] leading-snug">
+                          Instant answers &amp; live executive support
                         </p>
                       </div>
-                      <ChevronRight className="h-5 w-5 shrink-0 text-cyan" />
                     </div>
                     <button
                       type="button"
-                      onClick={handleStartChat}
-                      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan px-4 py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(6,182,212,0.24)] hover:bg-cyan/90 transition-all hover:scale-[1.01]"
+                      onClick={() => handleStartChat("")}
+                      className="mt-3.5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#607938] px-4 py-2.5 text-sm font-bold text-white shadow-[2px_5px_14px_rgba(45,43,34,0.38),0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.22)] hover:-translate-y-px hover:brightness-95 hover:shadow-[2px_7px_18px_rgba(45,43,34,0.45),0_3px_6px_rgba(0,0,0,0.24)] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.55),inset_0_1px_3px_rgba(0,0,0,0.4)] transition-all"
                     >
                       <MessageSquare className="h-4 w-4" />
-                      Continue with Chat
+                      Start / Resume Chat
                     </button>
                   </div>
 
-                  {/* Continue with WhatsApp (Shown below chat) */}
+                  {/* Card 2: Support Tickets & History */}
+                  <button
+                    type="button"
+                    onClick={handleOpenTicketsHistory}
+                    className="group flex w-full items-center gap-3 rounded-2xl border border-[#2D2B22]/12 bg-[#dfd2bc]/75 p-3.5 text-left shadow-[3px_3px_10px_rgba(148,138,123,0.35),-3px_-3px_10px_rgba(214,201,179,0.4)] transition-all hover:-translate-y-px hover:bg-[#dfd2bc] active:translate-y-[1px]"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEDFC7] text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)]">
+                      <Ticket className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-extrabold text-[#2D2B22]">My Support Tickets</h4>
+                        {tickets.length > 0 && (
+                          <span className="rounded-full bg-[#607938] px-2 py-0.5 text-[10px] font-extrabold text-white">
+                            {tickets.length}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-[#6E6A59] truncate">
+                        View past chats, ticket IDs &amp; status
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[#6E6A59] transition-transform group-hover:translate-x-0.5 group-hover:text-[#607938]" />
+                  </button>
+
+                  {/* Card 3: WhatsApp Support */}
                   {chatConfig.enabled && !chatConfig.hideWhatsAppSection && (
-                    <div className="rounded-[1.6rem] border border-[#86E7AE] bg-[linear-gradient(180deg,#F8FFF9_0%,#F0FFF4_100%)] p-4 text-left shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-                      <div className="flex items-center gap-4">
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_10px_24px_rgba(37,211,102,0.24)]">
-                          <WhatsAppIcon className="h-7 w-7" />
+                    <div className="rounded-2xl border border-[#2D2B22]/12 bg-[#EEDFC7] p-4 text-left shadow-[4px_4px_12px_rgba(148,138,123,0.45),-4px_-4px_12px_rgba(214,201,179,0.5)]">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-[2px_3px_8px_rgba(37,211,102,0.28)]">
+                          <WhatsAppIcon className="h-5 w-5" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-[15px] font-bold leading-tight text-slate-900 flex items-center gap-1.5">
-                            Continue with WhatsApp
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#25D366]"></span>
-                            </span>
+                          <h4 className="text-sm font-extrabold leading-tight text-[#2D2B22]">
+                            WhatsApp Support
                           </h4>
-                          <p className="mt-1 text-sm text-slate-600 leading-snug">
-                            Get instant support from our visa team
+                          <p className="mt-0.5 text-xs text-[#6E6A59] leading-snug">
+                            Quick help directly on WhatsApp
                           </p>
                         </div>
-                        <ChevronRight className="h-5 w-5 shrink-0 text-[#1D9E54]" />
                       </div>
                       <button
                         type="button"
                         onClick={openExternalChat}
-                        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,211,102,0.24)] hover:bg-[#20ba59] transition-all hover:scale-[1.01]"
+                        className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-bold text-white shadow-[2px_5px_14px_rgba(20,90,45,0.38),0_2px_4px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.28)] hover:-translate-y-px hover:brightness-95 hover:shadow-[2px_7px_18px_rgba(20,90,45,0.45),0_3px_6px_rgba(0,0,0,0.22)] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.45),inset_0_1px_3px_rgba(0,0,0,0.3)] transition-all"
                       >
                         <WhatsAppIcon className="h-4 w-4" />
                         Continue with WhatsApp
                       </button>
                     </div>
                   )}
-
-
                 </div>
 
-                <div className="border-t border-slate-100 bg-white py-4 text-center text-xs text-slate-500 font-medium">
-                  Powered by <span className="text-[#0252D5] font-semibold">Visa & Voyage</span> Support
+                <div className="border-t border-[#2D2B22]/10 bg-[#dfd2bc]/60 py-3 text-center text-xs text-[#6E6A59] font-medium">
+                  Powered by <span className="text-[#607938] font-extrabold">Visa &amp; Voyage</span> Support
                 </div>
               </div>
             )}
 
             {view === "guest_onboarding" && (
               <div>
-                <div className="relative overflow-hidden bg-[linear-gradient(135deg,#005BEA_0%,#0B63E6_45%,#0C79FF_100%)] px-6 py-6 text-white flex items-center justify-between">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent_35%)] pointer-events-none" />
+                <div className="relative overflow-hidden bg-gradient-to-br from-[#607938] to-[#4e632d] px-6 py-5 text-white flex items-center justify-between">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(238,223,199,0.2),transparent_40%)] pointer-events-none" />
                   <div className="flex items-center gap-3 relative z-10">
                     <button
                       type="button"
                       onClick={() => setView("options")}
-                      className="rounded-lg p-1.5 hover:bg-white/10 transition-colors cursor-pointer"
+                      className="rounded-xl p-1.5 hover:bg-white/15 transition-colors cursor-pointer"
                       title="Back to options"
                     >
                       <ArrowLeft className="h-5 w-5" />
                     </button>
                     <div>
-                      <h3 className="text-base font-bold tracking-wide">Live Support Chat</h3>
-                      <p className="text-xs text-white/80">Introduce yourself to start chatting</p>
+                      <h3 className="text-base font-extrabold tracking-wide">Live Support Chat</h3>
+                      <p className="text-xs text-[#EEDFC7]/85">Introduce yourself to start chatting</p>
                     </div>
                   </div>
                 </div>
 
-                <form onSubmit={handleGuestSubmit} className="p-6 space-y-4 bg-[linear-gradient(180deg,#FFFFFF_0%,#F6FAFF_100%)]">
+                <form onSubmit={handleGuestSubmit} className="p-6 space-y-4 bg-[#EEDFC7]">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Your Full Name</label>
+                    <label className="block text-xs font-bold text-[#2D2B22] mb-1.5">Your Full Name</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. John Doe"
                       value={guestName}
                       onChange={e => setGuestName(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan/15"
+                      className="w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-3.5 py-2.5 text-xs font-medium text-[#2D2B22] placeholder-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.18)] focus:border-[#607938] focus:bg-[#EEDFC7] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                    <label className="block text-xs font-bold text-[#2D2B22] mb-1.5">Email Address</label>
                     <input
                       type="email"
                       required
                       placeholder="e.g. john@example.com"
                       value={guestEmail}
                       onChange={e => setGuestEmail(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan/15"
+                      className="w-full rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-3.5 py-2.5 text-xs font-medium text-[#2D2B22] placeholder-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.18)] focus:border-[#607938] focus:bg-[#EEDFC7] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Phone Number</label>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="e.g. +91 98765 43210"
-                      value={guestPhone}
-                      onChange={e => setGuestPhone(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan/15"
-                    />
+                    <label className="block text-xs font-bold text-[#2D2B22] mb-1.5">Phone Number</label>
+                    <div className="flex gap-2">
+                      <div ref={guestCountryRef} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setGuestCountryOpen((o) => !o)}
+                          className="flex h-[38px] items-center gap-1.5 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-2.5 text-xs font-bold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.18)] hover:bg-[#e5d9c5] transition-colors"
+                        >
+                          <span>{findPhoneCountryOption(guestCountryCode, phoneCountryOptions)?.flag || "🇮🇳"}</span>
+                          <span>{guestCountryCode}</span>
+                          <ChevronDown className="h-3.5 w-3.5 text-[#6E6A59]" />
+                        </button>
+                        {guestCountryOpen && (
+                          <div className="absolute bottom-full left-0 z-30 mb-1.5 w-56 overflow-hidden rounded-2xl border border-[#2D2B22]/15 bg-[#EEDFC7] shadow-[0_14px_34px_rgba(45,43,34,0.3)]">
+                            <div className="border-b border-[#2D2B22]/10 p-2">
+                              <input
+                                type="text"
+                                value={guestCountrySearch}
+                                onChange={(e) => setGuestCountrySearch(e.target.value)}
+                                placeholder="Search country or code..."
+                                className="w-full rounded-lg border border-[#2D2B22]/15 bg-[#dfd2bc] px-2.5 py-1.5 text-xs text-[#2D2B22] placeholder-[#6E6A59] focus:border-[#607938] focus:outline-none"
+                              />
+                            </div>
+                            <div className="max-h-40 overflow-y-auto p-1">
+                              {filterPhoneCountryOptions(guestCountrySearch, phoneCountryOptions).map((opt) => (
+                                <button
+                                  key={`${opt.iso || opt.label}-${opt.value}`}
+                                  type="button"
+                                  onClick={() => {
+                                    setGuestCountryCode(opt.value);
+                                    setGuestCountryOpen(false);
+                                    setGuestCountrySearch("");
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-[#2D2B22] hover:bg-[#dfd2bc]"
+                                >
+                                  <span>{opt.flag}</span>
+                                  <span className="flex-1 truncate">{opt.label}</span>
+                                  <span className="font-bold text-[#607938]">{opt.value}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
+                        required
+                        placeholder="10-digit mobile number"
+                        value={guestPhone}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          setGuestPhone(digits);
+                          if (guestPhoneError) setGuestPhoneError("");
+                        }}
+                        className="flex-1 min-w-0 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-3.5 py-2 text-xs font-medium text-[#2D2B22] placeholder-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.18)] focus:border-[#607938] focus:bg-[#EEDFC7] focus:outline-none"
+                      />
+                    </div>
+                    {guestPhoneError && (
+                      <p className="mt-1.5 text-[11px] font-semibold text-[#9a3b2a]">
+                        {guestPhoneError}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="submit"
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan px-4 py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(6,182,212,0.24)] hover:bg-cyan/90 transition-all hover:scale-[1.01]"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#607938] px-4 py-3 text-sm font-bold text-white shadow-[2px_5px_14px_rgba(45,43,34,0.38),0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.22)] hover:-translate-y-px hover:brightness-95 hover:shadow-[2px_7px_18px_rgba(45,43,34,0.45),0_3px_6px_rgba(0,0,0,0.24)] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.55),inset_0_1px_3px_rgba(0,0,0,0.4)] transition-all"
                   >
                     Start Live Chat
                   </button>
@@ -691,57 +1008,204 @@ export default function SupportChatWidget() {
               </div>
             )}
 
+            {view === "tickets" && (
+              <div>
+                <div className="relative overflow-hidden bg-gradient-to-br from-[#607938] to-[#4e632d] px-5 py-4 text-white flex items-center justify-between">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(238,223,199,0.2),transparent_40%)] pointer-events-none" />
+                  <div className="flex items-center gap-3 relative z-10 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setView("options")}
+                      className="rounded-xl p-1.5 hover:bg-white/15 transition-colors cursor-pointer"
+                      title="Back to options"
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </button>
+                    <div className="min-w-0">
+                      <h3 className="text-base font-extrabold tracking-wide text-white truncate">
+                        Support Tickets
+                      </h3>
+                      <p className="text-xs text-[#EEDFC7]/85 truncate">
+                        View your past &amp; active conversations
+                      </p>
+                    </div>
+                  </div>
+                  {!openTicket ? (
+                    <button
+                      type="button"
+                      disabled={creatingTicket}
+                      onClick={handleCreateNewTicket}
+                      className="relative z-10 inline-flex items-center gap-1 rounded-xl bg-[#EEDFC7] px-3 py-1.5 text-xs font-extrabold text-[#2D2B22] shadow-[2px_3px_8px_rgba(25,24,18,0.25)] hover:bg-[#f5ead8] active:translate-y-[1px] disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5 text-[#607938]" />
+                      New Ticket
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleStartChat(openTicket.id)}
+                      className="relative z-10 inline-flex items-center gap-1 rounded-xl bg-[#EEDFC7] px-3 py-1.5 text-xs font-extrabold text-[#4e632d] shadow-[2px_3px_8px_rgba(25,24,18,0.25)] hover:bg-[#f5ead8] active:translate-y-[1px]"
+                    >
+                      Resume Active
+                    </button>
+                  )}
+                </div>
+
+                <div className="h-[min(420px,calc(100vh-230px))] overflow-y-auto bg-[#EEDFC7] p-4 space-y-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#607938]/35">
+                  {openTicket && (
+                    <div className="rounded-xl border border-[#607938]/25 bg-[#607938]/10 px-3.5 py-2.5 text-[11px] font-medium text-[#2D2B22]">
+                      Active ticket <span className="font-mono font-extrabold text-[#4e632d]">#{openTicket.ticketId}</span> is open. You can create a new ticket once it is resolved.
+                    </div>
+                  )}
+                  {loadingTickets ? (
+                    <div className="flex h-48 items-center justify-center text-[#607938]">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : tickets.length === 0 ? (
+                    <div className="rounded-2xl border border-[#2D2B22]/10 bg-[#dfd2bc]/70 p-8 text-center shadow-[inset_1px_2px_5px_rgba(45,43,34,0.14)]">
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#EEDFC7] text-[#607938] shadow-sm">
+                        <Ticket className="h-5 w-5" />
+                      </div>
+                      <p className="text-sm font-extrabold text-[#2D2B22]">No Support Tickets Yet</p>
+                      <p className="mt-1 text-xs text-[#6E6A59]">
+                        Start a new ticket anytime to get help from our visa specialists.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={creatingTicket}
+                        onClick={handleCreateNewTicket}
+                        className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#607938] px-4 py-2.5 text-xs font-bold text-white shadow-[2px_4px_10px_rgba(45,43,34,0.28)] hover:bg-[#536930]"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Raise New Ticket
+                      </button>
+                    </div>
+                  ) : (
+                    tickets.map((t) => {
+                      const statusMap = {
+                        AI_PENDING: { label: "Open", cls: "bg-[#607938]/15 text-[#4e632d]" },
+                        HUMAN_PENDING: { label: "Waiting for Agent", cls: "bg-amber-600/15 text-amber-800" },
+                        HUMAN_CONNECTED: { label: "Agent Active", cls: "bg-emerald-600/15 text-emerald-800" },
+                        RESOLVED: { label: "Resolved", cls: "bg-[#2D2B22]/10 text-[#6E6A59]" },
+                      };
+                      const st = statusMap[t.status] || statusMap.AI_PENDING;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => handleStartChat(t.id)}
+                          className="w-full rounded-2xl border border-[#2D2B22]/12 bg-[#EEDFC7] p-3.5 text-left shadow-[3px_3px_10px_rgba(148,138,123,0.4),-3px_-3px_10px_rgba(214,201,179,0.45)] transition-all hover:-translate-y-px hover:border-[#607938]/40 active:translate-y-[1px]"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="rounded-lg bg-[#dfd2bc] px-2 py-0.5 font-mono text-[11px] font-extrabold text-[#4e632d]">
+                              #{t.ticketId}
+                            </span>
+                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${st.cls}`}>
+                              {st.label}
+                            </span>
+                          </div>
+                          <p className="mt-2 truncate text-sm font-extrabold text-[#2D2B22]">
+                            {t.subject || "Support Inquiry"}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs text-[#6E6A59]">
+                            {t.lastMessage || "No messages yet"}
+                          </p>
+                          <div className="mt-2 flex items-center justify-between border-t border-[#2D2B22]/10 pt-2 text-[10px] font-semibold text-[#6E6A59]">
+                            <span>{t.messageCount || 0} messages</span>
+                            <span>{t.updatedAt ? formatOrdinalDate(t.updatedAt) : "Just now"}</span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="border-t border-[#2D2B22]/10 bg-[#dfd2bc]/60 py-3 text-center text-xs text-[#6E6A59] font-medium">
+                  Click any ticket to view full conversation history
+                </div>
+              </div>
+            )}
+
             {view === "chat" && (
               <div>
-                <div className="relative overflow-hidden bg-[linear-gradient(135deg,#005BEA_0%,#0B63E6_45%,#0C79FF_100%)] px-5 py-4 text-white flex items-center justify-between">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_35%)] pointer-events-none" />
+                <div className="relative overflow-hidden bg-gradient-to-br from-[#607938] to-[#4e632d] px-5 py-4 text-white flex items-center justify-between">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(238,223,199,0.18),transparent_40%)] pointer-events-none" />
                   <div className="flex items-center gap-3 min-w-0 relative z-10">
                     <button
                       type="button"
                       onClick={() => setView("options")}
-                      className="rounded-lg p-1.5 hover:bg-white/10 transition-colors cursor-pointer"
+                      className="rounded-xl p-1.5 hover:bg-white/15 transition-colors cursor-pointer"
                       title="Back to options"
                     >
                       <ArrowLeft className="h-5 w-5" />
                     </button>
                     <div className="relative">
-                      <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center border border-white/20 text-[#0252D5] shadow-[0_10px_22px_rgba(0,0,0,0.16)]">
-                        <Headphones className="h-6 w-6" />
+                      <div className="h-11 w-11 rounded-full bg-[#EEDFC7] flex items-center justify-center text-[#607938] shadow-[2px_4px_10px_rgba(25,24,18,0.22)]">
+                        <Headphones className="h-5 w-5" />
                       </div>
-                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-400 border-2 border-[#0252D5]" />
+                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-400 border-2 border-[#4e632d]" />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-lg font-bold tracking-wide truncate">
+                      <h4 className="text-base font-extrabold tracking-wide truncate">
                         {chatConfig.headerTitle || DEFAULT_CHAT_CONFIG.headerTitle}
                       </h4>
-                      <p className="text-sm text-white/90 font-medium flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                        Online
+                      <p className="text-xs text-[#EEDFC7]/90 font-medium flex items-center gap-1.5 truncate">
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${activeConvo?.status === "RESOLVED" ? "bg-slate-300" : "bg-emerald-400"}`} />
+                        <span>
+                          {activeConvo?.status === "RESOLVED"
+                            ? "Resolved"
+                            : activeConvo?.status === "HUMAN_CONNECTED"
+                            ? "Agent Joined"
+                            : activeConvo?.status === "HUMAN_PENDING"
+                            ? "Waiting for Agent"
+                            : "Online"}
+                        </span>
+                        {activeConvo?.ticketId && (
+                          <>
+                            <span className="opacity-60">·</span>
+                            <span className="font-mono text-[11px] font-bold text-[#EEDFC7]">
+                              #{activeConvo.ticketId}
+                            </span>
+                          </>
+                        )}
                       </p>
                     </div>
                   </div>
-                  {guestUser && (
+                  <div className="flex items-center gap-1 relative z-10">
                     <button
                       type="button"
-                      onClick={() => {
-                        localStorage.removeItem("guest_chat_user");
-                        setGuestUser(null);
-                        setActiveConvo(null);
-                        setMessages([]);
-                        setAdminIsTyping(false);
-                        setView("options");
-                      }}
-                      className="relative z-10 rounded-lg p-1.5 hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
-                      title="End guest session and start fresh"
+                      onClick={handleOpenTicketsHistory}
+                      className="inline-flex items-center gap-1 rounded-xl bg-white/15 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-white/25 transition-colors cursor-pointer"
+                      title="My Tickets & History"
                     >
-                      <LogOut className="h-4.5 w-4.5" />
+                      <History className="h-3.5 w-3.5" />
+                      Tickets
                     </button>
-                  )}
+                    {guestUser && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          localStorage.removeItem("guest_chat_user");
+                          setGuestUser(null);
+                          setActiveConvo(null);
+                          setMessages([]);
+                          setTickets([]);
+                          setSelectedTicketId("");
+                          setAdminIsTyping(false);
+                          setView("options");
+                        }}
+                        className="rounded-xl p-1.5 hover:bg-white/15 text-white/85 hover:text-white transition-colors cursor-pointer"
+                        title="End guest session and start fresh"
+                      >
+                        <LogOut className="h-[18px] w-[18px]" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <div ref={scrollContainerRef} className="h-[430px] overflow-y-auto bg-[linear-gradient(180deg,#FFFEFC_0%,#F9FBFF_100%)] p-4 space-y-3.5">
+                <div ref={scrollContainerRef} className="h-[min(360px,calc(100vh-290px))] overflow-y-auto bg-[#EEDFC7] p-4 space-y-3.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#607938]/35">
                   <div className="flex justify-center">
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+                    <span className="rounded-full bg-[#dfd2bc] px-3 py-1 text-xs font-bold text-[#6E6A59] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.14)]">
                       Today
                     </span>
                   </div>
@@ -859,10 +1323,10 @@ export default function SupportChatWidget() {
                         className={`flex w-full flex-col ${isUser ? "items-end" : "items-start"}`}
                       >
                         <div
-                          className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed shadow-sm ${
+                          className={`max-w-[85%] p-3 text-xs leading-relaxed ${
                             isUser
-                              ? "bg-[#E8F0FF] text-slate-900 rounded-[1.5rem] rounded-tr-md border border-[#D7E5FF]"
-                              : "bg-white border border-slate-100 text-text-primary rounded-[1.5rem] rounded-tl-md shadow-[0_10px_28px_rgba(15,23,42,0.06)]"
+                              ? "rounded-[20px] rounded-tr-md bg-[#607938] text-white shadow-[2px_3px_8px_rgba(45,43,34,0.2)]"
+                              : "rounded-[20px] rounded-tl-md border border-[#2D2B22]/10 bg-[#dfd2bc] text-[#2D2B22] shadow-[2px_3px_8px_rgba(45,43,34,0.1)]"
                           }`}
                         >
                           <p className="whitespace-pre-wrap">{msg.text}</p>
@@ -870,28 +1334,28 @@ export default function SupportChatWidget() {
                             <button
                               type="button"
                               onClick={handleHumanRequest}
-                              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1463F3] px-3 py-2 text-[11px] font-bold text-white shadow-md hover:bg-blue-600 transition-colors"
+                              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#607938] px-3 py-2 text-[11px] font-bold text-white shadow-[2px_3px_6px_rgba(45,43,34,0.2)] hover:bg-[#536930] transition-colors"
                             >
                               <MessageSquare className="h-3.5 w-3.5" /> Connect to Human
                             </button>
                           )}
                           <div
                             className={`mt-1 flex items-center justify-end gap-1 text-[9px] ${
-                              isUser ? "text-slate-500" : "text-text-muted"
+                              isUser ? "text-white/75" : "text-[#6E6A59]"
                             }`}
                           >
                             <span>{msg.time}</span>
-                            {isUser && <CheckCheck className="h-3.5 w-3.5 text-[#1463F3]" />}
+                            {isUser && <CheckCheck className="h-3.5 w-3.5 text-[#EEDFC7]" />}
                           </div>
                         </div>
 
                         {msg.type === "chips" && msg.options && msg.options.length > 0 && (
-                          <div className="mt-2 flex max-w-[90%] flex-wrap gap-1.5 ml-2">
+                          <div className="mt-2 flex max-w-full flex-wrap gap-1.5">
                             {msg.options.map((option, idx) => (
                               <button
                                 key={idx}
                                 onClick={() => handleOptionClick(option)}
-                                className="rounded-full border border-cyan/20 bg-white px-3 py-1.5 text-[10px] font-medium text-slate-700 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-colors hover:bg-cyan/5 hover:text-cyan"
+                                className="rounded-xl border border-[#607938]/25 bg-[#EEDFC7] px-3 py-1.5 text-[11px] font-bold text-[#4e632d] shadow-[2px_2px_6px_rgba(45,43,34,0.1)] transition-all hover:bg-[#607938] hover:text-white active:translate-y-[1px]"
                               >
                                 {option}
                               </button>
@@ -900,28 +1364,53 @@ export default function SupportChatWidget() {
                         )}
 
                         {msg.type === "application_cards" && msg.applicationsData && msg.applicationsData.length > 0 && (
-                          <div className="mt-3 flex flex-col gap-2.5 w-[90%] ml-2">
-                            {msg.applicationsData.map((app, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => handleOptionClick(`APP_SELECT_${app.applicationId}`)}
-                                className="flex w-full flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition-all hover:border-cyan hover:shadow-md"
-                              >
-                                <div className="flex w-full items-center justify-between border-b border-slate-100 pb-1.5">
-                                  <span className="text-sm font-bold text-slate-900">{app.flagEmoji} {app.countryName}</span>
-                                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{app.applicationId}</span>
-                                </div>
-                                <div className="flex w-full items-center justify-between">
-                                  <span className="text-xs font-semibold text-slate-700">{app.visaType}</span>
-                                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-600 uppercase tracking-wider">{app.status}</span>
-                                </div>
-                                {app.travelDate && (
-                                  <div className="text-[10px] font-medium text-slate-500 mt-0.5 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Travel: {new Date(app.travelDate).toLocaleDateString()}
+                          <div className="mt-2.5 flex w-full flex-col gap-2.5">
+                            {msg.applicationsData.map((app, idx) => {
+                              const statusLower = String(app.status || "").toLowerCase();
+                              const statusCls =
+                                statusLower === "approved"
+                                  ? "bg-[#607938] text-white"
+                                  : statusLower === "rejected"
+                                  ? "bg-[#9a3b2a]/15 text-[#9a3b2a]"
+                                  : "bg-[#dfd2bc] text-[#4e632d]";
+                              return (
+                                <button
+                                  key={idx}
+                                  onClick={() => handleOptionClick(`APP_SELECT_${app.applicationId}`)}
+                                  className="flex w-full flex-col gap-2 rounded-2xl border border-[#2D2B22]/12 bg-[#EEDFC7] p-3.5 text-left shadow-[3px_3px_10px_rgba(148,138,123,0.38),-3px_-3px_10px_rgba(214,201,179,0.45)] transition-all hover:-translate-y-px hover:border-[#607938]/40 active:translate-y-[1px]"
+                                >
+                                  <div className="flex w-full items-center justify-between gap-2 border-b border-[#2D2B22]/10 pb-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {app.flagEmoji && (
+                                        <span className="inline-flex h-6 min-w-[26px] items-center justify-center rounded-lg bg-[#dfd2bc] px-1.5 text-[11px] font-extrabold text-[#4e632d] shadow-[inset_1px_1px_3px_rgba(45,43,34,0.14)]">
+                                          {app.flagEmoji}
+                                        </span>
+                                      )}
+                                      <span className="truncate text-sm font-extrabold text-[#2D2B22]">
+                                        {app.countryName}
+                                      </span>
+                                    </div>
+                                    <span className="shrink-0 rounded-lg bg-[#dfd2bc] px-2 py-0.5 font-mono text-[10px] font-bold text-[#6E6A59]">
+                                      #{app.applicationId}
+                                    </span>
                                   </div>
-                                )}
-                              </button>
-                            ))}
+                                  <div className="flex w-full items-center justify-between gap-2">
+                                    <span className="truncate text-xs font-bold text-[#2D2B22]">
+                                      {app.visaType}
+                                    </span>
+                                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${statusCls}`}>
+                                      {app.status}
+                                    </span>
+                                  </div>
+                                  {app.travelDate && (
+                                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#6E6A59]">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-[#607938]" />
+                                      Travel: {formatOrdinalDate(app.travelDate)}
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -930,11 +1419,11 @@ export default function SupportChatWidget() {
 
                   {(isTyping || adminIsTyping) && (
                     <div className="flex justify-start">
-                      <div className="rounded-2xl rounded-tl-md border border-slate-100 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
+                      <div className="rounded-2xl rounded-tl-md border border-[#2D2B22]/10 bg-[#dfd2bc] p-3 shadow-[2px_3px_8px_rgba(45,43,34,0.1)]">
                         <div className="flex items-center gap-1.5">
-                          <span className="h-2.5 w-2.5 rounded-full bg-[#1463F3] animate-bounce [animation-delay:-0.3s]" />
-                          <span className="h-2.5 w-2.5 rounded-full bg-[#1463F3]/60 animate-bounce [animation-delay:-0.15s]" />
-                          <span className="h-2.5 w-2.5 rounded-full bg-[#1463F3]/40 animate-bounce" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-[#607938] animate-bounce [animation-delay:-0.3s]" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-[#607938]/60 animate-bounce [animation-delay:-0.15s]" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-[#607938]/40 animate-bounce" />
                         </div>
                       </div>
                     </div>
@@ -943,52 +1432,64 @@ export default function SupportChatWidget() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <form
-                  onSubmit={handleSendMessage}
-                  className="border-t border-slate-100 bg-white p-4 flex flex-col gap-2"
-                >
-                  <div className="rounded-[1.35rem] border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-                    <input
-                      type="text"
-                      value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
-                      placeholder="Write your message..."
-                      className="w-full border-none bg-transparent px-0 py-0 text-[15px] text-text-primary outline-none placeholder:text-slate-400"
-                    />
-                    <div className="mt-4 flex items-center justify-between gap-3">
-                      <div className="relative flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowEmojiPicker((prev) => !prev)}
-                          aria-label="Open emoji picker"
-                          className="rounded-full p-2.5 text-slate-400 hover:bg-slate-50 hover:text-cyan transition-colors"
-                        >
-                          <Smile className="h-4 w-4" />
-                        </button>
-                        {showEmojiPicker && (
-                          <div className="absolute bottom-14 left-0 z-20 flex w-max max-w-[320px] gap-2 overflow-x-auto whitespace-nowrap rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
-                            {CHAT_EMOJIS.map((emoji) => (
-                              <button
-                                key={emoji}
-                                type="button"
-                                onClick={() => handleEmojiSelect(emoji)}
-                                className="flex h-9 w-9 items-center justify-center rounded-full text-lg transition-colors hover:bg-slate-100"
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        type="submit"
-                        className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E8F0FF] text-[#1463F3] shadow-[0_10px_24px_rgba(20,99,243,0.18)] transition-transform hover:scale-[1.03]"
-                      >
-                        <Send className="h-5 w-5" />
-                      </button>
-                    </div>
+                {chatError && (
+                  <div className="border-t border-[#9a3b2a]/20 bg-[#9a3b2a]/10 px-4 py-2 text-[11px] font-semibold text-[#9a3b2a]">
+                    {chatError}
                   </div>
-                </form>
+                )}
+
+                {activeConvo?.status === "RESOLVED" ? (
+                  <div className="border-t border-[#2D2B22]/10 bg-[#dfd2bc]/80 px-4 py-3.5 text-center text-xs font-semibold text-[#6E6A59]">
+                    This ticket is resolved and closed for new replies.
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={handleSendMessage}
+                    className="border-t border-[#2D2B22]/10 bg-[#e8d7bc]/75 p-3 flex flex-col gap-2"
+                  >
+                    <div className="rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-3.5 py-2.5 shadow-[inset_2px_3px_6px_rgba(45,43,34,0.18)]">
+                      <input
+                        type="text"
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        placeholder="Write your message..."
+                        className="w-full border-none bg-transparent px-0 py-0 text-sm font-medium text-[#2D2B22] outline-none placeholder:text-[#6E6A59]"
+                      />
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <div className="relative flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowEmojiPicker((prev) => !prev)}
+                            aria-label="Open emoji picker"
+                            className="rounded-xl p-2 text-[#6E6A59] hover:bg-[#EEDFC7] hover:text-[#607938] transition-colors"
+                          >
+                            <Smile className="h-4 w-4" />
+                          </button>
+                          {showEmojiPicker && (
+                            <div className="absolute bottom-14 left-0 z-20 flex w-max max-w-[320px] gap-2 overflow-x-auto whitespace-nowrap rounded-2xl border border-[#2D2B22]/15 bg-[#EEDFC7] p-3 shadow-[0_18px_40px_rgba(45,43,34,0.25)]">
+                              {CHAT_EMOJIS.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => handleEmojiSelect(emoji)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-xl text-lg transition-colors hover:bg-[#dfd2bc]"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="submit"
+                          className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#607938] text-white shadow-[2px_5px_14px_rgba(45,43,34,0.38),0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.22)] transition-all hover:-translate-y-px hover:brightness-95 active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.55),inset_0_1px_3px_rgba(0,0,0,0.4)]"
+                        >
+                          <Send className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
               </div>
             )}
           </motion.div>

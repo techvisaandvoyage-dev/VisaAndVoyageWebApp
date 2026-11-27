@@ -111,7 +111,7 @@ const Modal = ({
                   ? "overflow-visible"
                   : "overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#607938]/40 hover:[&::-webkit-scrollbar-thumb]:bg-[#607938]/65"
               }`}
-              style={allowOverflow ? undefined : { scrollbarWidth: "thin", scrollbarColor: "rgba(96, 121, 56, 0.45) transparent" }}
+              style={allowOverflow ? undefined : { scrollbarWidth: "thin", scrollbarColor: "color-mix(in srgb, var(--ac, #607938) 45%, transparent) transparent" }}
             >
               {children}
             </div>

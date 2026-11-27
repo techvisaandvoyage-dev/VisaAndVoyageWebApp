@@ -9,6 +9,7 @@ import Toast from "./components/ui/Toast";
 import ClientErrorBoundary from "./components/ClientErrorBoundary";
 import AppRoutes from "./routes/AppRoutes";
 import SiteSeoManager from "./components/common/SiteSeoManager";
+import SiteThemeManager from "./components/common/SiteThemeManager";
 
 // Lazy-loaded: these components render null and run side-effects only.
 // Lazy loading removes their parse cost from the critical startup path.
@@ -80,6 +81,7 @@ function App() {
         <ScrollToTop />
         <VisitorTracking />
         <SiteSeoManager />
+        <SiteThemeManager />
         {/* Both components render null — Suspense fallback is null so no flash */}
         {loadDeferredShell ? (
           <Suspense fallback={null}>

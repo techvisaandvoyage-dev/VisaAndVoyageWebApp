@@ -12,7 +12,8 @@ import {
   Minus,
   Plus,
   ShieldCheck,
-  Users
+  Users,
+  X
 } from "lucide-react";
 import Navbar from "../layout/Navbar";
 import Footer from "../layout/Footer";
@@ -92,7 +93,7 @@ function PriceCard({
         <span className="dp-controls">
           <button type="button" onClick={onDecrement} disabled={travelerCount <= 1} aria-label="Decrease travellers"><Minus size={16} /></button>
           <b>{travelerCount}</b>
-          <button type="button" onClick={onIncrement} disabled={travelerCount >= 9} aria-label="Increase travellers"><Plus size={16} /></button>
+          <button type="button" onClick={onIncrement} aria-label="Increase travellers"><Plus size={16} /></button>
         </span>
       </div>
       <div className="dp-total">
@@ -256,13 +257,27 @@ export default function DeepPressCountryDetails(props) {
         updateFade(body);
       });
 
-      // Synchronize the price rail height with the content
+      // Synchronize the price rail height and last card minHeight so the right card
+      // never extends below the left column or behind the footer.
       const last = nodes[nodes.length - 1];
       const rail = layout?.lastElementChild;
+      const priceCard = rail?.firstElementChild;
       if (rail && last) {
-        rail.style.minHeight = window.innerWidth > 1000 && !reducedMotion.matches
-          ? `${last.offsetHeight + nodes.length * 14}px`
-          : "";
+        if (window.innerWidth > 1000 && !reducedMotion.matches) {
+          const priceCardHeight = priceCard ? priceCard.offsetHeight : 0;
+          const minLastHeight = Math.max(0, priceCardHeight - nodes.length * 14);
+          const nextLastMinHeight = minLastHeight > 0 ? `${minLastHeight}px` : "";
+          if (last.style.minHeight !== nextLastMinHeight) {
+            last.style.minHeight = nextLastMinHeight;
+          }
+          const nextRailMinHeight = `${Math.max(last.offsetHeight, minLastHeight) + nodes.length * 14}px`;
+          if (rail.style.minHeight !== nextRailMinHeight) {
+            rail.style.minHeight = nextRailMinHeight;
+          }
+        } else {
+          last.style.minHeight = "";
+          rail.style.minHeight = "";
+        }
       }
 
       const content = heroRef.current?.parentElement;
@@ -356,15 +371,20 @@ export default function DeepPressCountryDetails(props) {
           appliedOffsets.set(node, offset);
         }
 
-        // Clip the bottom of earlier cards against any later card stacked on top of them
+        // Clip the bottom of earlier cards smoothly against any later card stacked on top of them
         // so taller earlier cards never poke out behind shorter cards (e.g. What's Included or FAQs).
         let coverBottom = Infinity;
+        let isCoveredInStack = false;
         for (let j = index + 1; j < cardPositions.length; j += 1) {
           const later = cardPositions[j];
-          if (later.top <= currentTop + 96) {
+          if (later.top <= currentTop + 48) {
+            isCoveredInStack = true;
+          }
+          if (later.top < cardBottom && later.bottom < cardBottom) {
             coverBottom = Math.min(coverBottom, later.bottom);
           }
         }
+        node.classList.toggle("dp-card-behind", isCoveredInStack);
         const rawHiddenBottom = Number.isFinite(coverBottom) && cardBottom > coverBottom
           ? cardBottom - coverBottom
           : 0;
@@ -376,12 +396,16 @@ export default function DeepPressCountryDetails(props) {
         }
       });
 
-      // Synchronize the right-side price card rail
+      // Synchronize the right-side price card rail and keep its bottom aligned with the left column
       if (rail && !reducedMotion.matches && window.innerWidth > 1000) {
-        if (commonShift < 0) {
-          const railNaturalTop = geometry.get(rail).top;
-          const railTargetTop = baseStackTop + commonShift;
-          const railOffset = Number((railTargetTop - railNaturalTop).toFixed(2));
+        const railNaturalTop = geometry.get(rail).top;
+        const priceCardHeight = rail.firstElementChild?.getBoundingClientRect().height || geometry.get(rail).height;
+        let railTargetTop = commonShift < 0 ? baseStackTop + commonShift : railNaturalTop;
+        if (lastRect && railTargetTop + priceCardHeight > lastRect.bottom) {
+          railTargetTop = Math.min(railTargetTop, lastRect.bottom - priceCardHeight);
+        }
+        const railOffset = Number((railTargetTop - railNaturalTop).toFixed(2));
+        if (Math.abs(railOffset) > 0.05) {
           if (appliedOffsets.get(rail) !== railOffset) {
             rail.style.transform = `translate3d(0, ${railOffset}px, 0)`;
             appliedOffsets.set(rail, railOffset);
@@ -439,7 +463,12 @@ export default function DeepPressCountryDetails(props) {
     window.addEventListener("touchstart", onUserInterrupt, { passive: true });
 
     return () => {
-      cards.forEach((node) => { node.style.transform = ""; node.style.clipPath = ""; });
+      cards.forEach((node) => {
+        node.style.transform = "";
+        node.style.clipPath = "";
+        node.style.minHeight = "";
+        node.classList.remove("dp-card-behind");
+      });
       const rail = layout?.lastElementChild;
       if (rail) {
         rail.style.transform = "";
@@ -608,11 +637,16 @@ export default function DeepPressCountryDetails(props) {
             {why.length > 0 && display?.showWhyBookNow !== false && (
               <Section id="why-book-now" title={sectionHeadings?.whyBookNowHeading || "Why book now?"} className="dp-why">
                 {anchor("why-book-now")}
+                <div className="dp-why-head">
+                  <span />
+                  <span className="dp-why-col-we">We</span>
+                  <span className="dp-why-col-others">Others</span>
+                </div>
                 {why.map((line, index) => (
                   <div key={key(whyBookNow[index], line)}>
                     <span>{line}</span>
                     <Check aria-label="Included" />
-                    <span className="dp-muted">—</span>
+                    <X className="dp-why-x" aria-label="Not included" />
                   </div>
                 ))}
               </Section>

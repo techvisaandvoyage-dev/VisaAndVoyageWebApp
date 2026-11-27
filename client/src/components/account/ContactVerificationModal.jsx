@@ -195,7 +195,7 @@ const ContactVerificationModal = ({
             <Button
               type="button"
               variant="ghost"
-              className="sm:min-w-[120px] rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc]/75 text-[#2D2B22] font-semibold shadow-[2px_3px_6px_rgba(45,43,34,0.14),0_1px_2px_rgba(45,43,34,0.08)] hover:bg-[#dfd2bc] active:translate-y-[1px] active:bg-[#d5c5ab] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.26),inset_0_1px_2px_rgba(45,43,34,0.16)]"
+              className="sm:min-w-[120px] rounded-xl border border-[#2D2B22]/15 bg-[var(--bg,#EEDFC7)] text-[#2D2B22] font-semibold ![box-shadow:var(--master-btn-outer-drop-shadow)] active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)]"
               onClick={onSkip}
             >
               {skipLabel}
@@ -230,7 +230,7 @@ const ContactVerificationModal = ({
                 }}
                 aria-expanded={countryCodeOpen}
                 aria-haspopup="listbox"
-                className="w-full flex h-[48px] items-center justify-between gap-3 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-4 text-sm font-semibold text-[#2D2B22] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.2),inset_0_1px_2px_rgba(45,43,34,0.12)] transition-all focus:outline-none focus:border-[#607938] focus:ring-2 focus:ring-[#607938]/25 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full flex h-[48px] items-center justify-between gap-3 rounded-xl border border-[#2D2B22]/15 bg-[var(--bg,#EEDFC7)] px-4 text-sm font-semibold text-[#2D2B22] ![box-shadow:var(--master-inner-drop-shadow)] transition-all focus:outline-none focus:border-[#607938] focus:ring-2 focus:ring-[#607938]/25 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="flex min-w-0 flex-1 items-center gap-2.5 truncate text-left">
                   {selectedCountryOption?.flagUrl ? (
@@ -257,7 +257,7 @@ const ContactVerificationModal = ({
                         onChange={(e) => setCountryCodeSearch(e.target.value)}
                         placeholder="Search country or code..."
                         autoFocus
-                        className="h-9 w-full rounded-lg border border-[#2D2B22]/15 bg-[#dfd2bc] pl-9 pr-3 text-[13px] font-semibold text-[#2D2B22] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)] placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none"
+                        className="h-9 w-full rounded-lg border border-[#2D2B22]/15 bg-[var(--bg,#EEDFC7)] pl-9 pr-3 text-[13px] font-semibold text-[#2D2B22] ![box-shadow:var(--master-inner-drop-shadow)] placeholder:text-[#6E6A59] focus:border-[#607938] focus:outline-none"
                       />
                     </div>
                   </div>
@@ -314,7 +314,7 @@ const ContactVerificationModal = ({
             placeholder="Enter phone number"
             value={value}
             error={phoneError}
-            className="h-[48px] rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-4 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
+            className="h-[48px] rounded-xl border border-[#2D2B22]/15 bg-[var(--bg,#EEDFC7)] px-4 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] ![box-shadow:var(--master-inner-drop-shadow)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
             onChange={(e) => {
               const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
               setValue(digits);
@@ -329,7 +329,7 @@ const ContactVerificationModal = ({
             helper={!phoneError ? "Enter a 10-digit mobile number." : ""}
           />
           {phoneOtpSent && (
-            <div className="space-y-3 rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc]/60 p-4 shadow-[inset_1px_2px_5px_rgba(45,43,34,0.12)]">
+            <div className="space-y-3 rounded-2xl border border-[#2D2B22]/15 bg-[var(--bg,#EEDFC7)] p-4 ![box-shadow:var(--master-inner-drop-shadow)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-[#2D2B22]">Enter OTP</p>
@@ -363,7 +363,7 @@ const ContactVerificationModal = ({
           autoComplete="email"
           placeholder="you@example.com"
           value={value}
-          className="h-[48px] rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-4 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22),inset_0_1px_2px_rgba(45,43,34,0.12)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
+          className="h-[48px] rounded-xl border border-[#2D2B22]/15 bg-[var(--bg,#EEDFC7)] px-4 text-[15px] font-medium text-[#2D2B22] placeholder:text-[#6E6A59] ![box-shadow:var(--master-inner-drop-shadow)] focus:outline-none focus:ring-2 focus:ring-[#607938]/25 focus:border-[#607938]"
           onChange={(e) => setValue(e.target.value)}
         />
       )}

@@ -139,8 +139,8 @@ const StatusPill = ({ children, tone = "green", onClick }) => {
 
 const OverviewRow = ({ icon: Icon, label, value, valueTone = "green", onValueClick }) => (
   <div className="flex items-center justify-between gap-4 py-3">
-    <div className="flex items-center gap-3 text-sm font-medium text-[#6E6A59]">
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dfd2bc] text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.14)]">
+    <div className="flex items-center gap-3 text-sm font-medium text-[var(--dp-muted,#6E6A59)]">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-[var(--dp-accent,#607938)] ![box-shadow:var(--master-sm-inner-drop-shadow)]">
         <Icon size={16} />
       </span>
       <span>{label}</span>
@@ -148,7 +148,7 @@ const OverviewRow = ({ icon: Icon, label, value, valueTone = "green", onValueCli
     {typeof value === "string" && ["green", "blue", "amber", "zinc"].includes(valueTone) ? (
       <StatusPill tone={valueTone} onClick={onValueClick}>{value}</StatusPill>
     ) : (
-      <span className="text-sm font-bold text-[#2D2B22]">{value}</span>
+      <span className="text-sm font-bold text-[var(--dp-ink,#2D2B22)]">{value}</span>
     )}
   </div>
 );
@@ -156,13 +156,13 @@ const OverviewRow = ({ icon: Icon, label, value, valueTone = "green", onValueCli
 const SectionShell = ({ icon: Icon, title, children, className = "" }) => (
   <Card
     padding="none"
-    className={`flex h-full flex-col overflow-visible rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3] ${className}`}
+    className={`flex h-full flex-col overflow-visible rounded-[26px] border-0 bg-[var(--dp-bg,#EEDFC7)] ![box-shadow:var(--master-outer-drop-shadow)] ${className}`}
   >
-    <div className="flex items-center gap-3 rounded-t-[24px] border-b border-[#2D2B22]/10 px-7 py-5">
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#dfd2bc] text-[#607938] shadow-[inset_1px_2px_4px_rgba(45,43,34,0.16)]">
+    <div className="flex items-center gap-3 rounded-t-[26px] border-b border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_10%,transparent)] px-7 py-5">
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-transparent text-[var(--dp-accent,#607938)] ![box-shadow:var(--master-sm-inner-drop-shadow)]">
         <Icon size={19} />
       </span>
-      <h2 className="text-[1.3rem] font-extrabold tracking-tight text-[#2D2B22]">{title}</h2>
+      <h2 className="text-[1.3rem] font-extrabold tracking-tight text-[var(--dp-ink,#2D2B22)]">{title}</h2>
     </div>
     <div className="flex flex-1 flex-col px-7 py-6">{children}</div>
   </Card>
@@ -697,7 +697,7 @@ const ProfilePage = () => {
     String(formData.gender || "Other") !== String(user.gender || "Other");
 
   return (
-    <div className="compact-application min-h-screen bg-[#EEDFC7] text-[#2D2B22] flex flex-col">
+    <div className="compact-application min-h-screen bg-[var(--dp-bg,#EEDFC7)] text-[var(--dp-ink,#2D2B22)] flex flex-col">
       <Navbar />
 
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-5 pb-12 sm:px-6 lg:px-10">
@@ -705,7 +705,7 @@ const ProfilePage = () => {
           <button
             type="button"
             onClick={handleBack}
-            className="group inline-flex h-[38px] items-center gap-2 rounded-[12px] border-0 bg-[#EEDFC7] pl-3 pr-4 text-[14px] font-semibold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.16),0_1px_2px_rgba(45,43,34,0.1)] transition-all hover:text-[#607938] hover:shadow-[2px_4px_10px_rgba(45,43,34,0.22)] active:translate-y-0 active:bg-[#dfd2bc] active:shadow-[inset_2px_3px_5px_rgba(45,43,34,0.24)]"
+            className="group inline-flex h-[38px] items-center gap-2 rounded-[12px] border-0 bg-[var(--dp-bg,#EEDFC7)] pl-3 pr-4 text-[14px] font-semibold text-[var(--dp-ink,#2D2B22)] ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:text-[var(--dp-accent,#607938)] active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)]"
             aria-label="Go back"
           >
             <ArrowLeft size={16} strokeWidth={2.2} className="group-hover:-translate-x-[3px] transition-transform duration-150" />
@@ -715,7 +715,7 @@ const ProfilePage = () => {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[290px_minmax(0,1fr)] items-start">
           {/* Profile Sidebar: Compact Identity Card + Navigation */}
-          <aside className="rounded-[24px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-5 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3] lg:sticky lg:top-24 space-y-5">
+          <aside className="rounded-[26px] border-0 bg-[var(--dp-bg,#EEDFC7)] p-5 ![box-shadow:var(--master-outer-drop-shadow)] lg:sticky lg:top-24 space-y-5">
             <div className="flex flex-col items-center text-center">
               <div className="relative mb-3.5">
                 <button
@@ -759,14 +759,14 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            <div className="border-t border-[#2D2B22]/10 pt-4 flex flex-row lg:flex-col gap-2">
+            <div className="border-t border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_10%,transparent)] pt-4 flex flex-row lg:flex-col gap-2">
               <button
                 type="button"
                 onClick={() => setActiveSectionTab("profile")}
                 className={`flex flex-1 lg:w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold transition-all ${
                   activeSectionTab === "profile"
-                    ? "bg-[#dfd2bc] text-[#607938] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22)]"
-                    : "text-[#6E6A59] hover:bg-[#dfd2bc]/55 hover:text-[#2D2B22]"
+                    ? "bg-[var(--dp-bg,#EEDFC7)] text-[var(--dp-accent,#607938)] ![box-shadow:var(--master-inner-drop-shadow)]"
+                    : "text-[var(--dp-muted,#6E6A59)] hover:bg-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_5%,transparent)] hover:text-[var(--dp-ink,#2D2B22)]"
                 }`}
               >
                 <User size={17} className="shrink-0" />
@@ -777,8 +777,8 @@ const ProfilePage = () => {
                 onClick={() => setActiveSectionTab("security")}
                 className={`flex flex-1 lg:w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold transition-all ${
                   activeSectionTab === "security"
-                    ? "bg-[#dfd2bc] text-[#607938] shadow-[inset_2px_3px_6px_rgba(45,43,34,0.22)]"
-                    : "text-[#6E6A59] hover:bg-[#dfd2bc]/55 hover:text-[#2D2B22]"
+                    ? "bg-[var(--dp-bg,#EEDFC7)] text-[var(--dp-accent,#607938)] ![box-shadow:var(--master-inner-drop-shadow)]"
+                    : "text-[var(--dp-muted,#6E6A59)] hover:bg-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_5%,transparent)] hover:text-[var(--dp-ink,#2D2B22)]"
                 }`}
               >
                 <Shield size={17} className="shrink-0" />
@@ -799,7 +799,7 @@ const ProfilePage = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className="h-12 rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc]/85 px-4 py-0 text-sm font-medium text-[#2D2B22] transition-all ![box-shadow:var(--is)] focus:ring-0 focus:border-[#607938] focus:bg-[#EEDFC7]"
+                className="h-12 rounded-xl border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent px-4 py-0 text-sm font-medium text-[var(--dp-ink,#2D2B22)] transition-all ![box-shadow:var(--master-inner-drop-shadow)] focus:ring-0 focus:border-[var(--dp-accent,#607938)] focus:bg-transparent"
               />
 
               <Input
@@ -811,7 +811,7 @@ const ProfilePage = () => {
                 onChange={handleChange}
                 disabled
                 helper={profileCopy.emailHelperText || "Email cannot be changed"}
-                className="h-12 rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc]/75 px-4 py-0 text-sm font-medium text-[#2D2B22] opacity-85 ![box-shadow:var(--is)] focus:ring-0"
+                className="h-12 rounded-xl border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent px-4 py-0 text-sm font-medium text-[var(--dp-ink,#2D2B22)] opacity-80 ![box-shadow:var(--master-inner-drop-shadow)] focus:ring-0"
               />
 
               <div className="sm:col-span-2 flex flex-col gap-1.5">
@@ -832,12 +832,12 @@ const ProfilePage = () => {
                         setCountryCodeOpen((prev) => !prev);
                         setCountryCodeSearch("");
                       }}
-                      className={`flex h-12 w-full items-center justify-between gap-3 rounded-xl border px-4 text-sm font-medium text-[#2D2B22] ![box-shadow:var(--is)] transition-all ${
+                      className={`flex h-12 w-full items-center justify-between gap-3 rounded-xl border px-4 text-sm font-medium text-[var(--dp-ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)] transition-all ${
                         phoneOtpSent
-                          ? "cursor-default border-[#2D2B22]/15 bg-[#dfd2bc]/75 opacity-85"
+                          ? "cursor-default border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent opacity-80"
                           : phoneOtpActive
-                            ? "border-[#607938] bg-[#EEDFC7]"
-                            : "cursor-pointer border-[#2D2B22]/15 bg-[#dfd2bc]/85 hover:border-[#607938]/50"
+                            ? "border-[var(--dp-accent,#607938)] bg-transparent"
+                            : "cursor-pointer border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent hover:border-[color:color-mix(in_srgb,var(--dp-accent,#607938)_50%,transparent)]"
                       }`}
                     >
                       <span className="truncate text-left flex items-center gap-2">
@@ -866,7 +866,7 @@ const ProfilePage = () => {
                         </div>
                         <div
                           className="max-h-60 overflow-y-auto py-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#607938]/45 hover:[&::-webkit-scrollbar-thumb]:bg-[#607938]/70"
-                          style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(96, 121, 56, 0.5) transparent" }}
+                          style={{ scrollbarWidth: "thin", scrollbarColor: "color-mix(in srgb, var(--ac, #607938) 50%, transparent) transparent" }}
                         >
                           {filteredCountryOptions.length ? (
                             filteredCountryOptions.map((option) => (
@@ -931,12 +931,12 @@ const ProfilePage = () => {
                         const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
                         setFormData((prev) => ({ ...prev, phone: digitsOnly }));
                       }}
-                      className={`h-12 w-full rounded-xl border px-4 text-sm font-medium text-[#2D2B22] placeholder:text-[#6E6A59]/75 ![box-shadow:var(--is)] focus:outline-none focus:border-[#607938] transition-all ${
+                      className={`h-12 w-full rounded-xl border px-4 text-sm font-medium text-[var(--dp-ink,#2D2B22)] placeholder:text-[var(--dp-muted,#6E6A59)] ![box-shadow:var(--master-inner-drop-shadow)] focus:outline-none focus:border-[var(--dp-accent,#607938)] transition-all ${
                         phoneOtpSent
-                          ? "cursor-default border-[#2D2B22]/15 bg-[#dfd2bc]/75 opacity-85"
+                          ? "cursor-default border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent opacity-80"
                           : phoneOtpActive
-                            ? "border-[#607938] bg-[#EEDFC7]"
-                            : "cursor-pointer border-[#2D2B22]/15 bg-[#dfd2bc]/85 hover:border-[#607938]/50"
+                            ? "border-[var(--dp-accent,#607938)] bg-transparent"
+                            : "cursor-pointer border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent hover:border-[color:color-mix(in_srgb,var(--dp-accent,#607938)_50%,transparent)]"
                       }`}
                     />
                   </div>
@@ -958,17 +958,17 @@ const ProfilePage = () => {
                     (String(formData.phone || "").replace(/\D/g, "").length === 10 &&
                       String(formData.phone || "").replace(/\D/g, "") !==
                         String(user.phone || "").replace(/\D/g, "").slice(-10))) && (
-                  <div className="mt-3 rounded-2xl border border-[#2D2B22]/15 bg-[#dfd2bc]/60 p-4 ![box-shadow:var(--is)]">
+                  <div className="mt-3 rounded-2xl border border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent p-4 ![box-shadow:var(--master-inner-drop-shadow)]">
                       {!phoneOtpSent ? (
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-sm font-medium text-[#2D2B22] leading-snug">
+                          <p className="text-sm font-medium text-[var(--dp-ink,#2D2B22)] leading-snug">
                             {profileCopy.phoneOtpConfirmPrompt || "Send an OTP to confirm this mobile number."}
                           </p>
                           <div className="flex shrink-0 items-center gap-2.5">
                             <button
                               type="button"
                               onClick={handleCancelPhoneChange}
-                              className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#2D2B22]/15 bg-[#EEDFC7] px-4 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.14)] transition-all hover:bg-[#d5c5ab] active:translate-y-[1px]"
+                              className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-[var(--dp-bg,#EEDFC7)] px-4 text-sm font-bold text-[var(--dp-ink,#2D2B22)] ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)]"
                             >
                               Cancel
                             </button>
@@ -976,7 +976,7 @@ const ProfilePage = () => {
                               type="button"
                               disabled={isLoading}
                               onClick={handleSendPhoneOtp}
-                              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#607938] px-5 text-sm font-bold text-white shadow-[2px_4px_10px_rgba(45,43,34,0.28)] transition-all hover:bg-[#536930] active:translate-y-[1px] disabled:opacity-60"
+                              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[var(--dp-accent,#607938)] px-5 text-sm font-bold text-white ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-colored-btn-inner-drop-shadow)] disabled:opacity-60"
                             >
                               {isLoading && <Loader2 size={15} className="animate-spin" />}
                               {profileCopy.sendOtpButtonText || "Send OTP"}
@@ -1014,7 +1014,7 @@ const ProfilePage = () => {
                             <button
                               type="button"
                               onClick={handleCancelPhoneChange}
-                              className="inline-flex h-10 flex-1 items-center justify-center whitespace-nowrap rounded-xl border border-[#2D2B22]/15 bg-[#EEDFC7] px-4 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.14)] transition-all hover:bg-[#d5c5ab] active:translate-y-[1px]"
+                              className="inline-flex h-10 flex-1 items-center justify-center whitespace-nowrap rounded-xl border border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-[var(--dp-bg,#EEDFC7)] px-4 text-sm font-bold text-[var(--dp-ink,#2D2B22)] ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)]"
                             >
                               Cancel
                             </button>
@@ -1022,7 +1022,7 @@ const ProfilePage = () => {
                               type="button"
                               disabled={isLoading || phoneOtpDigits.join("").length !== phoneOtpLength}
                               onClick={handleVerifyPhoneOtp}
-                              className="inline-flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#607938] px-5 text-sm font-bold text-white shadow-[2px_4px_10px_rgba(45,43,34,0.28)] transition-all hover:bg-[#536930] active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-55"
+                              className="inline-flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[var(--dp-accent,#607938)] px-5 text-sm font-bold text-white ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-colored-btn-inner-drop-shadow)] disabled:cursor-not-allowed disabled:opacity-55"
                             >
                               {isLoading && <Loader2 size={15} className="animate-spin" />}
                               {profileCopy.phoneVerifySaveButtonText || "Verify & Save"}
@@ -1042,7 +1042,7 @@ const ProfilePage = () => {
                 placeholder={profileCopy.agePlaceholder || "Enter your age"}
                 value={formData.age}
                 onChange={handleChange}
-                className="h-12 rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc]/85 px-4 py-0 text-sm font-medium text-[#2D2B22] transition-all ![box-shadow:var(--is)] focus:ring-0 focus:border-[#607938] focus:bg-[#EEDFC7]"
+                className="h-12 rounded-xl border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent px-4 py-0 text-sm font-medium text-[var(--dp-ink,#2D2B22)] transition-all ![box-shadow:var(--master-inner-drop-shadow)] focus:ring-0 focus:border-[var(--dp-accent,#607938)] focus:bg-transparent"
               />
 
               <div ref={genderDropdownRef} className="relative flex flex-col gap-1.5">
@@ -1052,10 +1052,10 @@ const ProfilePage = () => {
                 <button
                   type="button"
                   onClick={() => setGenderOpen((prev) => !prev)}
-                  className={`flex h-12 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 text-sm font-medium text-[#2D2B22] transition-all ![box-shadow:var(--is)] focus:outline-none ${
+                  className={`flex h-12 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 text-sm font-medium text-[var(--dp-ink,#2D2B22)] transition-all ![box-shadow:var(--master-inner-drop-shadow)] focus:outline-none ${
                     genderOpen
-                      ? "border-[#607938] bg-[#EEDFC7]"
-                      : "border-[#2D2B22]/15 bg-[#dfd2bc]/85 hover:border-[#607938]/50"
+                      ? "border-[var(--dp-accent,#607938)] bg-transparent"
+                      : "border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent hover:border-[color:color-mix(in_srgb,var(--dp-accent,#607938)_50%,transparent)]"
                   }`}
                 >
                   <span>
@@ -1104,11 +1104,11 @@ const ProfilePage = () => {
             </div>
 
             {hasProfileChanges && (
-              <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-[#2D2B22]/10 pt-5">
+              <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_10%,transparent)] pt-5">
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] px-5 py-2.5 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.14)] transition-all hover:bg-[#d5c5ab] active:translate-y-[1px]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-[var(--dp-bg,#EEDFC7)] px-5 py-2.5 text-sm font-bold text-[var(--dp-ink,#2D2B22)] ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)]"
                 >
                   <X size={16} />
                   {profileCopy.cancelButtonText || "Cancel"}
@@ -1117,7 +1117,7 @@ const ProfilePage = () => {
                   type="button"
                   onClick={handleSave}
                   disabled={isLoading}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#607938] px-6 py-2.5 text-sm font-bold text-white shadow-[2px_4px_12px_rgba(45,43,34,0.3)] transition-all hover:bg-[#536930] active:translate-y-[1px] disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[var(--dp-accent,#607938)] px-6 py-2.5 text-sm font-bold text-white ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-colored-btn-inner-drop-shadow)] disabled:opacity-60"
                 >
                   {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   {profileCopy.saveChangesButtonText || "Save Changes"}
@@ -1169,7 +1169,7 @@ const ProfilePage = () => {
                         <button
                           type="button"
                           onClick={() => setShowSecurityForm(true)}
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#607938]/30 bg-[#607938]/15 px-5 py-3 text-sm font-bold text-[#4e632d] shadow-[2px_3px_6px_rgba(45,43,34,0.12)] transition-all hover:bg-[#607938]/25 active:translate-y-[1px]"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[color:color-mix(in_srgb,var(--dp-accent,#607938)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--dp-accent,#607938)_14%,transparent)] px-5 py-3 text-sm font-bold text-[var(--dp-accent,#607938)] ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:brightness-95 active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)]"
                         >
                           <KeyRound size={16} />
                           {isCreatingPassword ? (profileCopy.createPasswordButtonText || "Create Password") : (profileCopy.changePasswordButtonText || "Change Password")}
@@ -1189,7 +1189,7 @@ const ProfilePage = () => {
                               onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
                               placeholder="........"
                               error={passwordErrors.currentPassword}
-                              className="rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc] px-4 py-3.5 text-[#2D2B22]"
+                              className="rounded-xl border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent px-4 py-3.5 text-[var(--dp-ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)]"
                             />
                           )}
 
@@ -1202,7 +1202,7 @@ const ProfilePage = () => {
                             placeholder="........"
                             helper="Min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char"
                             error={passwordErrors.newPassword}
-                            className="rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc] px-4 py-3.5 text-[#2D2B22]"
+                            className="rounded-xl border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent px-4 py-3.5 text-[var(--dp-ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)]"
                           />
 
                           <Input
@@ -1213,7 +1213,7 @@ const ProfilePage = () => {
                             onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
                             placeholder="........"
                             error={passwordErrors.confirmPassword}
-                            className="rounded-xl border-[#2D2B22]/15 bg-[#dfd2bc] px-4 py-3.5 text-[#2D2B22]"
+                            className="rounded-xl border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-transparent px-4 py-3.5 text-[var(--dp-ink,#2D2B22)] ![box-shadow:var(--master-inner-drop-shadow)]"
                           />
 
                           <div className="flex gap-3">
@@ -1225,7 +1225,7 @@ const ProfilePage = () => {
                                 setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
                                 setPasswordErrors({ currentPassword: "", newPassword: "", confirmPassword: "" });
                               }}
-                              className="rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc] text-[#2D2B22] hover:bg-[#d5c5ab]"
+                              className="rounded-xl border border-[color:color-mix(in_srgb,var(--dp-ink,#2D2B22)_12%,transparent)] bg-[var(--dp-bg,#EEDFC7)] text-[var(--dp-ink,#2D2B22)] ![box-shadow:var(--master-btn-outer-drop-shadow)] active:![box-shadow:var(--master-inner-drop-shadow)]"
                             >
                               Cancel
                             </Button>
@@ -1235,7 +1235,7 @@ const ProfilePage = () => {
                               leftIcon={<KeyRound size={16} />}
                               onClick={handleChangePassword}
                               loading={isChangingPassword}
-                              className="rounded-xl bg-[#607938] text-white hover:bg-[#536930]"
+                              className="rounded-xl bg-[var(--dp-accent,#607938)] text-white ![box-shadow:var(--master-btn-outer-drop-shadow)] hover:brightness-95 active:![box-shadow:var(--master-colored-btn-inner-drop-shadow)]"
                             >
                               {isCreatingPassword ? "Create Password" : "Update Password"}
                             </Button>
@@ -1246,15 +1246,15 @@ const ProfilePage = () => {
                   </SectionShell>
                 )}
 
-                <SectionShell icon={AlertTriangle} title={profileCopy.deletionTitle || "Account Deletion"} className="border-[#9a3b2a]/20">
+                <SectionShell icon={AlertTriangle} title={profileCopy.deletionTitle || "Account Deletion"}>
                   <div className="flex flex-1 flex-col justify-between gap-5">
-                    <p className="text-sm leading-relaxed text-[#6E6A59]">
+                    <p className="text-sm leading-relaxed text-[var(--dp-muted,#6E6A59)]">
                       {profileCopy.deletionDescription || "Permanently delete your account and all associated profile data."}
                     </p>
                     <button
                       type="button"
                       onClick={() => setShowDeleteModal(true)}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#9a3b2a]/30 bg-[#9a3b2a]/15 px-5 py-3 text-sm font-bold text-[#9a3b2a] shadow-[2px_3px_6px_rgba(45,43,34,0.12)] transition-all hover:bg-[#9a3b2a]/25 active:translate-y-[1px]"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#9a3b2a]/30 bg-[#9a3b2a]/15 px-5 py-3 text-sm font-bold text-[#9a3b2a] ![box-shadow:var(--master-btn-outer-drop-shadow)] transition-all hover:bg-[#9a3b2a]/25 active:translate-y-[1px] active:![box-shadow:var(--master-inner-drop-shadow)]"
                     >
                       <AlertTriangle size={16} />
                       {profileCopy.deleteAccountButtonText || "Delete Account"}

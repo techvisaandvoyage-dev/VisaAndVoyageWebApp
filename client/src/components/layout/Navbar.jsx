@@ -243,7 +243,7 @@ const Navbar = ({ centerContent = null }) => {
             <img
               src={brandLogo}
               alt="Visa &amp; Voyage"
-              className="h-10 sm:h-11 w-auto object-contain"
+              className="h-12 sm:h-14 w-auto object-contain"
               loading="eager"
             />
           </Link>
@@ -450,9 +450,9 @@ const Navbar = ({ centerContent = null }) => {
                         role="menuitem"
                       >
                         <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors shadow-[inset_1px_2px_4px_rgba(45,43,34,0.15)] ${
+                          className={`nv-dd-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors shadow-[inset_1px_2px_4px_rgba(45,43,34,0.15)] ${
                             location.pathname === "/dashboard/profile"
-                              ? "bg-[#607938] text-white"
+                              ? "is-colored bg-[#607938] text-white"
                               : "bg-[#dfd2bc] text-[#607938] group-hover:bg-[#607938] group-hover:text-white"
                           }`}
                         >
@@ -479,9 +479,9 @@ const Navbar = ({ centerContent = null }) => {
                         role="menuitem"
                       >
                         <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors shadow-[inset_1px_2px_4px_rgba(45,43,34,0.15)] ${
+                          className={`nv-dd-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors shadow-[inset_1px_2px_4px_rgba(45,43,34,0.15)] ${
                             location.pathname === "/dashboard"
-                              ? "bg-[#607938] text-white"
+                              ? "is-colored bg-[#607938] text-white"
                               : "bg-[#dfd2bc] text-[#607938] group-hover:bg-[#607938] group-hover:text-white"
                           }`}
                         >
@@ -504,7 +504,7 @@ const Navbar = ({ centerContent = null }) => {
                           className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-bold text-[#9a3b2a] transition-all hover:bg-[#9a3b2a]/10 active:translate-y-[1px]"
                           role="menuitem"
                         >
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#9a3b2a]/12 text-[#9a3b2a] shadow-[inset_1px_2px_4px_rgba(154,59,42,0.12)] transition-colors group-hover:bg-[#9a3b2a] group-hover:text-white">
+                          <span className="nv-dd-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#9a3b2a]/12 text-[#9a3b2a] shadow-[inset_1px_2px_4px_rgba(154,59,42,0.12)] transition-colors group-hover:bg-[#9a3b2a] group-hover:text-white">
                             <LogOut size={15} />
                           </span>
                           <span className="flex-1">Sign Out</span>

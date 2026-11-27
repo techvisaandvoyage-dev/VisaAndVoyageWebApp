@@ -854,7 +854,7 @@ export default function CompactApplication({
           <h2>{replaceCountry(startAppCopy?.applyForTitle, "Apply for {country}")}</h2>
           <div className="ca-amount">
             <small>{startAppCopy?.amountToPayLabel || "AMOUNT TO BE PAID NOW"}</small>
-            <strong>{money(payableNowAmount)}</strong>
+            <strong>{money(overallTotal)}</strong>
             <span>
               {travelers.length} {travelers.length === 1 ? (startAppCopy?.travelerPrefix || "traveller").toLowerCase() : `${(startAppCopy?.travelerPrefix || "traveller").toLowerCase()}s`}
             </span>

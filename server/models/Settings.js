@@ -175,6 +175,45 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     default: 'We typically reply in a few minutes'
   },
+  frontendTheme: {
+    preset: { type: String, default: 'deep-press' },
+    bg: { type: String, default: '#EEDFC7' },
+    surfaceBg: { type: String, default: '#D9CCB4' },
+    ink: { type: String, default: '#2D2B22' },
+    muted: { type: String, default: '#6E6A59' },
+    accent: { type: String, default: '#607938' },
+    buttonText: { type: String, default: '#FFFFFF' },
+  },
+  frontendThemePresets: {
+    type: [
+      {
+        preset: { type: String, required: true },
+        name: { type: String, required: true },
+        bg: { type: String, default: '#EEDFC7' },
+        surfaceBg: { type: String, default: '#D9CCB4' },
+        ink: { type: String, default: '#2D2B22' },
+        muted: { type: String, default: '#6E6A59' },
+        accent: { type: String, default: '#607938' },
+        buttonText: { type: String, default: '#FFFFFF' },
+      },
+    ],
+    default: [],
+  },
+  customerChatQuickTabs: {
+    type: [
+      {
+        label: { type: String, default: '' },
+        actionType: { type: String, default: 'custom_reply' },
+        replyText: { type: String, default: '' },
+      }
+    ],
+    default: [
+      { label: 'Application Status', actionType: 'application_status', replyText: '' },
+      { label: 'Require Document Needed', actionType: 'required_documents', replyText: '' },
+      { label: 'Refund Related', actionType: 'refund_policy', replyText: '' },
+      { label: 'Talk to Human', actionType: 'human_support', replyText: '' },
+    ]
+  },
   footerLogo: {
     type: String,
     default: ''

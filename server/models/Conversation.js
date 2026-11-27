@@ -18,6 +18,18 @@ const conversationSchema = new mongoose.Schema({
     type: String,
     default: ""
   },
+  ticketId: {
+    type: String,
+    default: ""
+  },
+  subject: {
+    type: String,
+    default: "Support Inquiry"
+  },
+  closedAt: {
+    type: Date,
+    default: null
+  },
   lastMessage: {
     type: String,
     default: ""

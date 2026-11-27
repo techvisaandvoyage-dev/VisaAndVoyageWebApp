@@ -143,6 +143,7 @@ const ADMIN_NAV = [
         isGroup: true,
         children: [
           { label: "Site maintenance mode", sectionKey: "maintenance-mode" },
+          { label: "Theme Settings", sectionKey: "theme-settings" },
         ]
       },
       { label: "SEO manager", sectionKey: "seo-manager" }

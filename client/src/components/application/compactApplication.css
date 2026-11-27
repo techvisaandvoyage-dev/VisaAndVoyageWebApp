@@ -10,16 +10,16 @@
   --ink: var(--dp-ink);
   --mu: var(--dp-muted);
   --ac: var(--dp-accent);
-  --ca-shadow: 6px 6px 18px var(--dp-dark), -6px -6px 18px var(--dp-light);
-  --ca-raised: 2px 3px 6px rgba(45, 43, 34, 0.16), 0 1px 2px rgba(45, 43, 34, 0.1);
-  --ca-inset: inset 2px 3px 6px rgba(45, 43, 34, 0.22), inset 0 1px 2px rgba(45, 43, 34, 0.14);
+  --ca-shadow: var(--master-outer-drop-shadow, 6px 6px 18px var(--dp-dark));
+  --ca-raised: 2px 3px 6px color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent), 0 1px 2px color-mix(in srgb, var(--dp-ink, #2D2B22) 10%, transparent);
+  --ca-inset: inset 2px 3px 6px color-mix(in srgb, var(--dp-ink, #2D2B22) 22%, transparent), inset 0 1px 2px color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   --nb: var(--dp-header-bg);
   --nt: var(--dp-ink);
   --na: var(--dp-accent);
   --fb: var(--dp-header-bg);
   --fth: #2D2B22;
   --ftt: #47453a;
-  --nl: rgba(45, 43, 34, 0.16);
+  --nl: color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
   --f: "Urbanist", system-ui, sans-serif;
   min-height: 100vh;
   background: var(--bg);
@@ -39,7 +39,7 @@
 }
 .compact-application .sbx.sbx-compact {
   background: var(--dp-bg);
-  box-shadow: inset 2px 2px 5px var(--dp-dark), inset -2px -2px 5px var(--dp-light);
+  box-shadow: var(--master-inner-drop-shadow, inset 3px 3px 7px var(--dp-dark), inset -3px -3px 7px var(--dp-light));
   color: var(--dp-ink);
   border-radius: var(--rb, 14px);
 }
@@ -54,33 +54,35 @@
 .compact-application .sbx.sbx-compact button[type="submit"] {
   background: var(--dp-accent);
   color: #fff;
-  box-shadow: 1px 2px 5px rgba(45, 43, 34, 0.3) !important;
+  box-shadow: var(--master-btn-outer-drop-shadow) !important;
   border-radius: calc(var(--rb, 14px) - 3px);
 }
 .compact-application .sbx.sbx-compact button[type="submit"]:hover {
   filter: brightness(0.95) !important;
 }
 .compact-application .sbx.sbx-compact button[type="submit"]:active {
-  transform: none !important;
-  box-shadow: inset 2px 3px 6px rgba(0, 0, 0, 0.45), inset 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+  transform: translateY(1px) !important;
+  box-shadow: var(--master-colored-btn-inner-drop-shadow) !important;
 }
 .compact-application .nh .ib {
   background: var(--dp-bg);
   color: var(--dp-ink);
-  box-shadow: 2px 3px 6px rgba(45, 43, 34, 0.16), 0 1px 2px rgba(45, 43, 34, 0.1);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   border: none;
   border-radius: 14px;
+  width: 48px;
+  height: 48px;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 .compact-application .nh .ib:hover {
   transform: translateY(-1px);
   color: var(--dp-accent);
-  box-shadow: 2px 4px 10px rgba(45, 43, 34, 0.24);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 .compact-application .nh .ib:active {
   transform: translateY(1px) !important;
-  background: #dfd2bc !important;
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.28), inset 0 1px 2px rgba(45, 43, 34, 0.18) !important;
+  background: var(--dp-surface, #dfd2bc) !important;
+  box-shadow: var(--master-inner-drop-shadow) !important;
 }
 .compact-application .nr {
   gap: 12px;
@@ -88,10 +90,10 @@
 .compact-application .nv-blog-btn {
   background: var(--dp-bg);
   color: var(--dp-ink);
-  box-shadow: 2px 3px 6px rgba(45, 43, 34, 0.16), 0 1px 2px rgba(45, 43, 34, 0.1);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   border-radius: 14px;
-  height: 40px;
-  padding: 0 16px;
+  height: 48px;
+  padding: 0 18px;
   font-family: var(--f);
   font-size: 14px;
   font-weight: 600;
@@ -102,25 +104,26 @@
   transition: all 0.15s ease;
 }
 .compact-application .nv-blog-btn:hover {
+  transform: translateY(-1px);
   color: var(--dp-accent);
-  box-shadow: 2px 4px 10px rgba(45, 43, 34, 0.24);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 .compact-application .nv-blog-btn:active {
   transform: translateY(1px);
-  background: #dfd2bc;
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.28), inset 0 1px 2px rgba(45, 43, 34, 0.18);
+  background: var(--dp-surface, #dfd2bc);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 .compact-application .nv-search-dropdown {
   background: var(--dp-bg);
-  box-shadow: 6px 6px 18px var(--dp-dark), -6px -6px 18px var(--dp-light);
-  border: 1px solid rgba(45, 43, 34, 0.08);
+  box-shadow: var(--master-outer-drop-shadow, 6px 6px 18px var(--dp-dark));
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 8%, transparent);
 }
 .compact-application .nv-search-item {
   color: var(--dp-ink);
 }
 .compact-application .nv-search-item:hover,
 .compact-application .nv-search-item:focus-visible {
-  background: rgba(96, 121, 56, 0.15);
+  background: color-mix(in srgb, var(--dp-accent, #607938) 15%, transparent);
 }
 .compact-application .nv-search-name {
   color: var(--dp-ink);
@@ -141,7 +144,7 @@
   z-index: 10;
   background: var(--surface-bg);
   color: var(--ftt, #47453a);
-  border-top: 1px solid var(--nl, rgba(45, 43, 34, 0.16));
+  border-top: 1px solid var(--nl, color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent));
   box-shadow: 0 -12px 24px -14px color-mix(in srgb, var(--nt, #2D2B22) 45%, transparent);
   margin-top: 48px;
   border-radius: 0;
@@ -160,20 +163,20 @@
 .compact-application .ft .ib {
   background: var(--dp-bg, #EEDFC7);
   color: var(--dp-ink, #2D2B22);
-  border: 1px solid rgba(45, 43, 34, 0.16);
-  box-shadow: 2px 3px 6px rgba(45, 43, 34, 0.18), 0 1px 2px rgba(45, 43, 34, 0.12);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   transition: transform 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 .compact-application .ft .ib:hover {
   color: var(--dp-accent, #607938);
-  box-shadow: 2px 4px 10px rgba(45, 43, 34, 0.25);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 .compact-application .ft .ib:active {
-  transform: translateY(0);
-  box-shadow: inset 1px 2px 4px rgba(45, 43, 34, 0.22);
+  transform: translateY(1px);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 .compact-application .ft .fb {
-  border-top: 1px solid rgba(45, 43, 34, 0.16);
+  border-top: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
 }
 .compact-application .ft .fb > span:first-child,
 .compact-application .ft .bd span {
@@ -230,20 +233,20 @@
   font-weight: 600;
   border: none;
   cursor: pointer;
-  box-shadow: 2px 3px 6px rgba(45, 43, 34, 0.16), 0 1px 2px rgba(45, 43, 34, 0.1);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   margin-bottom: 0;
   transition: transform 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 .ca-back:hover {
   color: var(--dp-accent);
-  box-shadow: 2px 4px 10px rgba(45, 43, 34, 0.22);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 .ca-back:hover svg {
   transform: translateX(-3px);
 }
 .ca-back:active {
-  transform: translateY(0);
-  box-shadow: inset 1px 2px 4px rgba(45, 43, 34, 0.22);
+  transform: translateY(1px);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 .ca-heading {
   margin-bottom: 14px;
@@ -262,7 +265,7 @@
 }
 .ca-back:active {
   transform: translateY(0);
-  box-shadow: inset 1px 2px 4px rgba(45, 43, 34, 0.22);
+  box-shadow: inset 1px 2px 4px color-mix(in srgb, var(--dp-ink, #2D2B22) 22%, transparent);
 }
 .ca-heading h1 {
   font: 800 clamp(28px, 4vw, 38px)/1.15 var(--f);
@@ -297,10 +300,10 @@
 }
 .ca-card {
   background: var(--dp-bg);
-  border: 1px solid rgba(45, 43, 34, 0.08);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 8%, transparent);
   border-radius: 26px;
   padding: 24px 26px;
-  box-shadow: 6px 6px 18px var(--dp-dark), -6px -6px 18px var(--dp-light);
+  box-shadow: var(--master-outer-drop-shadow, 6px 6px 18px var(--dp-dark));
   min-width: 0;
 }
 .ca-card h2 {
@@ -370,7 +373,7 @@
 .ca-info-btn:hover,
 .ca-info-btn:focus-visible {
   color: var(--dp-accent);
-  background: rgba(96, 121, 56, 0.12);
+  background: color-mix(in srgb, var(--dp-accent, #607938) 12%, transparent);
   outline: none;
 }
 .ca-tooltip {
@@ -387,8 +390,8 @@
   font-size: 11.5px;
   font-weight: 500;
   line-height: 1.45;
-  border: 1px solid rgba(45, 43, 34, 0.14);
-  box-shadow: 0 10px 24px rgba(45, 43, 34, 0.22);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--dp-ink, #2D2B22) 22%, transparent);
   z-index: 50;
   pointer-events: none;
   opacity: 0;
@@ -410,8 +413,8 @@
   border-radius: 18px;
   background: var(--dp-bg);
   color: var(--dp-ink);
-  border: 1px solid rgba(45, 43, 34, 0.14);
-  box-shadow: 0 12px 28px rgba(45, 43, 34, 0.28);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--dp-ink, #2D2B22) 28%, transparent);
   z-index: 50;
   opacity: 0;
   visibility: hidden;
@@ -428,7 +431,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid rgba(45, 43, 34, 0.1);
+  border-bottom: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 10%, transparent);
   padding-bottom: 8px;
   margin-bottom: 10px;
 }
@@ -475,21 +478,21 @@
   min-width: 0;
   height: 48px;
   border-radius: 13px;
-  background: #dfd2bc;
+  background: var(--dp-bg, #EEDFC7);
   color: var(--dp-ink);
   font-family: var(--f);
   font-size: 15px;
   font-weight: 600;
-  border: 1px solid rgba(45, 43, 34, 0.16);
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.22), inset 0 1px 2px rgba(45, 43, 34, 0.14);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
+  box-shadow: var(--master-inner-drop-shadow, inset 3px 3px 7px var(--dp-dark), inset -3px -3px 7px var(--dp-light));
   outline: none;
   padding: 0 16px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 .ca-input:focus {
   border-color: var(--dp-accent);
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.2), 0 0 0 2px rgba(96, 121, 56, 0.25);
-  background: #dfd2bc;
+  box-shadow: inset 2px 3px 6px color-mix(in srgb, var(--dp-ink, #2D2B22) 20%, transparent), 0 0 0 2px color-mix(in srgb, var(--dp-accent, #607938) 25%, transparent);
+  background: var(--dp-bg, #EEDFC7);
 }
 .ca-input::placeholder {
   color: var(--dp-muted);
@@ -520,7 +523,7 @@ select.ca-input {
 }
 .ca-select-trigger.is-open {
   border-color: var(--dp-accent);
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.2), 0 0 0 2px rgba(96, 121, 56, 0.25);
+  box-shadow: inset 2px 3px 6px color-mix(in srgb, var(--dp-ink, #2D2B22) 20%, transparent), 0 0 0 2px color-mix(in srgb, var(--dp-accent, #607938) 25%, transparent);
 }
 .ca-select-chevron {
   flex: none;
@@ -537,13 +540,13 @@ select.ca-input {
   width: 100%;
   z-index: 70;
   background: var(--dp-bg, #EEDFC7);
-  border: 1px solid rgba(45, 43, 34, 0.16);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
   border-radius: 16px;
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  box-shadow: 0 14px 32px rgba(45, 43, 34, 0.28), 0 2px 8px rgba(45, 43, 34, 0.12);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--dp-ink, #2D2B22) 28%, transparent), 0 2px 8px color-mix(in srgb, var(--dp-ink, #2D2B22) 12%, transparent);
   animation: caSelectDrop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes caSelectDrop {
@@ -571,13 +574,13 @@ select.ca-input {
   user-select: none;
 }
 .ca-select-option:hover {
-  background: #dfd2bc;
+  background: var(--dp-surface, #dfd2bc);
   color: var(--dp-accent);
 }
 .ca-select-option.is-selected {
   background: var(--dp-accent);
   color: #FFFFFF;
-  box-shadow: 1px 2px 4px rgba(45, 43, 34, 0.2);
+  box-shadow: 1px 2px 4px color-mix(in srgb, var(--dp-ink, #2D2B22) 20%, transparent);
 }
 .ca-select-option svg {
   flex: none;
@@ -619,11 +622,11 @@ select.ca-input {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .ca-date-trigger:hover {
-  border-color: rgba(96, 121, 56, 0.3);
+  border-color: color-mix(in srgb, var(--dp-accent, #607938) 30%, transparent);
 }
 .ca-date-trigger.is-active {
   border-color: var(--dp-accent);
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.2), 0 0 0 2px rgba(96, 121, 56, 0.25);
+  box-shadow: inset 2px 3px 6px color-mix(in srgb, var(--dp-ink, #2D2B22) 20%, transparent), 0 0 0 2px color-mix(in srgb, var(--dp-accent, #607938) 25%, transparent);
 }
 .ca-date-val {
   color: var(--dp-ink);
@@ -652,10 +655,10 @@ select.ca-input {
   width: 100%;
   box-sizing: border-box;
   z-index: 90;
-  background: #FAF3E8;
-  border: 1px solid rgba(45, 43, 34, 0.14);
+  background: var(--dp-bg, #FAF3E8);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   border-radius: 20px;
-  box-shadow: 0 18px 45px -8px rgba(45, 43, 34, 0.25), 0 4px 16px rgba(45, 43, 34, 0.08);
+  box-shadow: 0 18px 45px -8px color-mix(in srgb, var(--dp-ink, #2D2B22) 25%, transparent), 0 4px 16px color-mix(in srgb, var(--dp-ink, #2D2B22) 8%, transparent);
   padding: 16px 16px 14px;
   animation: caPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -693,10 +696,10 @@ select.ca-input {
   white-space: nowrap;
 }
 .ca-cal-picking-status span.is-active-tab {
-  background: #FAF3E8;
+  background: var(--dp-bg, #FAF3E8);
   color: var(--dp-accent);
   font-weight: 700;
-  box-shadow: 0 1px 3px rgba(45, 43, 34, 0.12);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--dp-ink, #2D2B22) 12%, transparent);
 }
 .ca-cal-picking-status span b {
   color: var(--dp-ink);
@@ -733,12 +736,12 @@ select.ca-input {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #dfd2bc;
-  border: 1px solid rgba(45, 43, 34, 0.12);
+  background: var(--dp-surface, #dfd2bc);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 12%, transparent);
   color: var(--dp-ink);
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 2px 2px 4px rgba(45, 43, 34, 0.1), -1px -1px 3px rgba(255, 255, 255, 0.6);
+  box-shadow: 2px 2px 4px color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent), -1px -1px 3px var(--dp-light, #d6c9b3);
   flex-shrink: 0;
 }
 .ca-cal-nav-btn:hover:not(:disabled) {
@@ -746,7 +749,7 @@ select.ca-input {
   color: var(--dp-accent);
 }
 .ca-cal-nav-btn:active:not(:disabled) {
-  box-shadow: inset 1px 1px 3px rgba(45, 43, 34, 0.2);
+  box-shadow: inset 1px 1px 3px color-mix(in srgb, var(--dp-ink, #2D2B22) 20%, transparent);
 }
 .ca-cal-nav-btn:disabled {
   opacity: 0.3;
@@ -793,7 +796,7 @@ select.ca-input {
   bottom: 2px;
   z-index: 1;
   pointer-events: none;
-  background: rgba(96, 121, 56, 0.18);
+  background: color-mix(in srgb, var(--dp-accent, #607938) 18%, transparent);
 }
 .ca-cal-bar-full {
   left: 0;
@@ -828,7 +831,7 @@ select.ca-input {
   transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 .ca-cal-day-btn:hover:not(.is-selected):not(.is-past) {
-  background: rgba(96, 121, 56, 0.14);
+  background: color-mix(in srgb, var(--dp-accent, #607938) 14%, transparent);
   color: var(--dp-accent);
   font-weight: 600;
 }
@@ -836,16 +839,16 @@ select.ca-input {
   background: var(--dp-accent) !important;
   color: #FFFFFF !important;
   font-weight: 700;
-  box-shadow: 0 2px 7px rgba(96, 121, 56, 0.4);
+  box-shadow: 0 2px 7px color-mix(in srgb, var(--dp-accent, #607938) 40%, transparent);
 }
 .ca-cal-day-btn.is-hover-target {
   border: 2px solid var(--dp-accent) !important;
-  background: #FAF3E8 !important;
+  background: var(--dp-bg, #FAF3E8) !important;
   color: var(--dp-accent) !important;
   font-weight: 700;
 }
 .ca-cal-day-btn.is-past {
-  color: rgba(45, 43, 34, 0.28) !important;
+  color: color-mix(in srgb, var(--dp-ink, #2D2B22) 28%, transparent) !important;
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -868,7 +871,7 @@ select.ca-input {
   justify-content: space-between;
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px solid rgba(45, 43, 34, 0.1);
+  border-top: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 10%, transparent);
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -890,7 +893,7 @@ select.ca-input {
   transition: all 0.15s ease;
 }
 .ca-cal-action-btn:hover:not(:disabled) {
-  background: rgba(45, 43, 34, 0.08);
+  background: color-mix(in srgb, var(--dp-ink, #2D2B22) 8%, transparent);
   color: var(--dp-ink);
 }
 .ca-cal-action-btn:disabled {
@@ -901,10 +904,10 @@ select.ca-input {
   font-size: 11.5px;
   font-weight: 700;
   color: var(--dp-accent);
-  background: rgba(96, 121, 56, 0.12);
+  background: color-mix(in srgb, var(--dp-accent, #607938) 12%, transparent);
   padding: 3px 8px;
   border-radius: 9999px;
-  border: 1px solid rgba(96, 121, 56, 0.2);
+  border: 1px solid color-mix(in srgb, var(--dp-accent, #607938) 20%, transparent);
 }
 .ca-cal-done-btn {
   font-size: 13px;
@@ -916,11 +919,11 @@ select.ca-input {
   height: 32px;
   padding: 0 16px;
   cursor: pointer;
-  box-shadow: 1px 2px 6px rgba(96, 121, 56, 0.3);
+  box-shadow: 1px 2px 6px color-mix(in srgb, var(--dp-accent, #607938) 30%, transparent);
   transition: all 0.15s ease;
 }
 .ca-cal-done-btn:hover {
-  background: #4f642e;
+  background: color-mix(in srgb, var(--dp-accent, #607938) 85%, #000000);
 }
 .ca-cal-done-btn:active {
   box-shadow: inset 1px 2px 4px rgba(0, 0, 0, 0.25);
@@ -943,12 +946,12 @@ select.ca-input {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: #dfd2bc;
-  border: 1px solid rgba(45, 43, 34, 0.16);
+  background: var(--dp-bg, #EEDFC7);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
   border-radius: 16px;
   padding: 12px 16px;
   margin-bottom: 16px;
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.18), inset 0 1px 2px rgba(45, 43, 34, 0.1);
+  box-shadow: var(--master-inner-drop-shadow, inset 3px 3px 7px var(--dp-dark), inset -3px -3px 7px var(--dp-light));
 }
 .ca-stepper > div {
   flex: 1;
@@ -972,27 +975,27 @@ select.ca-input {
   display: grid;
   place-items: center;
   flex: none;
-  border: 1px solid rgba(45, 43, 34, 0.12);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 12%, transparent);
   border-radius: 10px;
   width: 36px;
   height: 36px;
   padding: 0;
   color: var(--dp-ink);
   background: var(--dp-bg);
-  box-shadow: 2px 3px 7px rgba(45, 43, 34, 0.24), 0 1px 2px rgba(45, 43, 34, 0.14);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .ca-stepper > button:hover:not(:disabled),
 .ca-icon-button:hover:not(:disabled) {
   color: var(--dp-accent);
-  box-shadow: 2px 4px 10px rgba(45, 43, 34, 0.3);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   transform: translateY(-1px);
 }
 .ca-stepper > button:active:not(:disabled),
 .ca-icon-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: inset 1px 2px 4px rgba(45, 43, 34, 0.22);
+  transform: translateY(1px);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 .ca-stepper > b {
   min-width: 28px;
@@ -1016,14 +1019,14 @@ select.ca-input {
   flex: none;
   height: 36px;
   padding: 0 16px;
-  border: 1px solid rgba(45, 43, 34, 0.14);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   border-radius: 10px;
   background: var(--dp-bg);
   color: var(--dp-ink);
   font-family: var(--f);
   font-size: 13px;
   font-weight: 600;
-  box-shadow: 2px 3px 6px rgba(45, 43, 34, 0.14);
+  box-shadow: 2px 3px 6px color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   cursor: pointer;
   max-width: 220px;
   overflow: hidden;
@@ -1034,13 +1037,13 @@ select.ca-input {
 .ca-tabs button:hover {
   color: var(--dp-accent);
   border-color: var(--dp-accent);
-  box-shadow: 2px 4px 10px rgba(45, 43, 34, 0.22);
+  box-shadow: 2px 4px 10px color-mix(in srgb, var(--dp-ink, #2D2B22) 22%, transparent);
 }
 .ca-tabs [aria-selected="true"] {
   border-color: var(--dp-accent) !important;
   color: #FFFFFF !important;
   background: var(--dp-accent) !important;
-  box-shadow: 1px 3px 6px rgba(96, 121, 56, 0.35) !important;
+  box-shadow: 1px 3px 6px color-mix(in srgb, var(--dp-accent, #607938) 35%, transparent) !important;
 }
 
 /* ==========================================================================
@@ -1051,16 +1054,16 @@ select.ca-input {
   gap: 12px;
 }
 .ca-accordion {
-  border: 1px solid rgba(45, 43, 34, 0.14);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   border-radius: 16px;
   background: var(--dp-bg);
-  box-shadow: 2px 3px 8px rgba(45, 43, 34, 0.14), 0 1px 2px rgba(45, 43, 34, 0.08);
+  box-shadow: 2px 3px 8px color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent), 0 1px 2px color-mix(in srgb, var(--dp-ink, #2D2B22) 8%, transparent);
   scroll-margin-top: 120px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ca-accordion.is-open {
-  border-color: rgba(96, 121, 56, 0.4);
-  box-shadow: 2px 4px 12px rgba(45, 43, 34, 0.18), 0 1px 3px rgba(45, 43, 34, 0.1);
+  border-color: color-mix(in srgb, var(--dp-accent, #607938) 40%, transparent);
+  box-shadow: 2px 4px 12px color-mix(in srgb, var(--dp-ink, #2D2B22) 18%, transparent), 0 1px 3px color-mix(in srgb, var(--dp-ink, #2D2B22) 10%, transparent);
 }
 .ca-accordion-header {
   display: flex;
@@ -1076,20 +1079,20 @@ select.ca-input {
   min-width: 0;
   height: 44px;
   border-radius: 11px;
-  border: 1px solid rgba(45, 43, 34, 0.16);
-  background: #dfd2bc;
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
+  background: var(--dp-bg, #EEDFC7);
   padding: 0 14px;
   font-size: 15px;
   font-weight: 600;
   color: var(--dp-ink);
   font-family: var(--f);
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.22), inset 0 1px 2px rgba(45, 43, 34, 0.12);
+  box-shadow: var(--master-inner-drop-shadow, inset 3px 3px 7px var(--dp-dark), inset -3px -3px 7px var(--dp-light));
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ca-inline-name:focus {
   border-color: var(--dp-accent);
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.2), 0 0 0 2px rgba(96, 121, 56, 0.25);
+  box-shadow: inset 2px 3px 6px color-mix(in srgb, var(--dp-ink, #2D2B22) 20%, transparent), 0 0 0 2px color-mix(in srgb, var(--dp-accent, #607938) 25%, transparent);
 }
 .ca-inline-name::placeholder {
   color: var(--dp-muted);
@@ -1101,7 +1104,7 @@ select.ca-input {
   flex: none;
   border-radius: 8px;
   background: var(--dp-bg);
-  border: 1px solid rgba(45, 43, 34, 0.14);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   color: var(--dp-muted);
   font-size: 12px;
   font-weight: 600;
@@ -1113,7 +1116,7 @@ select.ca-input {
   height: 28px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(45, 43, 34, 0.25);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 25%, transparent);
   border-radius: 8px;
 }
 .ca-status.is-complete {
@@ -1125,7 +1128,7 @@ select.ca-input {
   transform: rotate(180deg);
 }
 .ca-accordion-body {
-  border-top: 1px dashed rgba(45, 43, 34, 0.16);
+  border-top: 1px dashed color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
   padding: 0 18px 18px;
 }
 .ca-accordion-body h3 {
@@ -1145,14 +1148,14 @@ select.ca-input {
 }
 .ca-traveler {
   padding: 16px 18px 18px;
-  border: 1px solid rgba(45, 43, 34, 0.14);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   border-radius: 16px;
   background: var(--dp-bg);
   display: grid;
   gap: 14px;
   min-width: 0;
   align-content: start;
-  box-shadow: 2px 3px 8px rgba(45, 43, 34, 0.14), 0 1px 2px rgba(45, 43, 34, 0.08);
+  box-shadow: 2px 3px 8px color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent), 0 1px 2px color-mix(in srgb, var(--dp-ink, #2D2B22) 8%, transparent);
 }
 .ca-traveler h3 {
   margin: 0;
@@ -1187,18 +1190,18 @@ select.ca-input {
   font-family: var(--f);
   font-size: 14px;
   font-weight: 600;
-  border: 1px solid rgba(45, 43, 34, 0.12);
-  box-shadow: 2px 3px 6px rgba(45, 43, 34, 0.18), 0 1px 2px rgba(45, 43, 34, 0.12);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 12%, transparent);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   cursor: pointer;
   transition: transform 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 .ca-add-traveler-btn:hover:not(:disabled) {
   color: var(--dp-accent);
-  box-shadow: 2px 4px 10px rgba(45, 43, 34, 0.24);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 .ca-add-traveler-btn:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: inset 1px 2px 4px rgba(45, 43, 34, 0.22);
+  transform: translateY(1px);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 .ca-single .ca-traveler {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1220,17 +1223,17 @@ select.ca-input {
   min-height: 48px;
   padding: 6px 8px 6px 14px;
   border-radius: 12px;
-  background: #dfd2bc;
-  border: 1px solid rgba(45, 43, 34, 0.16);
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.18), inset 0 1px 2px rgba(45, 43, 34, 0.1);
+  background: var(--dp-bg, #EEDFC7);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
+  box-shadow: var(--master-inner-drop-shadow, inset 3px 3px 7px var(--dp-dark), inset -3px -3px 7px var(--dp-light));
   min-width: 0;
   overflow: hidden;
   transition: all 0.2s ease;
 }
 .ca-upload.is-uploading {
-  background: #dfd2bc;
-  border-color: rgba(96, 121, 56, 0.55);
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.2), 0 0 0 2px rgba(96, 121, 56, 0.14);
+  background: var(--dp-bg, #EEDFC7);
+  border-color: color-mix(in srgb, var(--dp-accent, #607938) 55%, transparent);
+  box-shadow: inset 2px 3px 6px color-mix(in srgb, var(--dp-ink, #2D2B22) 20%, transparent), 0 0 0 2px color-mix(in srgb, var(--dp-accent, #607938) 14%, transparent);
 }
 .ca-upload.is-uploading::before {
   content: "";
@@ -1239,7 +1242,7 @@ select.ca-input {
   background: linear-gradient(
     105deg,
     transparent 20%,
-    rgba(96, 121, 56, 0.12) 48%,
+    color-mix(in srgb, var(--dp-accent, #607938) 12%, transparent) 48%,
     rgba(255, 255, 255, 0.22) 52%,
     transparent 80%
   );
@@ -1251,7 +1254,7 @@ select.ca-input {
   100% { transform: translateX(110%); }
 }
 .ca-upload.has-file {
-  border-color: rgba(96, 121, 56, 0.35);
+  border-color: color-mix(in srgb, var(--dp-accent, #607938) 35%, transparent);
   padding: 6px 8px 6px 12px;
   gap: 8px;
   overflow: visible;
@@ -1264,7 +1267,7 @@ select.ca-input {
   right: 0;
   bottom: 0;
   height: 4px;
-  background: rgba(45, 43, 34, 0.12);
+  background: color-mix(in srgb, var(--dp-ink, #2D2B22) 12%, transparent);
   overflow: hidden;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
@@ -1275,12 +1278,12 @@ select.ca-input {
   border-radius: 999px;
   background: linear-gradient(
     90deg,
-    rgba(96, 121, 56, 0.25) 0%,
+    color-mix(in srgb, var(--dp-accent, #607938) 25%, transparent) 0%,
     var(--dp-accent) 50%,
     #7e9c4b 85%,
-    rgba(96, 121, 56, 0.25) 100%
+    color-mix(in srgb, var(--dp-accent, #607938) 25%, transparent) 100%
   );
-  box-shadow: 0 0 8px rgba(96, 121, 56, 0.45);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--dp-accent, #607938) 45%, transparent);
   animation: caUploadProgress 1.15s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
@@ -1311,8 +1314,8 @@ select.ca-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(96, 121, 56, 0.14);
-  border: 1px solid rgba(96, 121, 56, 0.28);
+  background: color-mix(in srgb, var(--dp-accent, #607938) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dp-accent, #607938) 28%, transparent);
   flex-shrink: 0;
 }
 .ca-upload-spinner {
@@ -1339,8 +1342,8 @@ select.ca-input {
   gap: 5px;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(96, 121, 56, 0.14);
-  border: 1px solid rgba(96, 121, 56, 0.24);
+  background: color-mix(in srgb, var(--dp-accent, #607938) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dp-accent, #607938) 24%, transparent);
   color: var(--dp-accent);
   font-size: 11px;
   font-weight: 700;
@@ -1387,8 +1390,8 @@ select.ca-input {
   padding: 9px 12px;
   border-radius: 12px;
   background: var(--dp-bg);
-  border: 1px solid rgba(45, 43, 34, 0.16);
-  box-shadow: 0 12px 28px rgba(45, 43, 34, 0.28);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--dp-ink, #2D2B22) 28%, transparent);
   z-index: 60;
   pointer-events: none;
   opacity: 0;
@@ -1433,7 +1436,7 @@ select.ca-input {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(96, 121, 56, 0.35);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--dp-accent, #607938) 35%, transparent);
   animation: caPopSuccess 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 @keyframes caPopSuccess {
@@ -1473,7 +1476,7 @@ select.ca-input {
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
-  border: 1px solid rgba(45, 43, 34, 0.14);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   transition: all 0.15s ease;
   white-space: nowrap;
 }
@@ -1485,34 +1488,34 @@ select.ca-input {
 .ca-btn-preview {
   background: var(--dp-bg);
   color: var(--dp-ink);
-  box-shadow: 1px 2px 4px rgba(45, 43, 34, 0.16);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 .ca-btn-preview:hover {
   color: var(--dp-accent);
-  border-color: rgba(96, 121, 56, 0.35);
-  box-shadow: 1px 3px 6px rgba(45, 43, 34, 0.22);
+  border-color: color-mix(in srgb, var(--dp-accent, #607938) 35%, transparent);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   transform: translateY(-1px);
 }
 .ca-btn-preview:active {
-  transform: translateY(0);
-  box-shadow: inset 1px 1px 2px rgba(45, 43, 34, 0.2);
+  transform: translateY(1px);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 
 /* Replace button */
 .ca-btn-replace {
   background: var(--dp-bg);
   color: var(--dp-ink);
-  box-shadow: 1px 2px 4px rgba(45, 43, 34, 0.16);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 .ca-btn-replace:hover {
   color: var(--dp-accent);
-  border-color: rgba(96, 121, 56, 0.35);
-  box-shadow: 1px 3px 6px rgba(45, 43, 34, 0.22);
+  border-color: color-mix(in srgb, var(--dp-accent, #607938) 35%, transparent);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   transform: translateY(-1px);
 }
 .ca-btn-replace:active {
-  transform: translateY(0);
-  box-shadow: inset 1px 1px 2px rgba(45, 43, 34, 0.2);
+  transform: translateY(1px);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 
 /* Remove button */
@@ -1520,18 +1523,18 @@ select.ca-input {
   background: var(--dp-bg);
   color: #8C4336;
   border-color: rgba(140, 67, 54, 0.2);
-  box-shadow: 1px 2px 4px rgba(45, 43, 34, 0.16);
+  box-shadow: var(--master-btn-outer-drop-shadow);
 }
 .ca-btn-remove:hover {
   color: #dc2626;
   background: #FDF1EF;
   border-color: rgba(220, 38, 38, 0.4);
-  box-shadow: 1px 3px 6px rgba(220, 38, 38, 0.18);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   transform: translateY(-1px);
 }
 .ca-btn-remove:active {
-  transform: translateY(0);
-  box-shadow: inset 1px 1px 2px rgba(140, 67, 54, 0.22);
+  transform: translateY(1px);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 
 /* Default upload action button */
@@ -1540,7 +1543,7 @@ select.ca-input {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  border: 1px solid rgba(45, 43, 34, 0.14);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   border-radius: 10px;
   padding: 0 16px;
   height: 34px;
@@ -1548,18 +1551,18 @@ select.ca-input {
   font-weight: 700;
   background: var(--dp-bg);
   color: var(--dp-ink);
-  box-shadow: 2px 3px 6px rgba(45, 43, 34, 0.2), 0 1px 2px rgba(45, 43, 34, 0.12);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .ca-upload-action-btn:hover:not(:disabled) {
   color: var(--dp-accent);
-  box-shadow: 2px 4px 8px rgba(45, 43, 34, 0.28);
+  box-shadow: var(--master-btn-outer-drop-shadow);
   transform: translateY(-1px);
 }
 .ca-upload-action-btn:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: inset 1px 2px 4px rgba(45, 43, 34, 0.22);
+  transform: translateY(1px);
+  box-shadow: var(--master-inner-drop-shadow);
 }
 
 @media (max-width: 520px) {
@@ -1588,7 +1591,7 @@ select.ca-input {
 .ca-inline-name.is-invalid:focus {
   outline: none !important;
   border-color: #b91c1c !important;
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.2), 0 0 0 2px rgba(185, 28, 28, 0.2) !important;
+  box-shadow: inset 2px 3px 6px color-mix(in srgb, var(--dp-ink, #2D2B22) 20%, transparent), 0 0 0 2px rgba(185, 28, 28, 0.2) !important;
 }
 .ca-inline-alert {
   display: flex;
@@ -1621,7 +1624,7 @@ select.ca-input {
   border-radius: 18px;
   background: transparent;
   border: none;
-  box-shadow: inset 2px 3px 8px rgba(45, 43, 34, 0.26), inset -1px -1px 3px rgba(110, 106, 89, 0.2);
+  box-shadow: var(--master-inner-drop-shadow, inset 3px 3px 7px var(--dp-dark), inset -3px -3px 7px var(--dp-light));
 }
 .ca-required svg {
   flex: none;
@@ -1664,7 +1667,7 @@ select.ca-input {
   border-radius: 9px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 1px 2px 4px rgba(45, 43, 34, 0.2);
+  box-shadow: 1px 2px 4px color-mix(in srgb, var(--dp-ink, #2D2B22) 20%, transparent);
 }
 .ca-extra small {
   color: var(--dp-muted);
@@ -1690,7 +1693,7 @@ select.ca-input {
   color: #dc2626;
 }
 .ca-profile {
-  border-top: 1px solid rgba(45, 43, 34, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 12%, transparent);
   padding-top: 12px;
   font-size: 13px;
 }
@@ -1708,11 +1711,11 @@ select.ca-input {
 }
 .ca-profile :is(input, select) {
   color: var(--dp-ink);
-  background: #dfd2bc;
-  border: 1px solid rgba(45, 43, 34, 0.16);
+  background: var(--dp-bg, #EEDFC7);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
   border-radius: 10px;
   padding: 8px 12px;
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.16);
+  box-shadow: var(--master-inner-drop-shadow, inset 3px 3px 7px var(--dp-dark), inset -3px -3px 7px var(--dp-light));
 }
 .ca-profile :is(label, p, span) {
   color: var(--dp-muted);
@@ -1734,7 +1737,7 @@ select.ca-input {
   font-family: var(--f);
   font-size: 16px;
   font-weight: 800;
-  box-shadow: 2px 5px 14px rgba(45, 43, 34, 0.38), 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: var(--master-btn-outer-drop-shadow) !important;
   cursor: pointer;
   transition: all 0.15s ease;
   margin-top: 10px;
@@ -1742,11 +1745,11 @@ select.ca-input {
 .ca-continue:hover:not(:disabled) {
   transform: translateY(-1px);
   filter: brightness(0.96);
-  box-shadow: 2px 7px 18px rgba(45, 43, 34, 0.45), 0 3px 6px rgba(0, 0, 0, 0.24) !important;
+  box-shadow: var(--master-btn-outer-drop-shadow) !important;
 }
 .ca-continue:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: inset 2px 3px 7px rgba(0, 0, 0, 0.55), inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  transform: translateY(1px);
+  box-shadow: var(--master-colored-btn-inner-drop-shadow) !important;
 }
 
 /* ==========================================================================
@@ -1768,7 +1771,7 @@ select.ca-input {
   border-radius: 20px;
   padding: 20px 18px;
   text-align: center;
-  box-shadow: 2px 4px 10px rgba(45, 43, 34, 0.18);
+  box-shadow: var(--master-outer-drop-shadow);
 }
 .ca-amount > * {
   display: block;
@@ -1796,10 +1799,10 @@ select.ca-input {
   gap: 16px;
   margin: 18px 0 20px;
   padding: 14px 16px;
-  background: #dfd2bc;
+  background: var(--dp-bg, #EEDFC7);
   border-radius: 16px;
-  border: 1px solid rgba(45, 43, 34, 0.16);
-  box-shadow: inset 2px 3px 6px rgba(45, 43, 34, 0.18), inset 0 1px 2px rgba(45, 43, 34, 0.1);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
+  box-shadow: var(--master-inner-drop-shadow, inset 3px 3px 7px var(--dp-dark), inset -3px -3px 7px var(--dp-light));
 }
 .ca-summary-details > div {
   display: grid;
@@ -1826,13 +1829,13 @@ select.ca-input {
 }
 .ca-chips span {
   background: var(--dp-bg);
-  border: 1px solid rgba(45, 43, 34, 0.14);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   border-radius: 8px;
   padding: 4px 10px;
   font-size: 12px;
   font-weight: 600;
   color: var(--dp-ink);
-  box-shadow: 2px 2px 5px rgba(45, 43, 34, 0.16);
+  box-shadow: 2px 2px 5px color-mix(in srgb, var(--dp-ink, #2D2B22) 16%, transparent);
 }
 .ca-fees {
   padding-top: 0;
@@ -1869,10 +1872,10 @@ select.ca-input {
   margin-top: 6px;
   width: 250px;
   border-radius: 16px;
-  background: #FAF3E8;
-  border: 1px solid rgba(45, 43, 34, 0.14);
+  background: var(--dp-bg, #FAF3E8);
+  border: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   padding: 12px 14px;
-  box-shadow: 0 10px 25px -4px rgba(45, 43, 34, 0.28), 0 3px 8px rgba(45, 43, 34, 0.14);
+  box-shadow: 0 10px 25px -4px color-mix(in srgb, var(--dp-ink, #2D2B22) 28%, transparent), 0 3px 8px color-mix(in srgb, var(--dp-ink, #2D2B22) 14%, transparent);
   opacity: 0;
   visibility: hidden;
   transform: translateY(4px);
@@ -1903,7 +1906,7 @@ select.ca-input {
 }
 .ca-fee-tooltip-divider {
   height: 1px;
-  background: rgba(45, 43, 34, 0.12);
+  background: color-mix(in srgb, var(--dp-ink, #2D2B22) 12%, transparent);
   margin: 6px 0;
 }
 .ca-fee-tooltip-total {
@@ -1922,7 +1925,7 @@ select.ca-input {
   align-items: center;
   padding-top: 14px;
   margin-top: 4px;
-  border-top: 1px solid rgba(45, 43, 34, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--dp-ink, #2D2B22) 12%, transparent);
   display: flex;
   justify-content: space-between;
 }
@@ -1945,8 +1948,8 @@ select.ca-input {
   margin: 18px 0 0 !important;
   padding: 12px 16px;
   border-radius: 14px;
-  background: rgba(96, 121, 56, 0.12);
-  border: 1px solid rgba(96, 121, 56, 0.2);
+  background: color-mix(in srgb, var(--dp-accent, #607938) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dp-accent, #607938) 20%, transparent);
   font-size: 13px !important;
   font-weight: 600;
   color: var(--dp-ink);

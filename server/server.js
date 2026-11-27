@@ -201,6 +201,7 @@ const {
   getDestinationPageContent,
   getSiteState,
   getCustomerChatConfig,
+  getThemeConfig,
   getFooterConfig,
   getSeoConfig,
   getUserProfilePageCopy,
@@ -216,6 +217,7 @@ app.get('/api/config/profile-copy', getUserProfilePageCopy);
 app.get('/api/config/dashboard-copy', getUserDashboardPageCopy);
 app.get('/api/config/site-state', getSiteState);
 app.get('/api/config/customer-chat', getCustomerChatConfig);
+app.get('/api/config/theme', getThemeConfig);
 app.get('/api/config/footer', getFooterConfig);
 app.get('/api/config/seo', getSeoConfig);
 app.get('/api/config/country-codes', getPublicCountryCodeSettings);
@@ -246,6 +248,10 @@ const Conversation = require('./models/Conversation');
 const Message = require('./models/Message');
 const Faq = require('./models/Faq');
 const Application = require('./models/Application');
+const Settings = require('./models/Settings');
+
+const generateTicketId = () =>
+  `TKT-${Date.now().toString().slice(-4)}${Math.floor(10 + Math.random() * 90)}`;
 
 // Helper to construct a standard virtual conversation payload exactly matching the UI expectation
 const mapConversation = async (convo) => {
@@ -262,8 +268,18 @@ const mapConversation = async (convo) => {
     await convo.save();
   }
 
+  const firstUserMsg = messages.find((m) => m.senderType === 'user')?.text || '';
+  const resolvedTicketId = convo.ticketId || `TKT-${convo._id.toString().slice(-6).toUpperCase()}`;
+  const resolvedSubject =
+    (convo.subject && convo.subject !== 'Support Inquiry' ? convo.subject : '') ||
+    convo.userSelectedCategory ||
+    convo.escalationReason ||
+    (firstUserMsg ? firstUserMsg.slice(0, 60) : 'Support Inquiry');
+
   return {
     id: convo._id.toString(),
+    ticketId: resolvedTicketId,
+    subject: resolvedSubject,
     name: convo.userName,
     email: convo.userEmail,
     phone: convo.userPhone,
@@ -271,12 +287,14 @@ const mapConversation = async (convo) => {
     active: convo.active,
     adminTyping: adminTypingActive,
     lastMessage: convo.lastMessage,
+    createdAt: convo.createdAt,
     updatedAt: convo.updatedAt,
+    closedAt: convo.closedAt || null,
     status: convo.status,
     escalationReason: convo.escalationReason,
     userSelectedCategory: convo.userSelectedCategory,
     humanRequested: convo.humanRequested,
-    messageCount: convo.messageCount,
+    messageCount: messages.length || convo.messageCount || 0,
     messages: messages.map(m => ({
       id: m._id.toString(),
       sender: m.senderType,
@@ -332,10 +350,12 @@ app.post('/api/chat/message', optionalAuth, async (req, res) => {
   }
 
   try {
-    const emailAddress = email || req.query.email || (req.user ? req.user.email : null);
+    const rawEmail = email || req.query.email || (req.user ? req.user.email : null);
+    const emailAddress = rawEmail ? String(rawEmail).trim().toLowerCase() : null;
     if (!emailAddress) {
       return res.status(400).json({ success: false, message: "Email required" });
     }
+    const emailRegex = new RegExp(`^${emailAddress.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
 
     let convo = null;
     if (req.user) {
@@ -500,6 +520,11 @@ app.post('/api/admin/chat/conversations/:conversationId/status', protect, requir
     if (!convo) return res.status(404).json({ success: false, message: "Conversation not found" });
 
     convo.status = status;
+    if (status === 'RESOLVED') {
+      convo.closedAt = new Date();
+    } else {
+      convo.closedAt = null;
+    }
     if (status === 'RESOLVED' || status === 'AI_PENDING') {
       convo.humanRequested = false;
       convo.messageCount = 0;
@@ -569,10 +594,12 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
   if (!text) return res.status(400).json({ success: false, message: "Text is required" });
 
   try {
-    const emailAddress = email || req.query.email || (req.user ? req.user.email : null);
+    const rawEmail = email || req.query.email || (req.user ? req.user.email : null);
+    const emailAddress = rawEmail ? String(rawEmail).trim().toLowerCase() : null;
     if (!emailAddress) {
       return res.status(400).json({ success: false, message: "Email required" });
     }
+    const emailRegex = new RegExp(`^${emailAddress.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
 
     let convo = null;
     const isNew = !id || id === "new" || id === "undefined";
@@ -581,17 +608,22 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
       convo = await Conversation.findById(id);
     }
     
-    if (!convo) {
+    if (!convo && !isNew) {
       if (req.user) {
         convo = await Conversation.findOne({
           hiddenFromUser: { $ne: true },
+          status: { $ne: 'RESOLVED' },
           $or: [
             { userId: req.user.id },
-            { userEmail: emailAddress }
+            { userEmail: emailRegex }
           ]
-        });
+        }).sort({ updatedAt: -1 });
       } else {
-        convo = await Conversation.findOne({ hiddenFromUser: { $ne: true }, userEmail: emailAddress });
+        convo = await Conversation.findOne({
+          hiddenFromUser: { $ne: true },
+          status: { $ne: 'RESOLVED' },
+          userEmail: emailRegex
+        }).sort({ updatedAt: -1 });
       }
     }
 
@@ -601,12 +633,21 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
         userName: name || "Anonymous User",
         userEmail: emailAddress,
         userPhone: phone || "Not provided",
+        ticketId: generateTicketId(),
+        subject: text.startsWith("APP_SELECT_") ? "Application Inquiry" : String(text).trim().slice(0, 60),
         lastMessage: text,
         unreadCount: 0,
         active: true
       });
     } else {
       if (req.user && !convo.userId) convo.userId = req.user.id;
+      if (!convo.ticketId) convo.ticketId = generateTicketId();
+      if ((!convo.subject || convo.subject === "Support Inquiry") && sender === "user" && !text.startsWith("APP_SELECT_")) {
+        convo.subject = String(text).trim().slice(0, 60);
+      }
+      if (sender === "user" && convo.status === "RESOLVED") {
+        return res.status(400).json({ success: false, message: "This ticket is already resolved." });
+      }
       if (name) convo.userName = name;
       if (phone) convo.userPhone = phone;
     }
@@ -639,31 +680,86 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
 
     if (sender === "user" && (!convo.status || convo.status === "AI_PENDING")) {
       const lowerText = text.toLowerCase();
-      const triggersHuman = /(human|agent|executive|support|person|representative|real person)/i.test(lowerText);
+      const chatSettingsDoc = await Settings.findOne().select("customerChatQuickTabs").lean();
+      const configuredTabs =
+        Array.isArray(chatSettingsDoc?.customerChatQuickTabs) && chatSettingsDoc.customerChatQuickTabs.length > 0
+          ? chatSettingsDoc.customerChatQuickTabs
+              .map((t) => ({
+                label: String(t?.label || "").trim(),
+                actionType: String(t?.actionType || "custom_reply").trim(),
+                replyText: String(t?.replyText || "").trim(),
+              }))
+              .filter((t) => t.label.length > 0)
+          : [
+              { label: "Application Status", actionType: "application_status", replyText: "" },
+              { label: "Require Document Needed", actionType: "required_documents", replyText: "" },
+              { label: "Refund Related", actionType: "refund_policy", replyText: "" },
+              { label: "Talk to Human", actionType: "human_support", replyText: "" },
+            ];
+      const quickTabLabels = configuredTabs.map((t) => t.label);
+      const matchedTab = configuredTabs.find((t) => t.label.toLowerCase() === lowerText.trim());
 
-      if (triggersHuman) {
+      const triggersHuman =
+        matchedTab?.actionType === "human_support" ||
+        /(human|agent|executive|talk to human|representative|real person)/i.test(lowerText);
+
+      const findUserApplications = async () => {
+        const filters = [];
+        if (convo.userId) {
+          filters.push({ user: convo.userId });
+        }
+        const safeEmail = String(convo.userEmail || "").trim();
+        if (safeEmail && !safeEmail.endsWith("@phone.visavo.in")) {
+          filters.push({ email: new RegExp(`^${safeEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") });
+        }
+        if (filters.length === 0) return [];
+        return Application.find(filters.length === 1 ? filters[0] : { $or: filters }).sort({ createdAt: -1 });
+      };
+
+      if (matchedTab?.actionType === "custom_reply") {
         convo.consecutiveFailures = 0;
         await convo.save();
         aiMessage = new Message({
           conversationId: convo._id,
           senderType: "admin",
           senderId: "system",
-          text: "I'm sorry I couldn't completely resolve your issue. Would you like to connect with one of our support executives?",
+          text:
+            matchedTab.replyText ||
+            `Thanks for reaching out about "${matchedTab.label}". Please share your query below or connect with our support team.`,
+          messageType: "chips",
+          options: ["Talk to Human", "Main Menu"],
+          read: true
+        });
+      } else if (triggersHuman) {
+        convo.consecutiveFailures = 0;
+        await convo.save();
+        aiMessage = new Message({
+          conversationId: convo._id,
+          senderType: "admin",
+          senderId: "system",
+          text: matchedTab?.replyText || "I can connect you with one of our visa support executives right away. Click below to notify our team.",
           messageType: "human_escalation",
           read: true
         });
         await aiMessage.save();
       } else {
         const appRelatedIntents = [
-          "application status", "check status", "track application", "uploaded documents", "payment", 
-          "refund", "refund & cancellation", "required documents", "visa information", 
-          "traveller details", "document verification"
+          "application status", "check status", "track application", "uploaded documents", "payment",
+          "refund", "refund related", "refund & cancellation", "required documents", "require document needed",
+          "document needed", "documents needed", "visa information", "traveller details", "document verification"
         ];
         
-        let isAppIntent = appRelatedIntents.some(intent => lowerText.includes(intent));
+        let isAppIntent =
+          matchedTab?.actionType === "application_status" ||
+          matchedTab?.actionType === "required_documents" ||
+          matchedTab?.actionType === "refund_policy" ||
+          appRelatedIntents.some(intent => lowerText.includes(intent));
         const isChangeApp = lowerText.includes("change application") || lowerText.includes("select another application");
         
         let processingText = lowerText;
+        if (matchedTab?.actionType === "required_documents") processingText = "document";
+        else if (matchedTab?.actionType === "refund_policy") processingText = "refund";
+        else if (matchedTab?.actionType === "application_status") processingText = "check status";
         let isAppSelect = false;
 
         if (text.startsWith("APP_SELECT_")) {
@@ -683,23 +779,54 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
 
         if (isAppIntent) {
           if (!convo.selectedApplicationId) {
-            let apps = [];
-            if (convo.userId) {
-              apps = await Application.find({ user: convo.userId });
-            } else {
-              apps = await Application.find({ email: convo.userEmail });
-            }
+            const apps = await findUserApplications();
 
             if (apps.length === 0) {
-              aiMessage = new Message({
-                conversationId: convo._id,
-                senderType: "admin",
-                senderId: "system",
-                text: "I couldn't find any applications under your account. Please ensure you are logged in with the correct email.",
-                messageType: "chips",
-                options: ["Main Menu"],
-                read: true
-              });
+              if (processingText.includes("document")) {
+                aiMessage = new Message({
+                  conversationId: convo._id,
+                  senderType: "admin",
+                  senderId: "system",
+                  text:
+                    matchedTab?.replyText ||
+                    "Standard Visa Documents Required:\n\n" +
+                    "1. Valid Passport (at least 6 months validity from travel date)\n" +
+                    "2. Recent Passport-size Photograph\n" +
+                    "3. Bank Statement / Financial Proof\n" +
+                    "4. Flight & Hotel Reservation / Travel Itinerary\n" +
+                    "5. Employment / Business / Student Proof (as applicable)\n\n" +
+                    "Tip: Exact checklist depends on your destination country. Open any country page to view its full document list, or connect with our team for personalized help.",
+                  messageType: "chips",
+                  options: ["Talk to Human", "Main Menu"],
+                  read: true
+                });
+              } else if (processingText.includes("refund") || processingText.includes("cancellation")) {
+                aiMessage = new Message({
+                  conversationId: convo._id,
+                  senderType: "admin",
+                  senderId: "system",
+                  text:
+                    matchedTab?.replyText ||
+                    "Visa & Voyage Refund Policy:\n\n" +
+                    "• If your visa application is rejected, eligible refund amounts are processed directly to your original payment method / bank account within 1-3 business days.\n" +
+                    "• For cancellation or refund requests on an existing application, please share your Application ID with our support team at support@visavo.in or connect with a live agent below.",
+                  messageType: "chips",
+                  options: ["Talk to Human", "Main Menu"],
+                  read: true
+                });
+              } else {
+                aiMessage = new Message({
+                  conversationId: convo._id,
+                  senderType: "admin",
+                  senderId: "system",
+                  text:
+                    matchedTab?.replyText ||
+                    "We couldn't find any visa applications under your account yet. You can start a new application from the home page, or connect with a support executive if you applied using a different email.",
+                  messageType: "chips",
+                  options: ["Talk to Human", "Require Document Needed", "Main Menu"],
+                  read: true
+                });
+              }
             } else {
               if (!isChangeApp && !isAppSelect) {
                 convo.pendingQuestion = lowerText;
@@ -813,13 +940,27 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
             }
           }
         } else if (lowerText === "main menu") {
+          convo.consecutiveFailures = 0;
+          await convo.save();
           aiMessage = new Message({
             conversationId: convo._id,
             senderType: "admin",
             senderId: "system",
             text: "How can we help you today? Please select from the options below:",
             messageType: "chips",
-            options: ["Change Application", "Require Document Needed", "Refund Related", "Application Status"],
+            options: quickTabLabels,
+            read: true
+          });
+        } else if (/^(hi|hello|hey|hii|namaste|good morning|good evening)\b/i.test(lowerText)) {
+          convo.consecutiveFailures = 0;
+          await convo.save();
+          aiMessage = new Message({
+            conversationId: convo._id,
+            senderType: "admin",
+            senderId: "system",
+            text: `Hello ${convo.userName || "there"}! How can we assist you with your visa today? Choose a quick option below or type your question.`,
+            messageType: "chips",
+            options: quickTabLabels,
             read: true
           });
         } else {
@@ -842,20 +983,14 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
               senderId: "system",
               text: bestMatch.answer,
               messageType: "chips",
-              options: ["Main Menu"],
+              options: ["Talk to Human", "Main Menu"],
               read: true
             });
           } else {
             convo.consecutiveFailures += 1;
+            const apps = await findUserApplications();
             
-            let apps = [];
-            if (convo.userId) {
-              apps = await Application.find({ user: convo.userId });
-            } else {
-              apps = await Application.find({ email: convo.userEmail });
-            }
-            
-            if (apps.length > 0) {
+            if (apps.length > 0 && convo.consecutiveFailures === 1) {
               convo.pendingQuestion = lowerText;
               await convo.save();
               
@@ -872,9 +1007,20 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
                 conversationId: convo._id,
                 senderType: "admin",
                 senderId: "system",
-                text: `Hello ${convo.userName || "there"}! Welcome to Visa & Voyage. How can I assist you today? Please select an application:`,
+                text: "Is your question about one of your applications? Select an application below, or connect directly with our support team.",
                 messageType: "application_cards",
                 applicationsData: appsData,
+                read: true
+              });
+            } else if (convo.consecutiveFailures >= 2) {
+              convo.consecutiveFailures = 0;
+              await convo.save();
+              aiMessage = new Message({
+                conversationId: convo._id,
+                senderType: "admin",
+                senderId: "system",
+                text: "Let me connect you with one of our visa specialists so you get an accurate answer right away.",
+                messageType: "human_escalation",
                 read: true
               });
             } else {
@@ -883,9 +1029,9 @@ app.post('/api/support/conversations/:id/messages', optionalAuth, async (req, re
                 conversationId: convo._id,
                 senderType: "admin",
                 senderId: "system",
-                text: `Hello ${convo.userName || "there"}! Welcome to Visa & Voyage. How can I assist you today?`,
+                text: "Thanks for your message! Please choose a topic below or click 'Talk to Human' to chat directly with our support executive.",
                 messageType: "chips",
-                options: ["Change Application", "Require Document Needed", "Refund Related", "Application Status"],
+                options: quickTabLabels,
                 read: true
               });
             }
@@ -946,24 +1092,153 @@ app.post('/api/support/conversations/:id/human-request', optionalAuth, async (re
   }
 });
 
-app.get('/api/support/conversations/client/chat', optionalAuth, async (req, res) => {
+app.get('/api/support/conversations/client/tickets', optionalAuth, async (req, res) => {
   try {
-    const emailAddress = req.query.email || (req.user ? req.user.email : null);
-    if (!emailAddress) {
+    const isGuestMode = req.query.guest === "1";
+    const effectiveUser = isGuestMode ? null : req.user;
+    const rawEmail = req.query.email || (effectiveUser ? effectiveUser.email : null);
+    const emailAddress = rawEmail ? String(rawEmail).trim().toLowerCase() : null;
+    if (!emailAddress && !effectiveUser) {
       return res.status(400).json({ success: false, message: "Email required" });
     }
+    const emailRegex = emailAddress
+      ? new RegExp(`^${emailAddress.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i")
+      : null;
+
+    const filter = effectiveUser
+      ? {
+          hiddenFromUser: { $ne: true },
+          $or: [
+            { userId: effectiveUser.id },
+            ...(emailRegex ? [{ userEmail: emailRegex }] : [])
+          ]
+        }
+      : { hiddenFromUser: { $ne: true }, userEmail: emailRegex };
+
+    const convos = await Conversation.find(filter).sort({ updatedAt: -1 }).limit(30);
+    const tickets = await Promise.all(
+      convos.map(async (c) => {
+        const msgCount = await Message.countDocuments({ conversationId: c._id });
+        const firstUserMsg = await Message.findOne({ conversationId: c._id, senderType: 'user' })
+          .sort({ createdAt: 1 })
+          .select('text')
+          .lean();
+        return {
+          id: c._id.toString(),
+          ticketId: c.ticketId || `TKT-${c._id.toString().slice(-6).toUpperCase()}`,
+          subject:
+            (c.subject && c.subject !== 'Support Inquiry' ? c.subject : '') ||
+            c.userSelectedCategory ||
+            c.escalationReason ||
+            firstUserMsg?.text?.slice(0, 60) ||
+            'Support Inquiry',
+          status: c.status || 'AI_PENDING',
+          lastMessage: c.lastMessage || 'No messages yet',
+          messageCount: msgCount || c.messageCount || 0,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+          closedAt: c.closedAt || null,
+        };
+      })
+    );
+
+    res.json({ success: true, tickets });
+  } catch (err) {
+    logger.error('Error fetching client tickets:', err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+app.post('/api/support/conversations/client/tickets', optionalAuth, async (req, res) => {
+  try {
+    const { name, email, phone, subject } = req.body || {};
+    const rawEmail = email || req.query.email || (req.user ? req.user.email : null);
+    const emailAddress = rawEmail ? String(rawEmail).trim().toLowerCase() : null;
+    if (!emailAddress && !req.user) {
+      return res.status(400).json({ success: false, message: "Email required" });
+    }
+    const emailRegex = emailAddress
+      ? new RegExp(`^${emailAddress.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i")
+      : null;
+
+    const activeFilter = req.user
+      ? {
+          hiddenFromUser: { $ne: true },
+          status: { $ne: "RESOLVED" },
+          $or: [
+            { userId: req.user.id },
+            ...(emailRegex ? [{ userEmail: emailRegex }] : [])
+          ]
+        }
+      : { hiddenFromUser: { $ne: true }, status: { $ne: "RESOLVED" }, userEmail: emailRegex };
+
+    const existingOpen = await Conversation.findOne(activeFilter).sort({ updatedAt: -1 });
+    if (existingOpen) {
+      const mappedExisting = await mapConversation(existingOpen);
+      return res.status(409).json({
+        success: false,
+        code: "OPEN_TICKET_EXISTS",
+        message: `You already have an active ticket (#${mappedExisting.ticketId}). Please wait until it is resolved before creating a new one.`,
+        existingTicket: mappedExisting,
+      });
+    }
+
+    const convo = new Conversation({
+      userId: req.user ? req.user.id : null,
+      userName: name || (req.user ? req.user.name : null) || "Customer",
+      userEmail: emailAddress,
+      userPhone: phone || (req.user ? req.user.phone : null) || "Not provided",
+      ticketId: generateTicketId(),
+      subject: String(subject || "Support Inquiry").trim().slice(0, 60) || "Support Inquiry",
+      status: "AI_PENDING",
+      lastMessage: "",
+      unreadCount: 0,
+      active: true,
+    });
+    await convo.save();
+
+    const mapped = await mapConversation(convo);
+    res.json({ success: true, conversation: mapped });
+  } catch (err) {
+    logger.error('Error creating support ticket:', err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+app.get('/api/support/conversations/client/chat', optionalAuth, async (req, res) => {
+  try {
+    const isGuestMode = req.query.guest === "1";
+    const effectiveUser = isGuestMode ? null : req.user;
+    const rawEmail = req.query.email || (effectiveUser ? effectiveUser.email : null);
+    const emailAddress = rawEmail ? String(rawEmail).trim().toLowerCase() : null;
+    const requestedTicketId = String(req.query.ticketId || "").trim();
+    if (!emailAddress && !effectiveUser) {
+      return res.status(400).json({ success: false, message: "Email required" });
+    }
+    const emailRegex = emailAddress
+      ? new RegExp(`^${emailAddress.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i")
+      : null;
 
     let convo = null;
-    if (req.user) {
-      convo = await Conversation.findOne({
-        hiddenFromUser: { $ne: true },
-        $or: [
-          { userId: req.user.id },
-          { userEmail: emailAddress }
-        ]
-      });
-    } else {
-      convo = await Conversation.findOne({ hiddenFromUser: { $ne: true }, userEmail: emailAddress });
+    if (requestedTicketId && requestedTicketId.match(/^[0-9a-fA-F]{24}$/)) {
+      convo = await Conversation.findOne({ _id: requestedTicketId, hiddenFromUser: { $ne: true } });
+    }
+
+    if (!convo) {
+      const baseFilter = effectiveUser
+        ? {
+            hiddenFromUser: { $ne: true },
+            $or: [
+              { userId: effectiveUser.id },
+              ...(emailRegex ? [{ userEmail: emailRegex }] : [])
+            ]
+          }
+        : { hiddenFromUser: { $ne: true }, userEmail: emailRegex };
+
+      convo = await Conversation.findOne({ ...baseFilter, status: { $ne: 'RESOLVED' } }).sort({ updatedAt: -1 });
+      if (!convo) {
+        convo = await Conversation.findOne(baseFilter).sort({ updatedAt: -1 });
+      }
     }
 
     if (convo) {

@@ -733,6 +733,9 @@ const updateSettings = async (req, res) => {
       customerChatDescription,
       customerChatHeaderTitle,
       customerChatHeaderSubtitle,
+      customerChatQuickTabs,
+      frontendTheme,
+      frontendThemePresets,
       footerLogo,
       footerBrandPrimaryText,
       footerBrandAccentText,
@@ -836,6 +839,58 @@ const updateSettings = async (req, res) => {
     if (customerChatDescription !== undefined) settings.customerChatDescription = String(customerChatDescription || '').trim();
     if (customerChatHeaderTitle !== undefined) settings.customerChatHeaderTitle = String(customerChatHeaderTitle || '').trim();
     if (customerChatHeaderSubtitle !== undefined) settings.customerChatHeaderSubtitle = String(customerChatHeaderSubtitle || '').trim();
+    if (Array.isArray(customerChatQuickTabs)) {
+      const allowedActions = new Set([
+        'application_status',
+        'required_documents',
+        'refund_policy',
+        'human_support',
+        'custom_reply',
+      ]);
+      settings.customerChatQuickTabs = customerChatQuickTabs
+        .map((tab) => ({
+          label: String(tab?.label || '').trim(),
+          actionType: allowedActions.has(String(tab?.actionType || '').trim())
+            ? String(tab.actionType).trim()
+            : 'custom_reply',
+          replyText: String(tab?.replyText || '').trim(),
+        }))
+        .filter((tab) => tab.label.length > 0);
+    }
+    if (frontendTheme && typeof frontendTheme === 'object') {
+      const sanitizeHex = (val, fallback) => {
+        const s = String(val || '').trim();
+        return /^#[0-9a-fA-F]{6}$/.test(s) ? s : fallback;
+      };
+      settings.frontendTheme = {
+        preset: String(frontendTheme.preset || 'custom').trim() || 'custom',
+        bg: sanitizeHex(frontendTheme.bg, '#EEDFC7'),
+        surfaceBg: sanitizeHex(frontendTheme.surfaceBg, '#D9CCB4'),
+        ink: sanitizeHex(frontendTheme.ink, '#2D2B22'),
+        muted: sanitizeHex(frontendTheme.muted, '#6E6A59'),
+        accent: sanitizeHex(frontendTheme.accent, '#607938'),
+        buttonText: sanitizeHex(frontendTheme.buttonText, '#FFFFFF'),
+      };
+    }
+    if (Array.isArray(frontendThemePresets)) {
+      const sanitizeHex = (val, fallback) => {
+        const s = String(val || '').trim();
+        return /^#[0-9a-fA-F]{6}$/.test(s) ? s : fallback;
+      };
+      settings.frontendThemePresets = frontendThemePresets
+        .slice(0, 24)
+        .map((item, idx) => ({
+          preset: String(item?.preset || `custom-${Date.now()}-${idx}`).trim(),
+          name: String(item?.name || '').trim().slice(0, 48),
+          bg: sanitizeHex(item?.bg, '#EEDFC7'),
+          surfaceBg: sanitizeHex(item?.surfaceBg, '#D9CCB4'),
+          ink: sanitizeHex(item?.ink, '#2D2B22'),
+          muted: sanitizeHex(item?.muted, '#6E6A59'),
+          accent: sanitizeHex(item?.accent, '#607938'),
+          buttonText: sanitizeHex(item?.buttonText, '#FFFFFF'),
+        }))
+        .filter((item) => item.name.length > 0 && item.preset.length > 0);
+    }
     if (footerLogo !== undefined) settings.footerLogo = String(footerLogo || '').trim();
     if (footerBrandPrimaryText !== undefined) settings.footerBrandPrimaryText = String(footerBrandPrimaryText || '').trim();
     if (footerBrandAccentText !== undefined) settings.footerBrandAccentText = String(footerBrandAccentText || '').trim();
@@ -1233,6 +1288,21 @@ const getCustomerChatConfig = async (req, res) => {
         headerSubtitle:
           String(settings?.customerChatHeaderSubtitle || '').trim() ||
           'We typically reply in a few minutes',
+        quickTabs:
+          Array.isArray(settings?.customerChatQuickTabs) && settings.customerChatQuickTabs.length > 0
+            ? settings.customerChatQuickTabs
+                .map((tab) => ({
+                  label: String(tab?.label || '').trim(),
+                  actionType: String(tab?.actionType || 'custom_reply').trim(),
+                  replyText: String(tab?.replyText || '').trim(),
+                }))
+                .filter((tab) => tab.label.length > 0)
+            : [
+                { label: 'Application Status', actionType: 'application_status', replyText: '' },
+                { label: 'Require Document Needed', actionType: 'required_documents', replyText: '' },
+                { label: 'Refund Related', actionType: 'refund_policy', replyText: '' },
+                { label: 'Talk to Human', actionType: 'human_support', replyText: '' },
+              ],
         whatsappTemplate: String(settings?.whatsappTemplate || '').trim() ||
           'Hello Visa & Voyage Team,\nI need help with my visa application.\n\nName: {{userName}}\nCountry: {{country}}\nVisa Type: {{visaType}}\nTravel Date: {{travelDate}}\nApplication ID: {{applicationId}}\n\nPlease guide me.',
         hideWhatsAppSection: settings?.hideWhatsAppSection === true,
@@ -1334,6 +1404,28 @@ const getSiteState = async (req, res) => {
   }
 };
 
+const getThemeConfig = async (req, res) => {
+  try {
+    const settings = await loadSettingsDocument();
+    const t = settings?.frontendTheme || {};
+    res.json({
+      success: true,
+      theme: {
+        preset: String(t.preset || 'deep-press').trim() || 'deep-press',
+        bg: String(t.bg || '#EEDFC7').trim() || '#EEDFC7',
+        surfaceBg: String(t.surfaceBg || '#D9CCB4').trim() || '#D9CCB4',
+        ink: String(t.ink || '#2D2B22').trim() || '#2D2B22',
+        muted: String(t.muted || '#6E6A59').trim() || '#6E6A59',
+        accent: String(t.accent || '#607938').trim() || '#607938',
+        buttonText: String(t.buttonText || '#FFFFFF').trim() || '#FFFFFF',
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching theme config:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -1344,6 +1436,7 @@ module.exports = {
   getDestinationPageContent,
   getSiteState,
   getCustomerChatConfig,
+  getThemeConfig,
   getFooterConfig,
   getSeoConfig,
   uploadSeoAssets,

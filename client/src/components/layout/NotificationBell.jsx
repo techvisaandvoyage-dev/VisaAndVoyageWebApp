@@ -222,7 +222,7 @@ const NotificationBell = ({ className = "" }) => {
 
           <div
             className="max-h-[min(360px,calc(100vh-140px))] overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#dfd2bc]/50 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#607938]/45 hover:[&::-webkit-scrollbar-thumb]:bg-[#607938]/70"
-            style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(96, 121, 56, 0.5) transparent" }}
+            style={{ scrollbarWidth: "thin", scrollbarColor: "color-mix(in srgb, var(--ac, #607938) 50%, transparent) transparent" }}
           >
             {notificationsLoading ? (
               <div className="flex items-center justify-center px-5 py-10 text-[#607938]">
