@@ -26,39 +26,96 @@
   <style>
     body {
       margin: 0;
-      background-color: #EEDFC7;
-    }
-
-    /* :empty pseudo-class ensure karta hai ki jaise hi React load hoga, ye loader hide ho jayega */
-    #root:empty {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      width: 100vw;
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid rgba(2, 82, 213, 0.15);
-      border-radius: 50%;
-      border-top-color: #0252D5;
-      animation: spin 1s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
+      background-color: var(--bg, #EEDFC7);
     }
   </style>
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem("visavo_frontend_theme");
+        if (!raw) return;
+        var t = JSON.parse(raw);
+        if (!t || typeof t !== "object") return;
+        var def = {
+          bg: "#EEDFC7",
+          surfaceBg: "#D9CCB4",
+          ink: "#2D2B22",
+          muted: "#6E6A59",
+          accent: "#607938",
+          buttonText: "#FFFFFF"
+        };
+        var up = function (v) { return typeof v === "string" ? v.toUpperCase() : ""; };
+        if (
+          up(t.bg) === def.bg &&
+          up(t.surfaceBg) === def.surfaceBg &&
+          up(t.ink) === def.ink &&
+          up(t.muted) === def.muted &&
+          up(t.accent) === def.accent &&
+          up(t.buttonText) === def.buttonText
+        ) {
+          return;
+        }
+        var theme = {
+          bg: t.bg || def.bg,
+          surfaceBg: t.surfaceBg || def.surfaceBg,
+          ink: t.ink || def.ink,
+          muted: t.muted || def.muted,
+          accent: t.accent || def.accent,
+          buttonText: t.buttonText || def.buttonText
+        };
+        var root = document.documentElement;
+        var hi = "color-mix(in srgb, " + theme.surfaceBg + " 92%, " + theme.ink + ")";
+        var lo = "color-mix(in srgb, " + theme.surfaceBg + " 78%, " + theme.ink + ")";
+        var line = "color-mix(in srgb, " + theme.ink + " 16%, transparent)";
+        var vars = {
+          "--bg": theme.bg,
+          "--pbg": theme.bg,
+          "--cd": theme.bg,
+          "--color-background": theme.bg,
+          "--color-surface": theme.bg,
+          "--surface-bg": theme.surfaceBg,
+          "--surface-2": theme.surfaceBg,
+          "--surface-3": theme.surfaceBg,
+          "--nb": theme.surfaceBg,
+          "--fb": theme.surfaceBg,
+          "--color-surface-2": theme.surfaceBg,
+          "--color-surface-3": theme.surfaceBg,
+          "--ink": theme.ink,
+          "--nt": theme.ink,
+          "--fth": theme.ink,
+          "--color-text-primary": theme.ink,
+          "--mu": theme.muted,
+          "--ftt": theme.muted,
+          "--color-text-secondary": theme.muted,
+          "--ac": theme.accent,
+          "--acr": theme.accent,
+          "--bb": theme.accent,
+          "--na": theme.accent,
+          "--color-cyan": theme.accent,
+          "--color-cyan-dim": "color-mix(in srgb, " + theme.accent + " 82%, #000000)",
+          "--bf": theme.buttonText,
+          "--hi": hi,
+          "--lo": lo,
+          "--nl": line,
+          "--dp-bg": theme.bg,
+          "--dp-surface": theme.surfaceBg,
+          "--dp-header-bg": theme.surfaceBg,
+          "--dp-ink": theme.ink,
+          "--dp-muted": theme.muted,
+          "--dp-accent": theme.accent,
+          "--dp-light": hi,
+          "--dp-dark": lo
+        };
+        for (var k in vars) {
+          root.style.setProperty(k, vars[k]);
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body>
-  <div id="root">
-    <div class="spinner"></div>
-  </div>
+  <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 

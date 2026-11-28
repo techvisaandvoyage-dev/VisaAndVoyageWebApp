@@ -38,9 +38,20 @@ export default function CompactDateRangePicker({
   returnLabel = "RETURN",
   departurePlaceholder = "dd-mm-yyyy",
   returnPlaceholder = "dd-mm-yyyy",
+  allowPastDates = false,
+  singleTriggerMode = false,
+  singleTriggerPlaceholder = "Travel date",
+  fromStatusLabel = "Departure",
+  toStatusLabel = "Return",
+  popoverAlign = "left",
+  defaultOpen = false,
+  inlineCalendarOnly = false,
+  doneLabel = "Done",
+  onDone,
+  onCancel,
   onDateChange
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen || inlineCalendarOnly);
   const [activeField, setActiveField] = useState("from"); // "from" | "to"
   const [hoverDate, setHoverDate] = useState(null);
 
@@ -72,7 +83,7 @@ export default function CompactDateRangePicker({
 
   // Click outside and escape handler
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || inlineCalendarOnly) return;
 
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -118,9 +129,10 @@ export default function CompactDateRangePicker({
 
   // Determine if previous navigation should be disabled
   const isPrevDisabled = useMemo(() => {
+    if (allowPastDates) return false;
     const currentMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     return viewMonth <= currentMonthStart;
-  }, [viewMonth]);
+  }, [viewMonth, allowPastDates]);
 
   // Generate calendar grid for the current viewMonth
   const monthData = useMemo(() => {
@@ -142,7 +154,7 @@ export default function CompactDateRangePicker({
     // Days in current month
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      const isPast = dateStr < effectiveMin;
+      const isPast = allowPastDates ? false : dateStr < effectiveMin;
       const isToday = dateStr === todayStr;
       const isStart = dateStr === departureDate;
       const isEnd = dateStr === returnDate;
@@ -187,7 +199,7 @@ export default function CompactDateRangePicker({
       title: `${MONTH_NAMES[month]} ${year}`,
       cells
     };
-  }, [viewMonth, departureDate, returnDate, hoverDate, activeField, effectiveMin, todayStr]);
+  }, [viewMonth, departureDate, returnDate, hoverDate, activeField, effectiveMin, todayStr, allowPastDates]);
 
   const handleDayClick = (cell) => {
     if (cell.isPast) return;
@@ -246,56 +258,109 @@ export default function CompactDateRangePicker({
     return `${days} Days • ${nights} ${nights === 1 ? "Night" : "Nights"}`;
   }, [departureDate, returnDate]);
 
+  const singleTriggerDisplay = useMemo(() => {
+    if (departureDate && returnDate) {
+      return `${formatDisplayDate(departureDate)} → ${formatDisplayDate(returnDate)}`;
+    }
+    if (departureDate) {
+      return `From ${formatDisplayDate(departureDate)}`;
+    }
+    if (returnDate) {
+      return `Until ${formatDisplayDate(returnDate)}`;
+    }
+    return singleTriggerPlaceholder;
+  }, [departureDate, returnDate, singleTriggerPlaceholder]);
+
   return (
-    <div className="ca-date-picker-wrap" ref={containerRef}>
-      {/* Two input triggers matching existing layout */}
-      <div className="ca-date-grid">
-        <div className="ca-field">
-          <label htmlFor="ca-departure">{departureLabel}</label>
+    <div className={`ca-date-picker-wrap ${singleTriggerMode ? "ud-date-picker-wrap" : ""} ${inlineCalendarOnly ? "ud-inline-cal-wrap" : ""}`} ref={containerRef}>
+      {inlineCalendarOnly ? null : singleTriggerMode ? (
+        <div className="ud-date-trigger-row">
           <button
             type="button"
-            id="ca-departure"
-            className={`ca-input ca-date-trigger ${isOpen && activeField === "from" ? "is-active" : ""}`}
-            onClick={() => handleOpen("from")}
+            className={`ud-field ud-date-trigger-btn ${isOpen ? "is-active" : ""} ${departureDate || returnDate ? "has-value" : ""}`}
+            onClick={() => {
+              if (isOpen) {
+                setIsOpen(false);
+                setHoverDate(null);
+              } else {
+                handleOpen("from");
+              }
+            }}
             aria-haspopup="dialog"
             aria-expanded={isOpen}
           >
-            <span className={departureDate ? "ca-date-val" : "ca-date-ph"}>
-              {formatDisplayDate(departureDate) || departurePlaceholder}
-            </span>
-            <CalendarDays size={18} className="ca-date-icon" />
+            <CalendarDays size={15} />
+            <span>{singleTriggerDisplay}</span>
           </button>
+          {(departureDate || returnDate) && (
+            <button
+              type="button"
+              className="ud-date-clear-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClear();
+              }}
+              aria-label="Clear travel date range"
+              title="Clear date range"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
+      ) : (
+        /* Two input triggers matching existing layout */
+        <div className="ca-date-grid">
+          <div className="ca-field">
+            <label htmlFor="ca-departure">{departureLabel}</label>
+            <button
+              type="button"
+              id="ca-departure"
+              className={`ca-input ca-date-trigger ${isOpen && activeField === "from" ? "is-active" : ""}`}
+              onClick={() => handleOpen("from")}
+              aria-haspopup="dialog"
+              aria-expanded={isOpen}
+            >
+              <span className={departureDate ? "ca-date-val" : "ca-date-ph"}>
+                {formatDisplayDate(departureDate) || departurePlaceholder}
+              </span>
+              <CalendarDays size={18} className="ca-date-icon" />
+            </button>
+          </div>
 
-        <div className="ca-field">
-          <label htmlFor="ca-return">{returnLabel}</label>
-          <button
-            type="button"
-            id="ca-return"
-            className={`ca-input ca-date-trigger ${isOpen && activeField === "to" ? "is-active" : ""}`}
-            onClick={() => handleOpen("to")}
-            aria-haspopup="dialog"
-            aria-expanded={isOpen}
-          >
-            <span className={returnDate ? "ca-date-val" : "ca-date-ph"}>
-              {formatDisplayDate(returnDate) || returnPlaceholder}
-            </span>
-            <CalendarDays size={18} className="ca-date-icon" />
-          </button>
+          <div className="ca-field">
+            <label htmlFor="ca-return">{returnLabel}</label>
+            <button
+              type="button"
+              id="ca-return"
+              className={`ca-input ca-date-trigger ${isOpen && activeField === "to" ? "is-active" : ""}`}
+              onClick={() => handleOpen("to")}
+              aria-haspopup="dialog"
+              aria-expanded={isOpen}
+            >
+              <span className={returnDate ? "ca-date-val" : "ca-date-ph"}>
+                {formatDisplayDate(returnDate) || returnPlaceholder}
+              </span>
+              <CalendarDays size={18} className="ca-date-icon" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Popover Calendar - Perfectly fit to card container */}
-      {isOpen && (
-        <div className="ca-calendar-popover" role="dialog" aria-modal="true">
+      {/* Popover / Inline Calendar */}
+      {(isOpen || inlineCalendarOnly) && (
+        <div
+          className={`ca-calendar-popover ${popoverAlign === "right" ? "ud-cal-right" : ""} ${inlineCalendarOnly ? "ud-inline-cal-panel" : ""}`}
+          role="dialog"
+          aria-modal={inlineCalendarOnly ? undefined : "true"}
+        >
           {/* Active picking indicator */}
           <div className="ca-cal-picking-status">
             <span className={activeField === "from" ? "is-active-tab" : ""} onClick={() => setActiveField("from")}>
-              Departure: <b>{formatDisplayDate(departureDate) || "Select date"}</b>
+              {fromStatusLabel}: <b>{formatDisplayDate(departureDate) || "Select date"}</b>
             </span>
             <span className="ca-cal-status-sep">→</span>
             <span className={activeField === "to" ? "is-active-tab" : ""} onClick={() => setActiveField("to")}>
-              Return: <b>{formatDisplayDate(returnDate) || "Select date"}</b>
+              {toStatusLabel}: <b>{formatDisplayDate(returnDate) || "Select date"}</b>
             </span>
           </div>
 
@@ -397,15 +462,28 @@ export default function CompactDateRangePicker({
             </div>
 
             <div className="ca-cal-footer-right">
+              {onCancel && (
+                <button
+                  type="button"
+                  className="ca-cal-action-btn ud-cal-cancel-btn"
+                  onClick={onCancel}
+                >
+                  Close
+                </button>
+              )}
               <button
                 type="button"
                 className="ca-cal-done-btn"
                 onClick={() => {
-                  setIsOpen(false);
-                  setHoverDate(null);
+                  if (onDone) {
+                    onDone();
+                  } else {
+                    setIsOpen(false);
+                    setHoverDate(null);
+                  }
                 }}
               >
-                Done
+                {doneLabel}
               </button>
             </div>
           </div>

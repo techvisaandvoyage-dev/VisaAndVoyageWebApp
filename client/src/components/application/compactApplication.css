@@ -745,7 +745,7 @@ select.ca-input {
   flex-shrink: 0;
 }
 .ca-cal-nav-btn:hover:not(:disabled) {
-  background: #d5c6ad;
+  background: color-mix(in srgb, var(--dp-surface, #dfd2bc) 86%, var(--dp-ink, #2D2B22));
   color: var(--dp-accent);
 }
 .ca-cal-nav-btn:active:not(:disabled) {

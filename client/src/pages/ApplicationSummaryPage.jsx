@@ -1531,14 +1531,20 @@ const ApplicationSummaryPage = () => {
         </div>
 
         {/* Two-Column Split Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-5 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-5 items-stretch">
           {/* Left Column: Travel Details + Document Status */}
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4 h-full">
             {/* Travel & Traveler Details Card */}
-            <section className="rounded-[22px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-5 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3]">
-              <h3 className="text-base font-extrabold text-[#2D2B22] mb-3.5">Travel Details</h3>
+            <section
+              className="rounded-[22px] border border-[var(--nl)] bg-[var(--bg)] p-5"
+              style={{ boxShadow: "var(--master-outer-drop-shadow)" }}
+            >
+              <h3 className="text-base font-extrabold text-[var(--ink)] mb-3.5">Travel Details</h3>
 
-              <div className="rounded-2xl border border-[#2D2B22]/10 bg-[#dfd2bc]/65 p-4 space-y-2.5 shadow-[inset_1px_2px_5px_rgba(45,43,34,0.14)]">
+              <div
+                className="rounded-2xl border border-[var(--nl)] bg-[var(--bg)] p-4 space-y-2.5"
+                style={{ boxShadow: "var(--master-inner-drop-shadow)" }}
+              >
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-[#6E6A59]">Visa type</span>
                   <span className="font-bold text-[#2D2B22]">{summaryVisaType}</span>
@@ -1559,7 +1565,8 @@ const ApplicationSummaryPage = () => {
                   {travelerNames.map((name, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between gap-2 rounded-xl border border-[#2D2B22]/10 bg-[#dfd2bc]/55 px-3.5 py-2 text-sm shadow-[inset_1px_2px_4px_rgba(45,43,34,0.1)]"
+                      className="flex items-center justify-between gap-2 rounded-xl border border-[var(--nl)] bg-[var(--bg)] px-3.5 py-2 text-sm"
+                      style={{ boxShadow: "var(--master-inner-drop-shadow)" }}
                     >
                       <span className="text-xs font-semibold text-[#6E6A59]">Traveler {idx + 1}</span>
                       <span className="truncate font-bold text-[#2D2B22]">{name}</span>
@@ -1570,13 +1577,17 @@ const ApplicationSummaryPage = () => {
             </section>
 
             {/* Documents Upload / Notice Card */}
-            <section className="rounded-[22px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-5 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3] space-y-3.5">
+            <section
+              className="flex-1 flex flex-col justify-center rounded-[22px] border border-[var(--nl)] bg-[var(--bg)] p-5 space-y-3.5"
+              style={{ boxShadow: "var(--master-outer-drop-shadow)" }}
+            >
               {!docsUploaded ? (
                 <>
                   <button
                     type="button"
                     onClick={openUploadDocumentsModal}
-                    className="w-full h-11 rounded-xl border border-[#607938]/40 bg-[#dfd2bc]/75 text-sm font-bold text-[#607938] shadow-[2px_3px_6px_rgba(45,43,34,0.14),0_1px_2px_rgba(45,43,34,0.08)] transition-all hover:bg-[#dfd2bc] active:translate-y-[1px] active:bg-[#d5c5ab] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.24)]"
+                    className="w-full h-11 rounded-xl border border-[var(--nl)] bg-[var(--bg)] text-sm font-bold text-[var(--ac)] transition-all hover:brightness-95 active:translate-y-[1px] active:[box-shadow:var(--master-inner-drop-shadow)]"
+                    style={{ boxShadow: "var(--master-btn-outer-drop-shadow)" }}
                   >
                     Upload Doc Now
                   </button>
@@ -1620,7 +1631,8 @@ const ApplicationSummaryPage = () => {
                   <button
                     type="button"
                     onClick={openUploadDocumentsModal}
-                    className="w-full h-11 rounded-xl border border-[#2D2B22]/15 bg-[#dfd2bc]/75 text-sm font-bold text-[#2D2B22] shadow-[2px_3px_6px_rgba(45,43,34,0.14)] transition-all hover:bg-[#dfd2bc] active:translate-y-[1px] active:shadow-[inset_2px_3px_6px_rgba(45,43,34,0.24)]"
+                    className="w-full h-11 rounded-xl border border-[var(--nl)] bg-[var(--bg)] text-sm font-bold text-[var(--ink)] transition-all hover:brightness-95 active:translate-y-[1px] active:[box-shadow:var(--master-inner-drop-shadow)]"
+                    style={{ boxShadow: "var(--master-btn-outer-drop-shadow)" }}
                   >
                     Review Uploaded documents
                   </button>
@@ -1630,9 +1642,15 @@ const ApplicationSummaryPage = () => {
           </div>
 
           {/* Right Column: Billing & Payment Checkout */}
-          <aside className="rounded-[22px] border border-[#2D2B22]/10 bg-[#EEDFC7] p-5 sm:p-6 shadow-[6px_6px_18px_#948a7b,-6px_-6px_18px_#d6c9b3] space-y-4">
+          <aside
+            className="rounded-[22px] border border-[var(--nl)] bg-[var(--bg)] p-5 sm:p-6 space-y-4"
+            style={{ boxShadow: "var(--master-outer-drop-shadow)" }}
+          >
             {/* Highlighted Amount Box */}
-            <div className="rounded-2xl bg-[#607938] px-5 py-4 text-center text-white shadow-[inset_2px_3px_8px_rgba(0,0,0,0.25),2px_4px_10px_rgba(45,43,34,0.22)]">
+            <div
+              className="rounded-2xl bg-[var(--ac)] px-5 py-4 text-center text-[var(--bf,#fff)]"
+              style={{ boxShadow: "var(--master-btn-outer-drop-shadow), var(--master-colored-btn-inner-drop-shadow)" }}
+            >
               <p className="text-[11px] font-bold uppercase tracking-widest text-white/85">
                 Amount to be paid now
               </p>
@@ -1718,7 +1736,10 @@ const ApplicationSummaryPage = () => {
 
             {/* Coupon Code Box */}
             {paymentSummaryConfig?.couponsEnabled !== false && (
-              <div className="rounded-xl border border-[#2D2B22]/10 bg-[#dfd2bc]/60 p-3 shadow-[inset_1px_2px_4px_rgba(45,43,34,0.12)] space-y-2">
+              <div
+                className="rounded-xl border border-[var(--nl)] bg-[var(--bg)] p-3 space-y-2"
+                style={{ boxShadow: "var(--master-inner-drop-shadow)" }}
+              >
                 <div className="flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2D2B22]">
                     <Tag size={13} className="text-[#607938]" />
@@ -1754,12 +1775,14 @@ const ApplicationSummaryPage = () => {
                         if (couponError) setCouponError("");
                       }}
                       placeholder={paymentSummaryConfig?.couponPlaceholder || "Enter coupon code"}
-                      className="h-9 min-w-0 flex-1 rounded-lg border border-[#2D2B22]/15 bg-[#EEDFC7] px-3 text-xs font-bold uppercase tracking-wider text-[#2D2B22] placeholder:normal-case placeholder:tracking-normal placeholder:font-medium placeholder:text-[#6E6A59]/75 shadow-[inset_1px_2px_4px_rgba(45,43,34,0.12)] focus:border-[#607938] focus:outline-none"
+                      className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--nl)] bg-[var(--bg)] px-3 text-xs font-bold uppercase tracking-wider text-[var(--ink)] placeholder:normal-case placeholder:tracking-normal placeholder:font-medium placeholder:text-[var(--mu)] focus:border-[var(--ac)] focus:outline-none"
+                      style={{ boxShadow: "var(--master-inner-drop-shadow)" }}
                     />
                     <button
                       type="submit"
                       disabled={applyingCoupon || !couponInput.trim()}
-                      className="h-9 shrink-0 rounded-lg bg-[#607938] px-3.5 text-xs font-bold text-white shadow-[2px_3px_6px_rgba(45,43,34,0.22)] transition-all hover:bg-[#536930] active:translate-y-[1px] active:shadow-[inset_1px_2px_4px_rgba(0,0,0,0.4)] disabled:cursor-not-allowed disabled:opacity-55 cursor-pointer"
+                      className="h-9 shrink-0 rounded-lg bg-[var(--ac)] px-3.5 text-xs font-bold text-[var(--bf,#fff)] transition-all hover:brightness-95 active:translate-y-[1px] active:[box-shadow:var(--master-colored-btn-inner-drop-shadow)] disabled:cursor-not-allowed disabled:opacity-55 cursor-pointer"
+                      style={{ boxShadow: "var(--master-btn-outer-drop-shadow)" }}
                     >
                       {applyingCoupon ? (
                         <Loader2 size={14} className="animate-spin" />
@@ -1776,14 +1799,38 @@ const ApplicationSummaryPage = () => {
             )}
 
             {/* T&C Checkbox */}
-            <div className="rounded-xl border border-[#2D2B22]/10 bg-[#dfd2bc]/60 p-3.5 shadow-[inset_1px_2px_4px_rgba(45,43,34,0.12)]">
+            <div
+              className="rounded-xl border border-[var(--nl)] bg-[var(--bg)] p-3.5"
+              style={{ boxShadow: "var(--master-inner-drop-shadow)" }}
+            >
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#2D2B22]/30 accent-[#607938] cursor-pointer"
-                />
+                <span className="relative mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="peer h-4 w-4 appearance-none rounded-[4px] border-[1.5px] bg-[var(--bg)] checked:bg-[var(--ac)] cursor-pointer transition-colors"
+                    style={{
+                      borderColor: termsAccepted
+                        ? "var(--ac)"
+                        : "color-mix(in srgb, var(--ink) 55%, transparent)",
+                      boxShadow: termsAccepted
+                        ? "var(--master-sm-colored-inner-drop-shadow)"
+                        : "var(--master-inner-drop-shadow)",
+                    }}
+                  />
+                  <svg
+                    viewBox="0 0 12 10"
+                    className="pointer-events-none absolute h-2.5 w-2.5 text-[var(--bf,#fff)] opacity-0 peer-checked:opacity-100 transition-opacity"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M1 5.5 4.2 8.5 11 1.5" />
+                  </svg>
+                </span>
                 <span className="text-xs text-[#4f4c3f] leading-relaxed">
                   I agree to the{" "}
                   <button
@@ -1813,7 +1860,8 @@ const ApplicationSummaryPage = () => {
               type="button"
               disabled={!termsAccepted || !razorpayReady || paying}
               onClick={handlePay}
-              className="flex w-full h-12 items-center justify-center gap-2 rounded-xl bg-[#607938] text-[15px] font-bold text-white shadow-[2px_4px_12px_rgba(45,43,34,0.34),0_2px_4px_rgba(0,0,0,0.18)] transition-all hover:bg-[#536930] active:translate-y-[1px] active:shadow-[inset_2px_3px_7px_rgba(0,0,0,0.5),inset_0_1px_3px_rgba(0,0,0,0.35)] disabled:cursor-not-allowed disabled:opacity-55"
+              className="flex w-full h-12 items-center justify-center gap-2 rounded-xl bg-[var(--ac)] text-[15px] font-bold text-[var(--bf,#fff)] transition-all hover:brightness-95 active:translate-y-[1px] active:[box-shadow:var(--master-colored-btn-inner-drop-shadow)] disabled:cursor-not-allowed disabled:opacity-55"
+              style={{ boxShadow: "var(--master-btn-outer-drop-shadow)" }}
             >
               {paying ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
               <span>{paying ? "Processing..." : "Proceed to Payment"}</span>

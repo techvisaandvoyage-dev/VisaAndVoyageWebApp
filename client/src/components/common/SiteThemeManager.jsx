@@ -240,14 +240,22 @@ const applyThemeToDom = (rawTheme) => {
   `;
 };
 
+const applyCachedTheme = () => {
+  if (typeof window === "undefined") return;
+  try {
+    const cached = localStorage.getItem(STORAGE_KEY);
+    if (cached) {
+      applyThemeToDom(JSON.parse(cached));
+    }
+  } catch {}
+};
+
+// Apply cached theme synchronously before React's first render to prevent FOUC
+applyCachedTheme();
+
 const SiteThemeManager = () => {
   useEffect(() => {
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY);
-      if (cached) {
-        applyThemeToDom(JSON.parse(cached));
-      }
-    } catch {}
+    applyCachedTheme();
 
     let alive = true;
     api

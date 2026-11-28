@@ -1,0 +1,212 @@
+.atlas-loader-screen {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 24px;
+}
+
+.atlas-loader-stage {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  display: grid;
+  place-items: center;
+}
+
+/* Outer neumorphic ring + dashed flight orbit */
+.atlas-orbit-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: var(--master-outer-drop-shadow);
+  display: grid;
+  place-items: center;
+}
+
+.atlas-orbit-track {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  border: 1.5px dashed color-mix(in srgb, var(--ac) 40%, transparent);
+  animation: atlas-spin 9s linear infinite;
+}
+
+.atlas-orbit-plane {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(90deg);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--ac);
+  box-shadow: var(--master-btn-outer-drop-shadow);
+  display: grid;
+  place-items: center;
+}
+
+/* Recessed well around the globe */
+.atlas-globe-well {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  padding: 5px;
+  background: var(--bg);
+  box-shadow: var(--master-inner-drop-shadow);
+  display: grid;
+  place-items: center;
+}
+
+/* 3D Earth sphere */
+.atlas-globe {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(
+    circle at 30% 26%,
+    color-mix(in srgb, var(--ac) 38%, #ffffff) 0%,
+    color-mix(in srgb, var(--ac) 78%, var(--bg)) 46%,
+    color-mix(in srgb, var(--ac) 60%, #0b1622) 100%
+  );
+  box-shadow:
+    inset -10px -12px 20px rgba(0, 0, 0, 0.34),
+    inset 6px 6px 14px rgba(255, 255, 255, 0.35),
+    0 4px 12px color-mix(in srgb, var(--ac) 28%, rgba(0, 0, 0, 0.2));
+  isolation: isolate;
+}
+
+/* Seamless scrolling world continents SVG */
+.atlas-continents {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  display: flex;
+  animation: atlas-rotate-earth 6.5s linear infinite;
+  opacity: 0.9;
+}
+
+.atlas-continents svg {
+  width: 50%;
+  height: 100%;
+  flex: none;
+}
+
+/* Subtle meridian / latitude grid */
+.atlas-grid-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 38% 100% at 50% 50%, transparent 94%, rgba(255, 255, 255, 0.18) 97%, transparent 100%),
+    radial-gradient(ellipse 72% 100% at 50% 50%, transparent 95%, rgba(255, 255, 255, 0.14) 98%, transparent 100%),
+    linear-gradient(180deg, transparent 49%, rgba(255, 255, 255, 0.16) 50%, transparent 51%);
+  pointer-events: none;
+}
+
+/* Glassy atmosphere specular highlight */
+.atlas-gloss {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 28% 22%,
+    rgba(255, 255, 255, 0.48) 0%,
+    rgba(255, 255, 255, 0.14) 24%,
+    transparent 55%
+  );
+  pointer-events: none;
+}
+
+.atlas-loader-text-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.atlas-loader-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.atlas-loader-sub {
+  font-size: 13px;
+  color: var(--mu);
+}
+
+.atlas-progress-bar {
+  width: 140px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--bg);
+  box-shadow: var(--master-inner-drop-shadow);
+  overflow: hidden;
+  position: relative;
+}
+
+.atlas-progress-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 45%;
+  border-radius: 99px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--ac),
+    color-mix(in srgb, var(--ac) 60%, #ffffff)
+  );
+  animation: atlas-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes atlas-rotate-earth {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes atlas-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes atlas-shimmer {
+  0% {
+    left: -45%;
+  }
+  100% {
+    left: 105%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-continents,
+  .atlas-orbit-track,
+  .atlas-progress-bar::after {
+    animation: none;
+  }
+}

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
-import { Loader2 } from "lucide-react";
+import AtlasLoader from "../components/ui/AtlasLoader";
 import { getAdminAppUrl } from "../utils/adminAppUrl";
 import { api } from "../store/authStore";
 
@@ -22,11 +22,7 @@ const MaintenancePage     = lazy(() => import("../pages/MaintenancePage"));
 const SupportChatWidget = lazy(() => import("../components/common/SupportChatWidget"));
 
 // ── Fallback Loader ────────────────────────────────────────
-const PageLoader = () => (
-  <div className="min-h-screen bg-background flex items-center justify-center">
-    <Loader2 className="w-8 h-8 text-cyan animate-spin" />
-  </div>
-);
+const PageLoader = () => <AtlasLoader />;
 
 const AdminAppRedirect = () => {
   const location = useLocation();

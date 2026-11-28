@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  PlusCircle, Clock, CheckCircle, FileText, ChevronRight, Calendar, Search, Filter,
+  PlusCircle, Clock, CheckCircle, FileText, ChevronRight, ChevronDown, Check, Calendar, Search, Filter,
   TrendingUp, Globe, ArrowLeft, User, Mail, Smartphone, Download, Users, Star, Pencil, Trash2, ShieldCheck,
-  Upload, ExternalLink, LogOut,
+  Upload, ExternalLink, LogOut, AlertTriangle, ArrowUpDown, Eye, Plane,
 } from "lucide-react";
+import CompactDateRangePicker from "../components/application/CompactDateRangePicker";
+import "../components/application/compactApplication.css";
+import "./userDashboardBoardingPass.css";
 import { StatusBadge } from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -22,6 +25,8 @@ import { getFileUrl } from "../utils/fileUrl";
 import CountryFlagBadge from "../components/ui/CountryFlagBadge";
 import Footer from "../components/layout/Footer";
 import Navbar from "../components/layout/Navbar";
+import AtlasLoader from "../components/ui/AtlasLoader";
+import DashboardPaySummaryModal from "../components/dashboard/DashboardPaySummaryModal";
 
 /**
  * Map every built-in doc key → its lucide icon component. Used to render the
@@ -133,6 +138,20 @@ const UserDashboard = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("travel");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef(null);
+  const [travelRange, setTravelRange] = useState({ from: "", to: "" });
+  const [dateModal, setDateModal] = useState({
+    open: false,
+    booking: null,
+    from: "",
+    to: "",
+    notice: "",
+    openPayAfterSave: false,
+  });
+  const [dateUpdating, setDateUpdating] = useState(false);
+  const [payModalBooking, setPayModalBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dashContactOpen, setDashContactOpen] = useState(false);
   const [dashContactMode, setDashContactMode] = useState("phone");
@@ -150,6 +169,24 @@ const UserDashboard = () => {
   const [travelerSubmitting, setTravelerSubmitting] = useState(false);
   const [travelerDeletingId, setTravelerDeletingId] = useState("");
   const [documentPreview, setDocumentPreview] = useState(null);
+
+  useEffect(() => {
+    if (!sortMenuOpen) return;
+    const handleOutside = (e) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target)) {
+        setSortMenuOpen(false);
+      }
+    };
+    const handleEsc = (e) => {
+      if (e.key === "Escape") setSortMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [sortMenuOpen]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -308,11 +345,33 @@ const UserDashboard = () => {
     return undefined;
   };
 
-  const filteredBookings = safeBookings.filter((booking) => {
-    const q = searchQuery.toLowerCase();
-    const countryName = String(booking.countryName || "").toLowerCase();
-    const professionalId = String(booking.applicationId || "").toLowerCase();
-    const matchSearch = countryName.includes(q) || professionalId.includes(q);
+  const getBookingCategory = (booking, resolvedStatus) => {
+    if (booking.status === "approved" || resolvedStatus === "approved") return "approved";
+    if (booking.status === "rejected" || resolvedStatus === "rejected") return "rejected";
+    if (resolvedStatus === "review") return "review";
+    return "pending";
+  };
+
+  const getTravelDaysDelta = (iso) => {
+    if (!iso) return Number.POSITIVE_INFINITY;
+    const target = new Date(iso);
+    if (Number.isNaN(target.getTime())) return Number.POSITIVE_INFINITY;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    target.setHours(0, 0, 0, 0);
+    return Math.round((target - now) / 86400000);
+  };
+
+  const getTravelCountdownText = (iso) => {
+    const delta = getTravelDaysDelta(iso);
+    if (!Number.isFinite(delta)) return "";
+    if (delta < 0) return "Travel date passed";
+    if (delta === 0) return "Today";
+    if (delta === 1) return "In 1 day";
+    return `In ${delta} days`;
+  };
+
+  const enrichedBookings = safeBookings.map((booking) => {
     const uploadedDocSuccesses = getStoredUploadSuccesses(booking);
     const derivedProgress = getDerivedApplicationProgress(
       booking,
@@ -321,35 +380,59 @@ const UserDashboard = () => {
       uploadedDocSuccesses
     );
     const resolvedStatus = resolveApplicationStatus(booking, derivedProgress);
-    const matchStatus = statusFilter === "all" || resolvedStatus === statusFilter;
-    return matchSearch && matchStatus;
+    const category = getBookingCategory(booking, resolvedStatus);
+    return { booking, derivedProgress, resolvedStatus, category };
   });
 
-  const stats = {
-    total: safeBookings.length,
-    approved: safeBookings.filter((b) => b.status === "approved").length,
-    pending: safeBookings.filter((b) => {
-      const uploadedDocSuccesses = getStoredUploadSuccesses(b);
-      const derivedProgress = getDerivedApplicationProgress(
-        b,
-        getBookingRequiredDocuments(b),
-        uploadSettings,
-        uploadedDocSuccesses
-      );
-      const resolvedStatus = resolveApplicationStatus(b, derivedProgress);
-      return resolvedStatus === "pending" || resolvedStatus === "doc_pending" || resolvedStatus === "drive_link_pending";
-    }).length,
-    review: safeBookings.filter((b) => {
-      const uploadedDocSuccesses = getStoredUploadSuccesses(b);
-      const derivedProgress = getDerivedApplicationProgress(
-        b,
-        getBookingRequiredDocuments(b),
-        uploadSettings,
-        uploadedDocSuccesses
-      );
-      return resolveApplicationStatus(b, derivedProgress) === "review";
-    }).length,
+  const toYmdString = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   };
+
+  const filteredBookings = enrichedBookings
+    .filter(({ booking, category }) => {
+      const q = searchQuery.toLowerCase();
+      const countryName = String(booking.countryName || "").toLowerCase();
+      const professionalId = String(booking.applicationId || "").toLowerCase();
+      const matchSearch = countryName.includes(q) || professionalId.includes(q);
+      const matchStatus = statusFilter === "all" || category === statusFilter;
+
+      let matchTravelRange = true;
+      if (travelRange.from || travelRange.to) {
+        const travelYmd = toYmdString(booking.travelDate);
+        if (!travelYmd) {
+          matchTravelRange = false;
+        } else {
+          if (travelRange.from && travelYmd < travelRange.from) matchTravelRange = false;
+          if (travelRange.to && travelYmd > travelRange.to) matchTravelRange = false;
+        }
+      }
+
+      return matchSearch && matchStatus && matchTravelRange;
+    })
+    .sort((a, b) => {
+      if (sortBy === "travel") {
+        return getTravelDaysDelta(a.booking.travelDate) - getTravelDaysDelta(b.booking.travelDate);
+      }
+      return new Date(b.booking.createdAt || 0) - new Date(a.booking.createdAt || 0);
+    });
+
+  const stats = {
+    total: enrichedBookings.length,
+    approved: enrichedBookings.filter((item) => item.category === "approved").length,
+    pending: enrichedBookings.filter((item) => item.category === "pending").length,
+    review: enrichedBookings.filter((item) => item.category === "review").length,
+    rejected: enrichedBookings.filter((item) => item.category === "rejected").length,
+  };
+
+  const urgentBookingItem = enrichedBookings
+    .filter((item) => item.category === "pending")
+    .sort((a, b) => getTravelDaysDelta(a.booking.travelDate) - getTravelDaysDelta(b.booking.travelDate))[0];
 
   const openTravelerModal = (traveler = null) => {
     setEditingTravelerId(traveler?._id || "");
@@ -452,15 +535,75 @@ const UserDashboard = () => {
     }
   };
 
+  const openChangeDateModal = (booking, options = {}) => {
+    const todayYmd = toYmdString(new Date());
+    const existingFrom = toYmdString(booking.travelDate);
+    const existingTo = toYmdString(booking.returnDate);
+    setDateModal({
+      open: true,
+      booking,
+      from: existingFrom && existingFrom >= todayYmd ? existingFrom : "",
+      to: existingTo && existingTo >= todayYmd ? existingTo : "",
+      notice:
+        options.notice ||
+        `Your selected travel date (${fmtDate(booking.travelDate)}) has already passed. Please select a future travel date to continue with payment.`,
+      openPayAfterSave: Boolean(options.openPayAfterSave),
+    });
+  };
+
+  const handlePayClick = (booking) => {
+    if (!booking) return;
+    if (getTravelDaysDelta(booking.travelDate) < 0) {
+      openChangeDateModal(booking, {
+        openPayAfterSave: true,
+        notice: `Your selected travel date (${fmtDate(booking.travelDate)}) has already passed. Please select a future travel date to continue with payment.`,
+      });
+      return;
+    }
+    setPayModalBooking(booking);
+  };
+
+  const closeChangeDateModal = () => {
+    if (dateUpdating) return;
+    setDateModal({ open: false, booking: null, from: "", to: "", notice: "", openPayAfterSave: false });
+  };
+
+  const handleSaveTravelDate = async () => {
+    const booking = dateModal.booking;
+    const bookingId = booking?._id || booking?.id;
+    if (!bookingId) return;
+    if (!dateModal.from) {
+      showToast("Please select a new departure date.", "error");
+      return;
+    }
+
+    const shouldOpenPay = dateModal.openPayAfterSave;
+    setDateUpdating(true);
+    try {
+      const { data } = await api.put(`/users/applications/${bookingId}`, {
+        travelDate: dateModal.from,
+        returnDate: dateModal.to || null,
+      });
+      await fetchUserApplications();
+      showToast("Travel date updated! You can proceed with payment now.", "success");
+      setDateModal({ open: false, booking: null, from: "", to: "", notice: "", openPayAfterSave: false });
+      if (shouldOpenPay) {
+        const updatedBooking = data?.application || {
+          ...booking,
+          travelDate: dateModal.from,
+          returnDate: dateModal.to || null,
+        };
+        setPayModalBooking(updatedBooking);
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || "Could not update travel date.", "error");
+    } finally {
+      setDateUpdating(false);
+    }
+  };
+
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex-1 flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-cyan/20 border-t-cyan rounded-full animate-spin" />
-          <p className="text-text-secondary animate-pulse">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
+    return <AtlasLoader />;
   }
 
 
@@ -474,7 +617,8 @@ const UserDashboard = () => {
             logout();
             navigate("/", { replace: true });
           }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-surface shadow-lg border border-border text-red-400 hover:bg-red-500/10 transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-[var(--bg)] text-red-400 hover:bg-red-500/10 active:translate-y-[1px] transition-all"
+          style={{ boxShadow: "var(--master-btn-outer-drop-shadow)" }}
           title={dashCopy.signOutButtonText || "Sign Out"}
         >
           <LogOut size={18} />
@@ -484,75 +628,47 @@ const UserDashboard = () => {
       <main className="flex-1 min-w-0">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+            className="ud-bp-wrap"
           >
             <button
+              type="button"
               onClick={() => navigate("/", { replace: true })}
-              className="group flex items-center gap-2 text-sm text-text-muted hover:text-cyan transition-colors mb-5 w-fit"
+              className="ud-back"
               id="back-to-home-btn"
             >
-              <span className="p-1.5 rounded-lg bg-surface-2 border border-border group-hover:border-cyan/50 transition-colors">
-                <ArrowLeft size={14} />
-              </span>
-              {dashCopy.backToHomepageText || "Back to Homepage"}
+              <ArrowLeft size={16} />
+              {dashCopy.backToHomepageText || "Back to homepage"}
             </button>
-            <div className="flex flex-wrap items-start justify-between gap-4">
+
+            <section className="ud-hero">
               <div>
-                <p className="text-text-secondary mt-1">
-                  {dashCopy.overviewSubtitle || "Here's an overview of your visa applications."}
+                <h1>Your visa applications</h1>
+                <p className="ud-hero-sub">
+                  {dashCopy.overviewSubtitle || "Track every application and finish what's pending."}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="secondary"
-                  leftIcon={<User size={16} />}
+              <div className="ud-hero-actions">
+                <button
+                  type="button"
+                  className="ud-btn sec"
                   onClick={() => navigate("/dashboard/profile")}
                 >
-                  {dashCopy.myProfileButtonText || "My Profile"}
-                </Button>
-                <Button
-                  variant="primary"
-                  leftIcon={<PlusCircle size={16} />}
+                  <User size={16} />
+                  {dashCopy.myProfileButtonText || "My profile"}
+                </button>
+                <button
+                  type="button"
+                  className="ud-btn pri"
                   onClick={() => navigate("/", { replace: true })}
                   id="new-application-btn"
                 >
-                  {dashCopy.newApplicationButtonText || "New Application"}
-                </Button>
+                  <PlusCircle size={16} />
+                  {dashCopy.newApplicationButtonText || "New application"}
+                </button>
               </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.06 }}
-            className="mb-8 rounded-2xl border border-border bg-surface p-5 sm:p-6"
-          >
-            <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">
-              {dashCopy.yourAccountTitle || "YOUR ACCOUNT"}
-            </h2>
-            <div className="grid sm:grid-cols-2 gap-5">
-              <div className="flex gap-3 min-w-0">
-                <Mail className="text-cyan shrink-0 mt-0.5" size={18} aria-hidden />
-                <div className="min-w-0">
-                  <p className="text-xs text-text-muted">{dashCopy.emailLabel || "Email"}</p>
-                  <p className="text-sm font-medium text-text-primary break-all">
-                    {user?.email || dashCopy.emptyAccountPlaceholder || "—"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3 min-w-0">
-                <Smartphone className="text-cyan shrink-0 mt-0.5" size={18} aria-hidden />
-                <div className="min-w-0">
-                  <p className="text-xs text-text-muted">{dashCopy.phoneLabel || "Phone"}</p>
-                  <p className="text-sm font-medium text-text-primary">
-                    {user?.phone || dashCopy.emptyAccountPlaceholder || "—"}
-                  </p>
-                </div>
-              </div>
-            </div>
+            </section>
           </motion.div>
 
           {false && uploadSettings.showTravelerDetails !== false && (
@@ -656,33 +772,408 @@ const UserDashboard = () => {
             </motion.div>
           )}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[
-              { label: dashCopy.totalApplicationsLabel || "Total Applications", value: stats.total, icon: FileText, color: "text-cyan", bg: "bg-cyan/10" },
-              { label: dashCopy.approvedLabel || "Approved", value: stats.approved, icon: CheckCircle, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-              { label: dashCopy.underReviewLabel || "Under Review", value: stats.review, icon: TrendingUp, color: "text-blue-400", bg: "bg-blue-500/10" },
-              { label: dashCopy.pendingActionLabel || "Pending Action", value: stats.pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
-            ].map(({ label, value, icon: Icon, color, bg }, i) => (
-              <motion.div
-                key={label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08 }}
-              >
-                <Card className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
-                    <Icon size={22} className={color} />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-text-primary">{value}</div>
-                    <div className="text-xs text-text-muted">{label}</div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+          <div className="ud-bp-wrap">
+            {/* Segmented Filter Tabs */}
+            <div className="ud-tabs-wrap">
+              <div className="ud-tabs" role="group" aria-label="Filter applications by status">
+                {[
+                  { key: "pending", label: dashCopy.pendingActionLabel || "Pending", count: stats.pending },
+                  { key: "review", label: dashCopy.underReviewLabel || "Under Review", count: stats.review },
+                  { key: "approved", label: dashCopy.approvedLabel || "Approved", count: stats.approved },
+                  { key: "rejected", label: dashCopy.rejectedFilterLabel || "Rejected", count: stats.rejected },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    aria-pressed={statusFilter === tab.key}
+                    onClick={() => setStatusFilter((prev) => (prev === tab.key ? "all" : tab.key))}
+                  >
+                    {tab.label} <span>{tab.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <div>
+            {/* Urgent Action Alert Banner */}
+            {urgentBookingItem ? (
+              <div className="ud-alert">
+                <div className="ud-alert-ic">
+                  <AlertTriangle size={20} />
+                </div>
+                <div className="ud-alert-body">
+                  <strong>
+                    {stats.pending} {stats.pending === 1 ? "application needs" : "applications need"} your action
+                  </strong>
+                  <p>
+                    Most urgent: {urgentBookingItem.booking.countryName || "Visa Application"}, travel{" "}
+                    {fmtDate(urgentBookingItem.booking.travelDate)}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="ud-alert-btn"
+                  onClick={() => {
+                    if (urgentBookingItem.booking.paymentStatus !== "completed") {
+                      handlePayClick(urgentBookingItem.booking);
+                    } else {
+                      navigate(`/dashboard/application/${urgentBookingItem.booking._id || urgentBookingItem.booking.id}`);
+                    }
+                  }}
+                >
+                  {urgentBookingItem.booking.paymentStatus !== "completed"
+                    ? `Pay ₹${Number(urgentBookingItem.booking.totalAmount ?? urgentBookingItem.booking.fee ?? 0).toLocaleString("en-IN")}`
+                    : "Upload docs"}
+                </button>
+              </div>
+            ) : (
+              <div className="ud-alert is-clear">
+                <div className="ud-alert-ic">
+                  <CheckCircle size={20} />
+                </div>
+                <div className="ud-alert-body">
+                  <strong>You are all caught up</strong>
+                  <p>No pending payments or missing documents right now.</p>
+                </div>
+              </div>
+            )}
+
+            {/* My Applications Toolbar & Boarding Pass Cards */}
+            <div className="mb-8">
+              <div className="ud-sec-h">
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {dashCopy.myApplicationsTitle || "My Applications"}
+                </h2>
+
+                <div className="ud-tools">
+                  <label className="ud-field">
+                    <Search size={15} />
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      placeholder={dashCopy.searchCountryPlaceholder || "Search country..."}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      aria-label="Search applications"
+                      id="dashboard-search"
+                    />
+                  </label>
+                  <CompactDateRangePicker
+                    departureDate={travelRange.from}
+                    returnDate={travelRange.to}
+                    allowPastDates
+                    singleTriggerMode
+                    singleTriggerPlaceholder="Travel date range"
+                    fromStatusLabel="From"
+                    toStatusLabel="To"
+                    popoverAlign="right"
+                    onDateChange={(field, val) =>
+                      setTravelRange((prev) => ({
+                        ...prev,
+                        [field === "departure" ? "from" : "to"]: val,
+                      }))
+                    }
+                  />
+                  <div className="ud-sort-wrap" ref={sortMenuRef}>
+                    <button
+                      type="button"
+                      id="dashboard-sort"
+                      className={`ud-field ud-sort-btn ${sortMenuOpen ? "is-open" : ""}`}
+                      onClick={() => setSortMenuOpen((prev) => !prev)}
+                      aria-haspopup="listbox"
+                      aria-expanded={sortMenuOpen}
+                      aria-label="Sort applications"
+                    >
+                      <ArrowUpDown size={15} />
+                      <span>{sortBy === "travel" ? "Travel date" : "Recently applied"}</span>
+                      <ChevronDown size={15} className="ud-sort-chevron" />
+                    </button>
+
+                    {sortMenuOpen && (
+                      <div className="ud-sort-menu" role="listbox" aria-label="Sort options">
+                        {[
+                          { value: "travel", label: "Travel date" },
+                          { value: "applied", label: "Recently applied" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            role="option"
+                            aria-selected={sortBy === opt.value}
+                            className={`ud-sort-option ${sortBy === opt.value ? "is-active" : ""}`}
+                            onClick={() => {
+                              setSortBy(opt.value);
+                              setSortMenuOpen(false);
+                            }}
+                          >
+                            <span>{opt.label}</span>
+                            {sortBy === opt.value && <Check size={14} />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {filteredBookings.length === 0 ? (
+                <Card className="text-center py-12">
+                  <Globe size={40} className="text-text-muted mx-auto mb-3" />
+                  <p className="text-text-secondary">
+                    {dashCopy.noApplicationsFoundText || "No applications found."}
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => navigate("/", { replace: true })}
+                  >
+                    {dashCopy.startNewApplicationButtonText || "Start New Application"}
+                  </Button>
+                </Card>
+              ) : (
+                filteredBookings.map(({ booking, derivedProgress, resolvedStatus, category }, i) => {
+                  const bookingId = booking._id || booking.id;
+                  const amount = Number(booking.totalAmount ?? booking.fee ?? 0);
+                  const isPaid = booking.paymentStatus === "completed";
+                  const rootDrive = String(booking?.gdriveLink || "").trim();
+                  const travellers = Array.isArray(booking?.travellerDocuments) ? booking.travellerDocuments : [];
+                  const hasDrive = Boolean(rootDrive) || travellers.some((entry) => String(entry?.gdriveLink || "").trim());
+                  const countdown = getTravelCountdownText(booking.travelDate);
+
+                  const isDocsDone =
+                    category === "review" ||
+                    category === "approved" ||
+                    Boolean(booking.visaFilePath) ||
+                    (uploadSettings.enableFileUpload
+                      ? Boolean(derivedProgress.allDocumentsUploaded)
+                      : Boolean(derivedProgress.allPassportsUploaded));
+                  const isApproved = category === "approved";
+                  const stepDone = [true, isPaid, isDocsDone, isApproved, isApproved];
+                  const currentStepIndex = category === "rejected" ? -2 : stepDone.indexOf(false);
+                  const stepLabels = ["Applied", "Payment", "Documents", "Review", "Visa"];
+
+                  const statusChip =
+                    category === "approved"
+                      ? { cls: "c-ok", text: dashCopy.approvedLabel || "Approved" }
+                      : category === "rejected"
+                        ? { cls: "c-rej", text: dashCopy.rejectedFilterLabel || "Rejected" }
+                        : category === "review"
+                          ? { cls: "c-rev", text: dashCopy.underReviewLabel || "Under Review" }
+                          : !isPaid
+                            ? { cls: "c-pend", text: "Pending payment" }
+                            : { cls: "c-pend", text: "Documents pending" };
+
+                  return (
+                    <motion.article
+                      key={bookingId || i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(i * 0.04, 0.3) }}
+                      className="ud-bp"
+                      onClick={() => navigate(`/dashboard/application/${bookingId}`)}
+                    >
+                      {/* Left: Flag, Country & Status Chips */}
+                      <div className="ud-bl">
+                        <CountryFlagBadge
+                          countryName={booking.countryName}
+                          flagEmoji={booking.flagEmoji}
+                          sizeClass="h-16 w-16"
+                          className="text-4xl"
+                        />
+                        <h3>{booking.countryName || "Unknown Country"}</h3>
+                        <div className="ud-chips">
+                          <span className={`ud-chip ${statusChip.cls}`}>{statusChip.text}</span>
+                        </div>
+                      </div>
+
+                      {/* Middle: 2-col Boarding Pass Metadata */}
+                      <div className="ud-bm">
+                        <span className="ud-ii mono">
+                          <span>App ID: {booking.applicationId || bookingId}</span>
+                        </span>
+                        <span className="ud-ii">
+                          <span>{booking.visaType || "Visa Application"}</span>
+                        </span>
+                        <span className="ud-ii">
+                          <Calendar size={16} />
+                          <span>Applied: {fmtDate(booking.createdAt)}</span>
+                        </span>
+                        <span className="ud-ii">
+                          <Plane size={16} />
+                          <span>Travel: {fmtDate(booking.travelDate)}</span>
+                        </span>
+
+                        {uploadSettings.enableFileUpload ? (
+                          <span className={`ud-ii ${derivedProgress.allDocumentsUploaded ? "ok" : "no"}`}>
+                            <Upload size={16} />
+                            <span>
+                              {derivedProgress.allDocumentsUploaded ? "Documents uploaded" : "No documents"}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className={`ud-ii ${derivedProgress.allPassportsUploaded ? "ok" : "no"}`}>
+                            <Upload size={16} />
+                            <span>
+                              {derivedProgress.allPassportsUploaded ? "Passport uploaded" : "No passport"}
+                            </span>
+                          </span>
+                        )}
+
+                        {uploadSettings.enableGDriveUpload && (
+                          <span className={`ud-ii ${hasDrive ? "ok" : "no"}`}>
+                            <ExternalLink size={16} />
+                            <span>{hasDrive ? "Drive link added" : "No drive link"}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Right: Price, Countdown & CTAs */}
+                      <div className="ud-br">
+                        <div
+                          className="group relative inline-flex flex-col items-end z-10 hover:z-50"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="ud-price cursor-default">
+                            ₹{amount.toLocaleString("en-IN")}
+                          </div>
+                          <div className="pointer-events-none invisible absolute right-0 top-full z-30 mt-2 w-64 translate-y-1 rounded-2xl border border-cyan/20 bg-surface px-3 py-3 text-left opacity-0 shadow-[0_18px_40px_-20px_rgba(0,212,255,0.28)] transition duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+                            <div className="space-y-2 text-xs">
+                              <div className="flex items-center justify-between gap-3 text-text-secondary">
+                                <span>
+                                  Government Fee
+                                  {Number(booking.travellerCount || 1) > 1 ? ` x${Number(booking.travellerCount || 1)}` : ""}
+                                </span>
+                                <span className="font-semibold text-text-primary">
+                                  ₹{Number(booking.governmentFeeTotal || 0).toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3 text-text-secondary">
+                                <span>
+                                  Our Service Fee
+                                  {Number(booking.travellerCount || 1) > 1 ? ` x${Number(booking.travellerCount || 1)}` : ""}
+                                </span>
+                                <span className="font-semibold text-text-primary">
+                                  ₹{Number(booking.serviceFeeTotal || 0).toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3 text-text-secondary">
+                                <span>GST</span>
+                                <span className="font-semibold text-text-primary">
+                                  ₹{Number(booking.gstAmount || 0).toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                              <div className="border-t border-border pt-2">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="font-semibold text-text-primary">Total Amount</span>
+                                  <span className="font-bold text-cyan">
+                                    ₹{amount.toLocaleString("en-IN")}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {!isPaid && getTravelDaysDelta(booking.travelDate) < 0 ? (
+                          <span className="ud-expired-pill">Travel date passed</span>
+                        ) : (
+                          countdown && <span className="ud-countdown">{countdown}</span>
+                        )}
+
+                        <div className="ud-cta" onClick={(e) => e.stopPropagation()}>
+                          {!isPaid ? (
+                            <button
+                              type="button"
+                              className="ud-btn pri"
+                              onClick={() => handlePayClick(booking)}
+                            >
+                              Pay ₹{amount.toLocaleString("en-IN")}
+                            </button>
+                          ) : category === "pending" ? (
+                            <button
+                              type="button"
+                              className="ud-btn pri"
+                              onClick={() => navigate(`/dashboard/application/${bookingId}`)}
+                            >
+                              Upload documents
+                            </button>
+                          ) : category === "approved" && booking.visaFilePath ? (
+                            <button
+                              type="button"
+                              className="ud-btn pri"
+                              onClick={() =>
+                                setDocumentPreview({
+                                  url: getFileUrl(booking.visaFilePath),
+                                  fileName: booking.visaFileName || "Visa File",
+                                  type: "application/pdf",
+                                })
+                              }
+                            >
+                              <Download size={16} />
+                              Download visa
+                            </button>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            className="ud-btn sec"
+                            onClick={() => navigate(`/dashboard/application/${bookingId}`)}
+                          >
+                            <Eye size={16} />
+                            View
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Prominent Expired Travel Date Banner for Unpaid Applications */}
+                      {!isPaid && getTravelDaysDelta(booking.travelDate) < 0 && (
+                        <div className="ud-expired-banner" onClick={(e) => e.stopPropagation()}>
+                          <div className="ud-expired-info">
+                            <span className="ud-expired-ic" aria-hidden="true">
+                              <AlertTriangle size={17} />
+                            </span>
+                            <div className="ud-expired-text">
+                              <strong>Travel date passed ({fmtDate(booking.travelDate)})</strong>
+                              <span>Update your travel date before completing payment.</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="ud-change-date-btn"
+                            onClick={() => openChangeDateModal(booking)}
+                          >
+                            <Calendar size={15} />
+                            Update travel date
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Bottom: 5-step Boarding Pass Stepper */}
+                      <div className="ud-bst">
+                        <div className="ud-steps">
+                          {stepLabels.map((label, idx) => {
+                            const isDone = Boolean(stepDone[idx]);
+                            const isNow = currentStepIndex === idx;
+                            const isBarDone = idx > 0 && Boolean(stepDone[idx - 1] && stepDone[idx]);
+                            return (
+                              <div key={label} className="contents">
+                                {idx > 0 && <div className={`ud-bar ${isBarDone ? "done" : ""}`} />}
+                                <div className={`ud-step ${isDone ? "done" : isNow ? "now" : ""}`}>
+                                  <i />
+                                  <span>{label}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </motion.article>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Received Visa Files */}
             <div className="mb-8">
               <div className="flex flex-wrap items-center gap-3 mb-5">
                 <h2 className="text-lg font-semibold text-text-primary flex-1">
@@ -715,281 +1206,16 @@ const UserDashboard = () => {
                             </p>
                           )}
                         </div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          leftIcon={<Download size={14} />}
-                          onClick={() => setDocumentPreview({ url: getFileUrl(booking.visaFilePath), fileName: "Visa File", type: "application/pdf" })}
+                        <button
+                          type="button"
+                          className="ud-btn sec"
+                          onClick={() => setDocumentPreview({ url: getFileUrl(booking.visaFilePath), fileName: booking.visaFileName || "Visa File", type: "application/pdf" })}
                         >
+                          <Download size={16} />
                           {dashCopy.openFileButtonText || "Open File"}
-                        </Button>
+                        </button>
                       </Card>
                     ))
-                )}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-                <h2 className="text-lg font-semibold text-text-primary">
-                  {dashCopy.myApplicationsTitle || "My Applications"}
-                </h2>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <div className="flex items-center gap-2 bg-surface-2 border border-border rounded-xl px-3 py-2 flex-1 sm:flex-none">
-                    <Search size={14} className="text-text-muted shrink-0" />
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      placeholder={dashCopy.searchCountryPlaceholder || "Search country..."}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="bg-transparent text-sm text-text-primary placeholder-text-muted focus:outline-none w-full sm:w-32 min-w-0"
-                      aria-label="Search applications"
-                      id="dashboard-search"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 bg-surface-2 border border-border rounded-xl px-3 py-2 flex-1 sm:flex-none">
-                    <Filter size={14} className="text-text-muted shrink-0" />
-                    <select
-                      autoComplete="off"
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="bg-transparent text-sm text-text-secondary focus:outline-none cursor-pointer w-full min-w-0"
-                      aria-label="Filter by status"
-                      id="status-filter"
-                    >
-                      <option value="all">{dashCopy.allStatusFilterLabel || "All Status"}</option>
-                      <option value="doc_pending">{dashCopy.docPendingFilterLabel || "Doc Pending"}</option>
-                      {uploadSettings.enableGDriveUpload && (
-                        <option value="drive_link_pending">{dashCopy.uploadDriveLinkFilterLabel || "Upload Drive Link"}</option>
-                      )}
-                      <option value="review">{dashCopy.underReviewFilterLabel || "Under Review"}</option>
-                      <option value="approved">{dashCopy.approvedFilterLabel || "Approved"}</option>
-                      <option value="rejected">{dashCopy.rejectedFilterLabel || "Rejected"}</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {filteredBookings.length === 0 ? (
-                  <Card className="text-center py-12">
-                    <Globe size={40} className="text-text-muted mx-auto mb-3" />
-                    <p className="text-text-secondary">
-                      {dashCopy.noApplicationsFoundText || "No applications found."}
-                    </p>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      className="mt-4"
-                      onClick={() => navigate("/", { replace: true })}
-                    >
-                      {dashCopy.startNewApplicationButtonText || "Start New Application"}
-                    </Button>
-                  </Card>
-                ) : (
-                  filteredBookings.map((booking, i) => {
-                    const bookingId = booking._id || booking.id;
-                    const progress = getApplicationProgress(booking, uploadSettings);
-                    const uploadedDocSuccesses = getStoredUploadSuccesses(booking);
-                    const derivedProgress = getDerivedApplicationProgress(
-                      booking,
-                      getBookingRequiredDocuments(booking),
-                      uploadSettings,
-                      uploadedDocSuccesses
-                    );
-                    const resolvedStatus = resolveApplicationStatus(booking, derivedProgress);
-                    const paymentLabel =
-                      booking.paymentStatus === "completed"
-                        ? "Paid"
-                        : booking.paymentStatus === "failed"
-                          ? "Payment failed"
-                          : booking.paymentStatus === "cancelled"
-                            ? "Payment cancelled"
-                            : "Payment pending";
-                    const paymentClass =
-                      booking.paymentStatus === "completed"
-                        ? "text-emerald-400 border-emerald-500/30"
-                        : booking.paymentStatus === "failed"
-                          ? "text-red-400 border-red-500/30"
-                          : booking.paymentStatus === "cancelled"
-                            ? "text-zinc-300 border-zinc-500/30"
-                            : "text-amber-400 border-amber-500/30";
-
-                    return (
-                      <motion.div
-                        key={booking._id || booking.id || i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: Math.min(i * 0.04, 0.3) }}
-                        className="relative z-0 hover:z-50"
-                      >
-                        <Card
-                          hoverable
-                          padding="sm"
-                          className="flex items-start sm:items-center gap-3 sm:gap-4"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/dashboard/application/${booking._id || booking.id}`);
-                          }}
-                        >
-                          <CountryFlagBadge
-                            countryName={booking.countryName}
-                            flagEmoji={booking.flagEmoji}
-                            sizeClass="h-12 w-12"
-                            className="mt-0.5 text-4xl sm:mt-0"
-                          />
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <h3 className="font-semibold text-text-primary truncate">
-                                {booking.countryName || "Unknown Country"}
-                              </h3>
-                              {(resolvedStatus !== "doc_pending" || booking.paymentStatus === "completed") && resolvedStatus !== "pending_payment" && (
-                                <StatusBadge status={resolvedStatus} />
-                              )}
-                              {booking.paymentStatus !== "completed" && (
-                                <StatusBadge status={booking.paymentStatus === "failed" ? "cancelled" : "pending_payment"} />
-                              )}
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-3">
-                              <p className="text-[11px] font-mono text-text-muted flex items-center min-w-0">
-                                <span className="truncate">App ID: {booking.applicationId || booking._id || booking.id}</span>
-                              </p>
-                              <p className="text-xs text-text-muted flex items-center min-w-0">
-                                <span className="truncate">{booking.visaType || "Visa Application"}</span>
-                              </p>
-                              
-                              <span className="flex items-center gap-1 text-xs text-text-muted min-w-0">
-                                <Calendar size={11} className="shrink-0" />
-                                <span className="truncate">Applied: {fmtDate(booking.createdAt)}</span>
-                              </span>
-                              
-                              <span className="hidden sm:flex items-center gap-1 text-xs text-text-muted min-w-0">
-                                <span className="shrink-0">✈️</span>
-                                <span className="truncate">Travel: {fmtDate(booking.travelDate)}</span>
-                              </span>
-
-                              {booking.visaFilePath && (
-                                <span className="flex items-center gap-1 text-xs text-emerald-400 min-w-0">
-                                  <span className="truncate">Visa file received</span>
-                                </span>
-                              )}
-
-                              {!uploadSettings.enableFileUpload && (
-                                <>
-                                  {derivedProgress.allPassportsUploaded ? (
-                                    <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 min-w-0">
-                                      <CheckCircle size={11} className="shrink-0" /> <span className="truncate">Passport</span>
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-1 text-xs font-medium text-text-muted min-w-0">
-                                      <Upload size={11} className="shrink-0" /> <span className="truncate">No passport</span>
-                                    </span>
-                                  )}
-                                  
-                                  {(() => {
-                                    if (!uploadSettings.enableGDriveUpload) return null;
-                                    const rootDrive = String(booking?.gdriveLink || "").trim();
-                                    const travellers = Array.isArray(booking?.travellerDocuments) ? booking.travellerDocuments : [];
-                                    const hasDrive = Boolean(rootDrive) || travellers.some((entry) => String(entry?.gdriveLink || "").trim());
-                                    if (hasDrive) {
-                                      return (
-                                        <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 min-w-0">
-                                          <ExternalLink size={11} className="shrink-0" /> <span className="truncate">Drive link added</span>
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <span className="flex items-center gap-1 text-xs font-medium text-text-muted min-w-0">
-                                        <ExternalLink size={11} className="shrink-0" /> <span className="truncate">No drive link</span>
-                                      </span>
-                                    );
-                                  })()}
-                                </>
-                              )}
-
-                              {uploadSettings.enableFileUpload && (
-                                (() => {
-                                  if (derivedProgress.allDocumentsUploaded) {
-                                    return (
-                                      <span className="hidden sm:flex items-center gap-1 text-2xs font-medium text-emerald-400 min-w-0">
-                                        <CheckCircle size={12} className="shrink-0" />
-                                        <span className="truncate">Documents</span>
-                                      </span>
-                                    );
-                                  } else {
-                                    return (
-                                      <span className="hidden sm:flex items-center gap-1 text-2xs font-medium text-zinc-400 min-w-0">
-                                        <Upload size={12} className="shrink-0" />
-                                        <span className="truncate">Documents</span>
-                                      </span>
-                                    );
-                                  }
-                                })()
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-right flex-shrink-0 self-start sm:self-center">
-                            <div className="group relative inline-flex flex-col items-end z-10 hover:z-50">
-                              <div className="text-sm font-bold text-text-primary cursor-default">
-                                ₹{Number(booking.totalAmount ?? booking.fee ?? 0).toLocaleString("en-IN")}
-                              </div>
-                              <div className="pointer-events-none invisible absolute right-0 top-full z-30 mt-2 w-64 translate-y-1 rounded-2xl border border-cyan/20 bg-surface px-3 py-3 text-left opacity-0 shadow-[0_18px_40px_-20px_rgba(0,212,255,0.28)] transition duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
-                                <div className="space-y-2 text-xs">
-                                  <div className="flex items-center justify-between gap-3 text-text-secondary">
-                                    <span>
-                                      Government Fee
-                                      {Number(booking.travellerCount || 1) > 1 ? ` x${Number(booking.travellerCount || 1)}` : ""}
-                                    </span>
-                                    <span className="font-semibold text-text-primary">
-                                      ₹{Number(booking.governmentFeeTotal || 0).toLocaleString("en-IN")}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center justify-between gap-3 text-text-secondary">
-                                    <span>
-                                      Our Service Fee
-                                      {Number(booking.travellerCount || 1) > 1 ? ` x${Number(booking.travellerCount || 1)}` : ""}
-                                    </span>
-                                    <span className="font-semibold text-text-primary">
-                                      ₹{Number(booking.serviceFeeTotal || 0).toLocaleString("en-IN")}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center justify-between gap-3 text-text-secondary">
-                                    <span>GST</span>
-                                    <span className="font-semibold text-text-primary">
-                                      ₹{Number(booking.gstAmount || 0).toLocaleString("en-IN")}
-                                    </span>
-                                  </div>
-                                  <div className="border-t border-border pt-2">
-                                    <div className="flex items-center justify-between gap-3">
-                                      <span className="font-semibold text-text-primary">Total Amount</span>
-                                      <span className="font-bold text-cyan">
-                                        ₹{Number(booking.totalAmount ?? booking.fee ?? 0).toLocaleString("en-IN")}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/dashboard/application/${booking._id || booking.id}`);
-                              }}
-                              className="mt-1 flex items-center gap-1 text-xs text-cyan hover:text-cyan-dim transition-colors ml-auto"
-                            >
-                              View Details <ChevronRight size={12} />
-                            </button>
-                          </div>
-                        </Card>
-                      </motion.div>
-                    );
-                  })
                 )}
               </div>
             </div>
@@ -1125,6 +1351,53 @@ const UserDashboard = () => {
           </label>
         </div>
       </Modal>
+
+      {dateModal.open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+          onClick={closeChangeDateModal}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Update travel date"
+        >
+          <div
+            className="ud-bp-wrap ud-cal-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {dateModal.notice && (
+              <div className="ud-cal-top-notice" role="alert">
+                <AlertTriangle size={17} />
+                <span>{dateModal.notice}</span>
+              </div>
+            )}
+            <CompactDateRangePicker
+              key={dateModal.booking?._id || dateModal.booking?.id || "update-travel-date"}
+              inlineCalendarOnly
+              departureDate={dateModal.from}
+              returnDate={dateModal.to}
+              fromStatusLabel="From"
+              toStatusLabel="To"
+              doneLabel={dateUpdating ? "Saving..." : "Save Date"}
+              onDone={handleSaveTravelDate}
+              onCancel={closeChangeDateModal}
+              onDateChange={(field, val) =>
+                setDateModal((prev) => ({
+                  ...prev,
+                  [field === "departure" ? "from" : "to"]: val,
+                }))
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      <DashboardPaySummaryModal
+        booking={payModalBooking}
+        isOpen={Boolean(payModalBooking)}
+        onClose={() => setPayModalBooking(null)}
+        onPaymentSuccess={fetchUserApplications}
+      />
 
       <FilePreviewModal
         isOpen={Boolean(documentPreview)}

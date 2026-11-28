@@ -23,6 +23,8 @@ const Modal = ({
   hideCloseButton = false,
   closeOnBackdropClick = true,
   footer,
+  headerActions,
+  bodyClassName = "",
   allowOverflow = false,
   zIndexClass = "z-50",
 }) => {
@@ -52,6 +54,7 @@ const Modal = ({
     md: "max-w-md",
     lg: "max-w-lg",
     xl: "max-w-2xl",
+    "4xl": "max-w-5xl",
   };
 
   return (
@@ -86,27 +89,30 @@ const Modal = ({
             onClick={(e) => e.stopPropagation()} // Prevent close when clicking inside
           >
             {/* ── Header ── */}
-            {(title || !hideCloseButton) && (
-              <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+            {(title || headerActions || !hideCloseButton) && (
+              <div className="flex items-center justify-between gap-3 px-5 py-4 sm:px-6 border-b border-border">
                 {title && (
-                  <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+                  <h2 className="text-base sm:text-lg font-semibold text-text-primary truncate">{title}</h2>
                 )}
-                {!hideCloseButton && (
-                  <button
-                    id="modal-close-btn"
-                    onClick={onClose}
-                    className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-3 transition-colors"
-                    aria-label="Close modal"
-                  >
-                    <X size={18} />
-                  </button>
-                )}
+                <div className="flex items-center gap-2 shrink-0 ml-auto">
+                  {headerActions}
+                  {!hideCloseButton && (
+                    <button
+                      id="modal-close-btn"
+                      onClick={onClose}
+                      className="p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-3 transition-colors"
+                      aria-label="Close modal"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
             {/* ── Body ── */}
             <div
-              className={`flex-1 min-h-0 px-6 py-5 ${
+              className={`flex-1 min-h-0 ${bodyClassName || "px-6 py-5"} ${
                 allowOverflow
                   ? "overflow-visible"
                   : "overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#607938]/40 hover:[&::-webkit-scrollbar-thumb]:bg-[#607938]/65"

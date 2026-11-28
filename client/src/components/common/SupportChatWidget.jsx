@@ -756,7 +756,7 @@ export default function SupportChatWidget() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.88, y: 45 }}
             transition={{ type: "spring", stiffness: 350, damping: 28 }}
-            className="fixed bottom-24 right-6 w-[calc(100vw-32px)] max-w-[360px] sm:max-w-[400px] overflow-hidden rounded-[26px] border border-[#2D2B22]/15 bg-[#EEDFC7] text-[#2D2B22] shadow-[0_24px_64px_rgba(45,43,34,0.35)]"
+            className="fixed bottom-[106px] right-6 w-[calc(100vw-32px)] max-w-[360px] sm:max-w-[400px] max-h-[calc(100vh-128px)] overflow-y-auto rounded-[26px] border border-[#2D2B22]/15 bg-[#EEDFC7] text-[#2D2B22] shadow-[0_24px_64px_rgba(45,43,34,0.35)]"
           >
             {view === "options" && (
               <div>
@@ -1502,7 +1502,7 @@ export default function SupportChatWidget() {
         className="fab"
         aria-label="Open customer chat"
       >
-        {isOpen ? <X size={34} /> : <MessageSquare size={34} />}
+        {isOpen ? <X size={28} /> : <MessageSquare size={28} />}
         <i aria-hidden="true" />
       </button>
     </div>
